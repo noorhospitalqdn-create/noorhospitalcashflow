@@ -3921,6 +3921,28 @@ const app = {
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(depRows), 'Hospital Deposits');
 
+      const drCrRows = [
+        ['Advance Cash - Dr / Cr Ledger (Against Advance Cash)'],
+        ['Opening Advance Cash Balance', app.state.openingAdvanceCash],
+        [],
+        ['Date', 'Particulars', 'Voucher Type', 'Dr - Cash In (₹)', 'Cr - Bill Expense (₹)', 'Balance (₹)']
+      ];
+      let runningDrCr = app.state.openingAdvanceCash;
+      const drCrCombined = [];
+      app.state.advanceCashEntries.forEach(e => drCrCombined.push({ date: e.date, particulars: e.remarks || '-', vType: 'Cash Received', dr: e.amount, cr: 0 }));
+      app.state.bills.filter(b => b.expenseType === 'advance').forEach(b => drCrCombined.push({ date: b.date, particulars: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, vType: 'Advance Bill', dr: 0, cr: b.amount }));
+      drCrCombined.sort((a,b) => new Date(a.date) - new Date(b.date));
+      drCrCombined.forEach(r => {
+        if (r.dr) runningDrCr += r.dr;
+        if (r.cr) runningDrCr -= r.cr;
+        drCrRows.push([r.date, r.particulars, r.vType, r.dr || '', r.cr || '', runningDrCr]);
+      });
+      const tDr = drCrCombined.reduce((s,r)=>s+r.dr,0);
+      const tCr = drCrCombined.reduce((s,r)=>s+r.cr,0);
+      drCrRows.push([]);
+      drCrRows.push(['TOTAL', '', '', tDr, tCr, app.state.openingAdvanceCash + tDr - tCr]);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(drCrRows), 'Adv DrCr Ledger');
+
       // Trigger download
       XLSX.writeFile(wb, `NoorHospital_CashReport_${new Date().toISOString().split('T')[0]}.xlsx`);
       app.ui.showToast('Multi-sheet report downloaded.');
