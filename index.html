@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <title>Noor Hospital - Cash Management System</title>
+  <!-- SEO & Meta Tags -->
+  <meta name="description" content="Offline-first cash management system for Noor Hospital to track Advance Cash, Hospital Collections, Slips, Bills, and Transfers.">
+  <meta name="theme-color" content="#09090b">
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="assets/app.css">
+  
+  <!-- Excel Library (SheetJS) Loaded Locally -->
+  <script src="assets/xlsx.min.js" defer></script>
+  <!-- Chart.js Library Loaded Locally -->
+  <script src="assets/chart.min.js" defer></script>
+  <!-- Main Application Logic -->
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="login-screen" style="display: none;">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h2>Noor Hospital</h2>
+          <p>Cash Management System</p>
+        </div>
+      </div>
+      
+      <form id="form-login">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="login-username" style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.875rem;">Username</label>
+          <input type="text" id="login-username" class="form-input" style="width: 100%; min-height: 44px; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main);" placeholder="Enter username" required autocomplete="username">
+        </div>
+        <div class="form-group" style="margin-bottom: 1.75rem;">
+          <label class="form-label" for="login-password" style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.875rem;">Password</label>
+          <input type="password" id="login-password" class="form-input" style="width: 100%; min-height: 44px; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-input); color: var(--text-main);" placeholder="Enter password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary w-full" style="width: 100%; min-height: 44px; padding: 0.75rem 1rem; font-weight: 600; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <span>Sign In</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="app-layout">
+    <!-- Navigation Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <h2>Noor Hospital</h2>
+            <p>Cash Management</p>
+          </div>
+        </div>
+        <button class="mobile-close-btn" id="mobile-close-btn" aria-label="Close menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Main Dashboard</div>
+        <button class="nav-item active" data-panel="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          <span>Overview Dashboard</span>
+        </button>
+
+        <div class="nav-section-title">Ledgers & Registers</div>
+        <button class="nav-item" data-panel="advance-cash">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Advance Cash</span>
+        </button>
+        <button class="nav-item" data-panel="hospital-cash">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+          <span>Hospital Cash</span>
+        </button>
+        <button class="nav-item" data-panel="hospital-deposits">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
+          <span>Hospital Deposits</span>
+        </button>
+        <button class="nav-item" data-panel="temp-slips">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
+          <span>Temporary Slips</span>
+          <span class="badge" id="sidebar-temp-slips-badge">0</span>
+        </button>
+        <button class="nav-item" data-panel="bills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+          <span>Bills Management</span>
+          <span class="badge badge-accent" id="sidebar-bills-badge">0</span>
+        </button>
+        <button class="nav-item" data-panel="accounts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <span>Accounts Department</span>
+        </button>
+        <button class="nav-item" data-panel="transfers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
+          <span>Verification & Transfers</span>
+        </button>
+
+        <div class="nav-section-title">Reports & Statements</div>
+        <button class="nav-item" data-panel="balance-sheet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          <span>Balance Sheet</span>
+        </button>
+        <button class="nav-item" data-panel="reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
+          <span>Reports Centre</span>
+        </button>
+
+        <div class="nav-section-title">Administration</div>
+        <button class="nav-item" data-panel="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Backup & Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="theme-switcher">
+          <span class="theme-label">Theme</span>
+          <div class="theme-toggle-group">
+            <button class="theme-btn" id="theme-light-btn" aria-label="Light mode">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            </button>
+            <button class="theme-btn active" id="theme-dark-btn" aria-label="Dark mode">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="offline-status-indicator">
+          <span class="status-dot online"></span>
+          <span class="status-text">Fully Offline Mode Enabled</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      
+      <!-- Top Status Header Bar -->
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+          </button>
+          <h1 class="panel-heading" id="main-panel-title">Overview Dashboard</h1>
+        </div>
+        <div class="sync-status-indicator" id="sync-status-indicator">
+          <span class="sync-status-dot" id="sync-status-dot"></span>
+          <span class="sync-status-text" id="sync-status-text">Checking...</span>
+        </div>
+        <div class="top-bar-right">
+          <!-- Logged-in User Display -->
+          <div class="user-profile-badge" id="user-profile-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; color: var(--primary);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span id="user-display-name">MUBASHAR</span>
+          </div>
+          <!-- Quick Action Buttons -->
+          <div class="quick-actions-bar">
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-slip-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
+              <span>Slip</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-bill-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
+              <span>Bill</span>
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="app.ui.openModal('dialog-transfer-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
+              <span>Verify & Transfer</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- PANELS (Tab Content) -->
+      <div class="panel-container">
+
+        <!-- 1. OVERVIEW DASHBOARD PANEL -->
+        <section class="panel active" id="panel-dashboard">
+          <!-- Main Financial Metrics Grid (3x3 Layout) -->
+          <div class="metrics-grid dashboard-metrics-grid">
+            <!-- Row 1: Available Cash -->
+            <div class="card metric-card card-gradient-primary">
+              <div class="card-metric-header">
+                <span>Current Advance Cash Available</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-advance-cash">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Total advance float available with me</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-secondary">
+              <div class="card-metric-header">
+                <span>Current Hospital Cash Available</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-hospital-cash">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Total hospital cash collection available</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-accent">
+              <div class="card-metric-header">
+                <span>Total Cash With Me</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-total-cash-me">₹0.00</div>
+              <div class="card-metric-footer">
+                <span class="formula-info">Advance Cash Available + Hospital Cash Available</span>
+              </div>
+            </div>
+
+            <!-- Row 2: Inflow / Received -->
+            <div class="card metric-card card-imprest">
+              <div class="card-metric-header">
+                <span>Total Advance Cash Received</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-total-advance-received">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Opening Advance Cash + Advance Entries</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-primary">
+              <div class="card-metric-header">
+                <span>Total Hospital Cash Collected</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-total-hospital-collected">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Opening Hospital Cash + Collections</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-primary">
+              <div class="card-metric-header">
+                <span>Total Deposited To Muhasib</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-total-hospital-deposited">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Deposits made to Muhasib</span>
+              </div>
+            </div>
+
+            <!-- Row 3: Transfers & Settled -->
+            <div class="card metric-card card-gradient-primary">
+              <div class="card-metric-header">
+                <span>Imprest Received</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value value-subtle" id="dash-imprest-received">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Advance bills settled by transfer</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-primary">
+              <div class="card-metric-header">
+                <span>Amanat Received</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value value-subtle" id="dash-amanat-received">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Hospital bills settled by transfer</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-primary">
+              <div class="card-metric-header">
+                <span>Total Settled (Transferred)</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
+                </span>
+              </div>
+              <div class="card-metric-value value-subtle" id="dash-total-transferred">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Total verification transfers recorded</span>
+              </div>
+            </div>
+            <!-- Row 3.5: Accounts Department Status -->
+            <div class="card metric-card card-gradient-secondary">
+              <div class="card-metric-header">
+                <span>Total Sent To Accounts</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-total-sent-to-accounts">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Lifetime total sent to accounts</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-gradient-accent">
+              <div class="card-metric-header">
+                <span>Awaiting Transfer</span>
+                <span class="metric-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </span>
+              </div>
+              <div class="card-metric-value" id="dash-awaiting-transfer">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Currently sitting in accounts dept</span>
+              </div>
+            </div>
+
+            <!-- Blank card to complete the 3-column grid -->
+            <div class="card metric-card" style="visibility: hidden;"></div>
+
+
+            <!-- Row 4: Pending Bills -->
+            <div class="card metric-card card-pending">
+              <div class="card-metric-header text-muted">
+                <span>Advance Bills Pending</span>
+              </div>
+              <div class="card-metric-value value-muted" id="dash-advance-bills-pending">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Advance Bills - Imprest Transfers</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-pending">
+              <div class="card-metric-header text-muted">
+                <span>Hospital Bills Pending</span>
+              </div>
+              <div class="card-metric-value value-muted" id="dash-hospital-bills-pending">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Hospital Bills - Amanat Transfers</span>
+              </div>
+            </div>
+
+            <div class="card metric-card card-pending">
+              <div class="card-metric-header text-muted">
+                <span>Total Pending Bills</span>
+              </div>
+              <div class="card-metric-value value-muted" id="dash-total-pending-bills">₹0.00</div>
+              <div class="card-metric-footer">
+                <span>Total outstanding unpaid bills</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dashboard Charts Section -->
+          <div class="charts-section" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+            <div class="card chart-card">
+              <div class="card-metric-header">
+                <span>Financial Position summary (Main Chart)</span>
+              </div>
+              <div class="chart-container" style="position: relative; height: 260px; width: 100%; margin-top: 1rem;">
+                <canvas id="chart-financial-position"></canvas>
+                <div id="fallback-financial-position" class="chart-fallback hidden" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+              </div>
+            </div>
+            
+            <div class="charts-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+              <div class="card chart-card">
+                <div class="card-metric-header">
+                  <span>Cash Sources (Where Cash Came From)</span>
+                </div>
+                <div class="chart-container" style="position: relative; height: 220px; width: 100%; margin-top: 1rem; display: flex; justify-content: center; align-items: center;">
+                  <canvas id="chart-cash-sources"></canvas>
+                  <div id="fallback-cash-sources" class="chart-fallback hidden" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+                </div>
+              </div>
+              
+              <div class="card chart-card">
+                <div class="card-metric-header">
+                  <span>Bills Status</span>
+                </div>
+                <div class="chart-container" style="position: relative; height: 220px; width: 100%; margin-top: 1rem; display: flex; justify-content: center; align-items: center;">
+                  <canvas id="chart-bills-status"></canvas>
+                  <div id="fallback-bills-status" class="chart-fallback hidden" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Position Summary Visualizations -->
+          <div class="dashboard-details-row">
+            <!-- Position Math Walkthrough -->
+            <div class="card col-span-2">
+              <div class="card-title">Main Position Summary</div>
+              <div class="math-breakdowns">
+                <div class="math-line">
+                  <div class="math-term">
+                    <span class="math-label">Total Cash With Me</span>
+                    <span class="math-value" id="math-total-cash">₹0.00</span>
+                  </div>
+                  <div class="math-operator">=</div>
+                  <div class="math-term">
+                    <span class="math-label">Advance Cash Available</span>
+                    <span class="math-value" id="math-adv-cash">₹0.00</span>
+                  </div>
+                  <div class="math-operator">+</div>
+                  <div class="math-term">
+                    <span class="math-label">Hospital Cash Available</span>
+                    <span class="math-value" id="math-hosp-cash">₹0.00</span>
+                  </div>
+                </div>
+
+                <div class="math-line">
+                  <div class="math-term">
+                    <span class="math-label">Total Pending Bills</span>
+                    <span class="math-value text-warning" id="math-total-pending">₹0.00</span>
+                  </div>
+                  <div class="math-operator">=</div>
+                  <div class="math-term">
+                    <span class="math-label">Advance Bills Pending</span>
+                    <span class="math-value" id="math-adv-pending">₹0.00</span>
+                  </div>
+                  <div class="math-operator">+</div>
+                  <div class="math-term">
+                    <span class="math-label">Hospital Bills Pending</span>
+                    <span class="math-value" id="math-hosp-pending">₹0.00</span>
+                  </div>
+                </div>
+
+                <div class="math-line">
+                  <div class="math-term">
+                    <span class="math-label">Awaiting Transfer</span>
+                    <span class="math-value text-warning" id="math-total-awaiting">₹0.00</span>
+                  </div>
+                  <div class="math-operator">=</div>
+                  <div class="math-term">
+                    <span class="math-label">Total Sent to Accounts</span>
+                    <span class="math-value" id="math-total-sent-accounts">₹0.00</span>
+                  </div>
+                  <div class="math-operator">-</div>
+                  <div class="math-term">
+                    <span class="math-label">Total Transferred</span>
+                    <span class="math-value" id="math-total-transferred-sub">₹0.00</span>
+                  </div>
+                </div>
+
+                <div class="math-line">
+                  <div class="math-term">
+                    <span class="math-label">Total Transferred</span>
+                    <span class="math-value value-subtle" id="math-total-transferred">₹0.00</span>
+                  </div>
+                  <div class="math-operator">=</div>
+                  <div class="math-term">
+                    <span class="math-label">Amanat Received</span>
+                    <span class="math-value" id="math-amanat">₹0.00</span>
+                  </div>
+                  <div class="math-operator">+</div>
+                  <div class="math-term">
+                    <span class="math-label">Imprest Received</span>
+                    <span class="math-value" id="math-imprest">₹0.00</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Configuration / Quick Actions Card -->
+            <div class="card">
+              <div class="card-title">Initial Setup Float</div>
+              <div class="form-group flex-col justify-center height-full">
+                <div class="setup-row">
+                  <div class="setup-col">
+                    <label class="form-label-subtle">Opening Advance Cash</label>
+                    <div class="setup-value" id="opening-adv-val">₹0.00</div>
+                  </div>
+                  <div class="setup-col">
+                    <label class="form-label-subtle">Opening Hospital Cash</label>
+                    <div class="setup-value" id="opening-hosp-val">₹0.00</div>
+                  </div>
+                </div>
+                <button class="btn btn-secondary w-full" style="margin-top: 1.25rem;" onclick="app.ui.openModal('dialog-settings')">
+                  Adjust Opening Balances
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- 2. ADVANCE CASH PANEL -->
+        <section class="panel" id="panel-advance-cash">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search advance ledger..." class="search-input" id="search-advance">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-advance-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Cash Entry</span>
+            </button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-advance">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Remarks</th>
+                  <th class="text-right">Running Balance</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-advance">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-advance"></div>
+        </section>
+
+
+        <!-- 3. HOSPITAL CASH PANEL -->
+        <section class="panel" id="panel-hospital-cash">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search hospital ledger..." class="search-input" id="search-hospital">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-hospital-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Collection Entry</span>
+            </button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-hospital">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Source</th>
+                  <th>Amount</th>
+                  <th>Remarks</th>
+                  <th class="text-right">Running Balance</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-hospital">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-hospital"></div>
+        </section>
+
+
+        <!-- 3B. HOSPITAL DEPOSITS PANEL -->
+        <section class="panel" id="panel-hospital-deposits">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search deposits ledger..." class="search-input" id="search-deposits">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-deposit-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Deposit Entry</span>
+            </button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-deposits">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Receipt / Voucher No</th>
+                  <th>Amount</th>
+                  <th>Attachment</th>
+                  <th>Remarks</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-deposits">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-deposits"></div>
+        </section>
+
+
+        <!-- 4. TEMPORARY SLIPS PANEL -->
+        <section class="panel" id="panel-temp-slips">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search temporary slips..." class="search-input" id="search-slips">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-slip-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Temporary Slip</span>
+            </button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-slips">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Vendor / Person</th>
+                  <th>Amount</th>
+                  <th>Expense Type</th>
+                  <th>Status</th>
+                  <th>Attachment</th>
+                  <th>Remarks</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-slips">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-slips"></div>
+        </section>
+
+
+        <!-- 4.5. ACCOUNTS DEPARTMENT PANEL -->
+        <section class="panel" id="panel-accounts">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search accounts register..." class="search-input" id="search-accounts">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openAccountsModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              <span>Send To Accounts</span>
+            </button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-accounts">
+              <thead>
+                <tr>
+                  <th>Date Sent</th>
+                  <th>Bill Type</th>
+                  <th>Amount</th>
+                  <th>Reference No</th>
+                  <th>Remarks</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-accounts">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-accounts"></div>
+        </section>
+
+        <!-- 5. BILLS MANAGEMENT PANEL -->
+        <section class="panel" id="panel-bills">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search bills..." class="search-input" id="search-bills">
+            </div>
+            <div class="flex gap-2">
+              <select id="filter-bills-type" class="form-select" style="max-width: 180px;">
+                <option value="">All Types</option>
+                <option value="advance">Advance Expense</option>
+                <option value="hospital">Hospital Expense</option>
+              </select>
+              <button class="btn btn-primary" onclick="app.ui.openModal('dialog-bill-add')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                <span>Add Bill</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-bills">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Bill Number</th>
+                  <th>Vendor Name</th>
+                  <th>Amount</th>
+                  <th>Expense Type</th>
+                  <th>Category</th>
+                  <th>Attachment</th>
+                  <th>Remarks</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-bills">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-bills"></div>
+        </section>
+
+
+        <!-- 6. VERIFICATION & TRANSFERS PANEL -->
+        <section class="panel" id="panel-transfers">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search transfers..." class="search-input" id="search-transfers">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-transfer-add')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
+              <span>Record Transfer</span>
+            </button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-transfers">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Amount</th>
+                  <th>Remarks</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-transfers">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-transfers"></div>
+        </section>
+
+
+        <!-- 7. BALANCE SHEET PANEL -->
+        <section class="panel" id="panel-balance-sheet">
+          <div class="balance-sheet-container">
+            <div class="card balance-card">
+              <div class="balance-sheet-header">
+                <h2>Noor Hospital - Cash Balance Sheet</h2>
+                <span class="balance-sheet-date" id="balance-sheet-date-display">Date: Jun 8, 2026</span>
+              </div>
+              
+              <div class="balance-grid">
+                <!-- Cash Position Section -->
+                <div class="balance-section">
+                  <h3 class="balance-section-title">Cash Position</h3>
+                  <div class="balance-item">
+                    <span class="balance-item-label">Advance Cash Available</span>
+                    <span class="balance-item-val" id="bs-advance-cash">₹0.00</span>
+                  </div>
+                  <div class="balance-item border-bottom-subtle">
+                    <span class="balance-item-label">Hospital Cash Available</span>
+                    <span class="balance-item-val" id="bs-hospital-cash">₹0.00</span>
+                  </div>
+                  <div class="balance-item total-item">
+                    <span class="balance-item-label">Total Cash With Me</span>
+                    <span class="balance-item-val" id="bs-total-cash">₹0.00</span>
+                  </div>
+                </div>
+
+                <!-- Bills Position Section -->
+                <div class="balance-section">
+                  <h3 class="balance-section-title">Bills Position</h3>
+                  <div class="balance-item">
+                    <span class="balance-item-label">Advance Bills Pending</span>
+                    <span class="balance-item-val" id="bs-advance-bills">₹0.00</span>
+                  </div>
+                  <div class="balance-item border-bottom-subtle">
+                    <span class="balance-item-label">Hospital Bills Pending</span>
+                    <span class="balance-item-val" id="bs-hospital-bills">₹0.00</span>
+                  </div>
+                  <div class="balance-item total-item text-warning">
+                    <span class="balance-item-label text-warning">Total Pending Bills</span>
+                    <span class="balance-item-val text-warning" id="bs-total-pending">₹0.00</span>
+                  </div>
+                </div>
+
+                <!-- Transfer Position Section -->
+                <div class="balance-section">
+                  <h3 class="balance-section-title">Transfer Position</h3>
+                  <div class="balance-item">
+                    <span class="balance-item-label">Amanat Received</span>
+                    <span class="balance-item-val" id="bs-amanat">₹0.00</span>
+                  </div>
+                  <div class="balance-item border-bottom-subtle">
+                    <span class="balance-item-label">Imprest Received</span>
+                    <span class="balance-item-val" id="bs-imprest">₹0.00</span>
+                  </div>
+                  <div class="balance-item total-item value-subtle">
+                    <span class="balance-item-label">Total Transferred</span>
+                    <span class="balance-item-val" id="bs-total-transferred">₹0.00</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Overall Summary Footer -->
+              <div class="balance-sheet-summary-footer">
+                <div class="summary-footer-item">
+                  <span class="summary-footer-label">Total Cash Position</span>
+                  <span class="summary-footer-val" id="bs-summary-cash">₹0.00</span>
+                </div>
+                <div class="summary-footer-item">
+                  <span class="summary-footer-label">Total Outstanding Bills</span>
+                  <span class="summary-footer-val text-warning" id="bs-summary-pending">₹0.00</span>
+                </div>
+                <div class="summary-footer-item">
+                  <span class="summary-footer-label">Total Settled (Transferred)</span>
+                  <span class="summary-footer-val" id="bs-summary-transferred">₹0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- 8. REPORTS CENTRE PANEL -->
+        <section class="panel" id="panel-reports">
+          <div class="reports-control-panel">
+            <div class="card reports-filters-card">
+              <div class="reports-filters-grid">
+                <div class="form-group">
+                  <label class="form-label" for="report-select-type">Select Report Type</label>
+                  <select id="report-select-type" class="form-select">
+                    <option value="advance">Advance Cash Report</option>
+                    <option value="hospital">Hospital Cash Report</option>
+                    <option value="deposit_history">Hospital Deposit History</option>
+                    <option value="monthly_deposit_summary">Monthly Deposit Summary</option>
+                    <option value="slips">Temporary Slip Report</option>
+                    <option value="bills">Bills Report</option>
+                    <option value="accounts_register">Accounts Register Report</option>
+                    <option value="transfers">Transfer Report</option>
+                    <option value="balance_sheet">Balance Sheet Report</option>
+                  </select>
+                </div>
+                
+                <div class="form-group" id="report-date-start-group">
+                  <label class="form-label" for="report-date-start">Start Date</label>
+                  <input type="date" id="report-date-start" class="form-input">
+                </div>
+
+                <div class="form-group" id="report-date-end-group">
+                  <label class="form-label" for="report-date-end">End Date</label>
+                  <input type="date" id="report-date-end" class="form-input">
+                </div>
+
+                <div class="form-group flex justify-end items-end gap-2">
+                  <button class="btn btn-secondary w-full" id="btn-print-report" onclick="app.reports.printCurrentReport()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+                    <span>Print PDF</span>
+                  </button>
+                  <button class="btn btn-primary w-full" id="btn-excel-report" onclick="app.reports.exportToExcel()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h8"/></svg>
+                    <span>Export Excel</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Report Display Container -->
+          <div class="card overflow-x" id="report-display-container">
+            <div class="report-header-preview">
+              <h2 id="report-title-display">Advance Cash Ledger Report</h2>
+              <p id="report-meta-display">All Records</p>
+            </div>
+            
+            <table class="data-table" id="table-report">
+              <thead id="report-thead">
+                <!-- Javascript populated -->
+              </thead>
+              <tbody id="report-tbody">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+            
+            <!-- Unique placeholder for balance sheet inside report display -->
+            <div id="report-balance-sheet-placeholder" class="hidden">
+              <!-- Rendered balance sheet details for printing -->
+            </div>
+          </div>
+        </section>
+
+
+        <!-- 9. BACKUP & SETTINGS PANEL -->
+        <section class="panel" id="panel-settings">
+          <div class="settings-grid">
+            <div class="card">
+              <div class="card-title">Initial Float Values</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Configure the starting balances of the system. These represent the initial cash floats.</p>
+              
+              <form id="form-update-opening-balances">
+                <div class="form-group">
+                  <label class="form-label" for="setting-opening-advance">Opening Advance Cash (₹)</label>
+                  <input type="number" step="0.01" min="0" id="setting-opening-advance" class="form-input" inputmode="decimal" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="setting-opening-hospital">Opening Hospital Cash (₹)</label>
+                  <input type="number" step="0.01" min="0" id="setting-opening-hospital" class="form-input" inputmode="decimal" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Save Opening Balances</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Google Drive Folder Links</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Configure separate Google Drive folder links for each record type. These folders can be opened when uploading or attaching files.</p>
+              <form id="form-gdrive-folders">
+                <div class="form-group">
+                  <label class="form-label" for="setting-gdrive-hosp-bills">Hospital Bills Folder Link</label>
+                  <input type="url" id="setting-gdrive-hosp-bills" class="form-input" placeholder="https://drive.google.com/drive/folders/...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="setting-gdrive-adv-bills">Advance Bills Folder Link</label>
+                  <input type="url" id="setting-gdrive-adv-bills" class="form-input" placeholder="https://drive.google.com/drive/folders/...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="setting-gdrive-slips">Temporary Slips Folder Link</label>
+                  <input type="url" id="setting-gdrive-slips" class="form-input" placeholder="https://drive.google.com/drive/folders/...">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="setting-gdrive-deposits">Muhasib Deposits Folder Link</label>
+                  <input type="url" id="setting-gdrive-deposits" class="form-input" placeholder="https://drive.google.com/drive/folders/...">
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Save Folder Links</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Data Backup & Restore</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Export the entire hospital database into a single JSON file for offline archival, or restore from a previous backup.</p>
+              
+              <div class="flex flex-col gap-3">
+                <button class="btn btn-secondary justify-start w-full" onclick="app.db.exportBackup()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <span>Export JSON Backup</span>
+                </button>
+                
+                <div class="restore-dropzone">
+                  <input type="file" id="import-file-input" accept=".json" class="hidden">
+                  <button class="btn btn-secondary justify-start w-full" onclick="document.getElementById('import-file-input').click()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span>Import JSON Backup File</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="display: none;">
+              <div class="card-title">Supabase Database & Storage Configuration</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1rem;">Configure your Supabase credentials to enable real-time data synchronization across all devices and browsers, plus document attachment uploads.</p>
+              
+              <details style="margin-bottom: 1.5rem; background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0;">
+                <summary style="padding: 0.75rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.85rem; color: var(--text-main);">📋 Required SQL Schema — Run in Supabase SQL Editor</summary>
+                <pre style="padding: 1rem; font-size: 0.72rem; line-height: 1.5; overflow-x: auto; color: var(--text-muted); margin: 0; border-top: 1px solid var(--border-color);"><code>-- Noor Hospital CMS — Supabase Tables Setup
+-- Run this entire script in your Supabase SQL Editor.
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS advance_cash (
+  id BIGSERIAL PRIMARY KEY,
+  date TEXT,
+  amount NUMERIC DEFAULT 0,
+  remarks TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS hospital_cash (
+  id BIGSERIAL PRIMARY KEY,
+  date TEXT,
+  source TEXT,
+  amount NUMERIC DEFAULT 0,
+  remarks TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS hospital_deposits (
+  id BIGSERIAL PRIMARY KEY,
+  date TEXT,
+  amount NUMERIC DEFAULT 0,
+  "receiptNumber" TEXT,
+  remarks TEXT,
+  "attachmentUrl" TEXT,
+  "fileName" TEXT,
+  "fileType" TEXT,
+  "uploadDate" TEXT,
+  "pendingUpload" BOOLEAN DEFAULT false,
+  "localAttachmentData" TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS temporary_slips (
+  id BIGSERIAL PRIMARY KEY,
+  date TEXT,
+  vendor TEXT,
+  amount NUMERIC DEFAULT 0,
+  "expenseType" TEXT,
+  remarks TEXT,
+  status TEXT DEFAULT 'pending',
+  "attachmentUrl" TEXT,
+  "fileName" TEXT,
+  "fileType" TEXT,
+  "uploadDate" TEXT,
+  "pendingUpload" BOOLEAN DEFAULT false,
+  "localAttachmentData" TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bills (
+  id BIGSERIAL PRIMARY KEY,
+  date TEXT,
+  "billNumber" TEXT,
+  vendor TEXT,
+  amount NUMERIC DEFAULT 0,
+  "expenseType" TEXT,
+  category TEXT,
+  remarks TEXT,
+  "slipId" BIGINT,
+  status TEXT DEFAULT 'pending',
+  "transferId" BIGINT,
+  "attachmentUrl" TEXT,
+  "fileName" TEXT,
+  "fileType" TEXT,
+  "uploadDate" TEXT,
+  "pendingUpload" BOOLEAN DEFAULT false,
+  "localAttachmentData" TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS transfers (
+  id BIGSERIAL PRIMARY KEY,
+  date TEXT,
+  type TEXT,
+  amount NUMERIC DEFAULT 0,
+  remarks TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+-- Enable Row Level Security (optional but recommended)
+ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE advance_cash ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hospital_cash ENABLE ROW LEVEL SECURITY;
+ALTER TABLE temporary_slips ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transfers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hospital_deposits ENABLE ROW LEVEL SECURITY;
+
+-- Allow all operations (for service_role key usage)
+CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON advance_cash FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON hospital_cash FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON temporary_slips FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON bills FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON transfers FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (true);</code></pre>
+              </details>
+
+              <form id="form-supabase-config">
+                <div class="form-group">
+                  <label class="form-label" for="setting-supabase-url">Supabase URL</label>
+                  <input type="url" id="setting-supabase-url" class="form-input" placeholder="https://your-project.supabase.co" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="setting-supabase-key">Supabase API Key (Service Role Key)</label>
+                  <input type="password" id="setting-supabase-key" class="form-input" placeholder="eyJhbGciOiJI..." required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="setting-supabase-bucket">Storage Bucket Name</label>
+                  <input type="text" id="setting-supabase-bucket" class="form-input" placeholder="bills" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-full">Save & Sync Configuration</button>
+              </form>
+            </div>
+
+            <div class="card border-warning-subtle">
+              <div class="card-title text-warning">Session Management</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Log out of your account on this device. You will need to enter your password to sign in again.</p>
+              <button class="btn btn-secondary w-full" onclick="app.auth.logout()" style="border-color: var(--border-color); color: var(--text-main); display: flex; align-items: center; justify-content: center; gap: 0.5rem; min-height: 44px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                <span>Logout</span>
+              </button>
+            </div>
+
+            <div class="card border-error-subtle">
+              <div class="card-title text-error">Danger Zone</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">This action will permanently wipe all tables, collections, slips, bills, and ledger history. This action cannot be undone.</p>
+              <button class="btn btn-error w-full" onclick="app.db.promptResetDatabase()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
+                <span>Reset Database</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+
+  <!-- MODERN MODALS & OVERLAYS USING NATIVE DIALOGS -->
+
+  <!-- MODAL: Adjust Opening Balances -->
+  <dialog id="dialog-settings" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3>Opening Balances</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-settings-balances">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="input-opening-advance">Opening Advance Cash (₹)</label>
+          <input type="number" step="0.01" min="0" id="input-opening-advance" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="input-opening-hospital">Opening Hospital Cash (₹)</label>
+          <input type="number" step="0.01" min="0" id="input-opening-hospital" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-settings')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Add Advance Cash Entry -->
+  <dialog id="dialog-advance-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-advance-title">Add Advance Cash Entry</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-advance-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-advance-add">
+      <input type="hidden" id="edit-advance-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="adv-date">Date</label>
+          <input type="date" id="adv-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="adv-amount">Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="adv-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="adv-remarks">Remarks</label>
+          <textarea id="adv-remarks" class="form-textarea" placeholder="Add entry notes..." rows="3" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-advance-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Entry</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Add Hospital Cash Entry -->
+  <dialog id="dialog-hospital-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-hospital-title">Add Hospital Cash Collection</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-hospital-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-hospital-add">
+      <input type="hidden" id="edit-hospital-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="hosp-date">Date</label>
+          <input type="date" id="hosp-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="hosp-source">Source</label>
+          <select id="hosp-source" class="form-select" required>
+            <option value="OPD">OPD</option>
+            <option value="Laboratory">Laboratory</option>
+            <option value="Pharmacy">Pharmacy</option>
+            <option value="Room Charges">Room Charges</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="hosp-amount">Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="hosp-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="hosp-remarks">Remarks</label>
+          <textarea id="hosp-remarks" class="form-textarea" placeholder="Collection source details..." rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-hospital-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Entry</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Add Hospital Cash Deposit to Muhasib -->
+  <dialog id="dialog-deposit-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-deposit-title">Add Hospital Cash Deposit</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-deposit-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-deposit-add">
+      <input type="hidden" id="edit-deposit-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="dep-date">Date</label>
+          <input type="date" id="dep-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="dep-receipt">Receipt / Voucher Number</label>
+          <input type="text" id="dep-receipt" class="form-input" placeholder="e.g. REC-9821" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="dep-amount">Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="dep-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="dep-remarks">Remarks</label>
+          <textarea id="dep-remarks" class="form-textarea" placeholder="Deposit notes..." rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Receipt Attachment (Photo / PDF)</label>
+          <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="deposit-source-supabase" onclick="app.attachments.setUploadSource('deposit', 'supabase')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <span>Supabase</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm flex-1" id="deposit-source-gdrive" onclick="app.attachments.setUploadSource('deposit', 'gdrive')">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+              <span>Google Drive</span>
+            </button>
+          </div>
+
+          <div class="upload-dropzone" id="deposit-upload-zone">
+            <input type="file" id="deposit-attachment-input" accept="image/*,application/pdf" class="hidden">
+            <input type="file" id="deposit-camera-input" accept="image/*" capture="environment" class="hidden">
+            <div class="upload-prompt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <p class="upload-text">Drag & drop your receipt here, or <span class="upload-link" id="deposit-file-trigger">browse file</span></p>
+              <p class="upload-subtext">JPG, PNG, WEBP, or PDF (Auto-compressed WebP)</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="deposit-camera-trigger" style="margin-top: 0.5rem;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Take Camera Photo</span>
+            </button>
+          </div>
+
+          <div class="gdrive-input-zone hidden" id="deposit-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <span class="text-sm font-medium text-muted">Paste Google Drive Link</span>
+              <a id="deposit-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px; height:10px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+                <span>Open Folder</span>
+              </a>
+            </div>
+            <input type="url" id="deposit-gdrive-url" class="form-input" placeholder="https://docs.google.com/file/d/...">
+          </div>
+
+          <div class="upload-preview hidden" id="deposit-upload-preview">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-deposit-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Deposit</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Add Temporary Slip -->
+  <dialog id="dialog-slip-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-slip-title">Add Temporary Slip</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-slip-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-slip-add">
+      <input type="hidden" id="edit-slip-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="slip-date">Date</label>
+          <input type="date" id="slip-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="slip-vendor">Vendor / Person Name</label>
+          <input type="text" id="slip-vendor" class="form-input" placeholder="e.g. John Doe, Vendor Agency" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="slip-amount">Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="slip-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="slip-exp-type">Expense Type</label>
+          <select id="slip-exp-type" class="form-select" required>
+            <option value="advance">Advance Cash Expense</option>
+            <option value="hospital">Hospital Cash Expense</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="slip-remarks">Remarks</label>
+          <textarea id="slip-remarks" class="form-textarea" placeholder="Purpose of payment..." rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bill Attachment (Photo / PDF)</label>
+          <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="slip-source-supabase" onclick="app.attachments.setUploadSource('slip', 'supabase')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <span>Supabase</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm flex-1" id="slip-source-gdrive" onclick="app.attachments.setUploadSource('slip', 'gdrive')">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+              <span>Google Drive</span>
+            </button>
+          </div>
+
+          <div class="upload-dropzone" id="slip-upload-zone">
+            <input type="file" id="slip-attachment-input" accept="image/*,application/pdf" class="hidden">
+            <input type="file" id="slip-camera-input" accept="image/*" capture="environment" class="hidden">
+            <div class="upload-prompt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <p class="upload-text">Drag & drop your bill here, or <span class="upload-link" id="slip-file-trigger">browse file</span></p>
+              <p class="upload-subtext">JPG, PNG, WEBP, or PDF (Auto-compressed WebP)</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="slip-camera-trigger" style="margin-top: 0.5rem;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Take Camera Photo</span>
+            </button>
+          </div>
+
+          <div class="gdrive-input-zone hidden" id="slip-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <span class="text-sm font-medium text-muted">Paste Google Drive Link</span>
+              <a id="slip-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px; height:10px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+                <span>Open Folder</span>
+              </a>
+            </div>
+            <input type="url" id="slip-gdrive-url" class="form-input" placeholder="https://docs.google.com/file/d/...">
+          </div>
+
+          <div class="upload-preview hidden" id="slip-upload-preview">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-slip-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Slip</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Convert Temporary Slip to Final Bill -->
+  <dialog id="dialog-slip-convert" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3>Convert to Final Bill</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-slip-convert')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-slip-convert">
+      <!-- Hidden inputs for mapping -->
+      <input type="hidden" id="convert-slip-id">
+      <input type="hidden" id="convert-slip-exptype">
+      
+      <div class="modal-body">
+        <!-- Display fields of the original slip -->
+        <div class="details-badge-row">
+          <div class="detail-badge">
+            <span class="detail-badge-label">Original Vendor</span>
+            <span class="detail-badge-val" id="convert-slip-vendor-display">-</span>
+          </div>
+          <div class="detail-badge">
+            <span class="detail-badge-label">Original Amount</span>
+            <span class="detail-badge-val" id="convert-slip-amount-display">₹0.00</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="convert-bill-number">Bill Number</label>
+          <input type="text" id="convert-bill-number" class="form-input" placeholder="e.g. NH-98273" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="convert-bill-date">Bill Date</label>
+          <input type="date" id="convert-bill-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="convert-bill-amount">Final Bill Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="convert-bill-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="convert-bill-category">Expense Category</label>
+          <select id="convert-bill-category" class="form-select" required>
+            <option value="Medicine">Medicine</option>
+            <option value="Transport">Transport</option>
+            <option value="Repair & Maintenance">Repair & Maintenance</option>
+            <option value="Stationery">Stationery</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="convert-bill-remarks">Remarks</label>
+          <textarea id="convert-bill-remarks" class="form-textarea" placeholder="Final bill adjustments..." rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bill Attachment (Auto-carried from Slip / Customize)</label>
+          <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="convert-source-supabase" onclick="app.attachments.setUploadSource('convert', 'supabase')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <span>Supabase</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm flex-1" id="convert-source-gdrive" onclick="app.attachments.setUploadSource('convert', 'gdrive')">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+              <span>Google Drive</span>
+            </button>
+          </div>
+
+          <div class="upload-dropzone" id="convert-upload-zone">
+            <input type="file" id="convert-attachment-input" accept="image/*,application/pdf" class="hidden">
+            <input type="file" id="convert-camera-input" accept="image/*" capture="environment" class="hidden">
+            <div class="upload-prompt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <p class="upload-text">Drag & drop new bill, or <span class="upload-link" id="convert-file-trigger">browse file</span></p>
+              <p class="upload-subtext">Will preserve slip attachment if left blank</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="convert-camera-trigger" style="margin-top: 0.5rem;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Take Camera Photo</span>
+            </button>
+          </div>
+
+          <div class="gdrive-input-zone hidden" id="convert-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <span class="text-sm font-medium text-muted">Paste Google Drive Link</span>
+              <a id="convert-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px; height:10px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+                <span>Open Folder</span>
+              </a>
+            </div>
+            <input type="url" id="convert-gdrive-url" class="form-input" placeholder="https://docs.google.com/file/d/...">
+          </div>
+
+          <div class="upload-preview hidden" id="convert-upload-preview">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-slip-convert')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Finalize Bill</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Add Bill Directly -->
+  <dialog id="dialog-bill-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-bill-title">Add Direct Bill</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-bill-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-bill-add">
+      <input type="hidden" id="edit-bill-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="bill-date">Date</label>
+          <input type="date" id="bill-date" class="form-input" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bill-number">Bill Number</label>
+          <input type="text" id="bill-number" class="form-input" placeholder="e.g. INV-1002" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bill-vendor">Vendor Name</label>
+          <input type="text" id="bill-vendor" class="form-input" placeholder="e.g. Apollo Pharmacy" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bill-amount">Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="bill-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bill-exp-type">Expense Type</label>
+          <select id="bill-exp-type" class="form-select" required>
+            <option value="advance">Advance Cash Expense</option>
+            <option value="hospital">Hospital Cash Expense</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bill-category">Expense Category</label>
+          <select id="bill-category" class="form-select" required>
+            <option value="Medicine">Medicine</option>
+            <option value="Transport">Transport</option>
+            <option value="Repair & Maintenance">Repair & Maintenance</option>
+            <option value="Stationery">Stationery</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="bill-remarks">Remarks</label>
+          <textarea id="bill-remarks" class="form-textarea" placeholder="Expense description..." rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Bill Attachment (Photo / PDF)</label>
+          <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="bill-source-supabase" onclick="app.attachments.setUploadSource('bill', 'supabase')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <span>Supabase</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm flex-1" id="bill-source-gdrive" onclick="app.attachments.setUploadSource('bill', 'gdrive')">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+              <span>Google Drive</span>
+            </button>
+          </div>
+
+          <div class="upload-dropzone" id="bill-upload-zone">
+            <input type="file" id="bill-attachment-input" accept="image/*,application/pdf" class="hidden">
+            <input type="file" id="bill-camera-input" accept="image/*" capture="environment" class="hidden">
+            <div class="upload-prompt">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <p class="upload-text">Drag & drop your bill here, or <span class="upload-link" id="bill-file-trigger">browse file</span></p>
+              <p class="upload-subtext">JPG, PNG, WEBP, or PDF (Auto-compressed WebP)</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="bill-camera-trigger" style="margin-top: 0.5rem;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Take Camera Photo</span>
+            </button>
+          </div>
+
+          <div class="gdrive-input-zone hidden" id="bill-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+              <span class="text-sm font-medium text-muted">Paste Google Drive Link</span>
+              <a id="bill-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px; height:10px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+                <span>Open Folder</span>
+              </a>
+            </div>
+            <input type="url" id="bill-gdrive-url" class="form-input" placeholder="https://docs.google.com/file/d/...">
+          </div>
+
+          <div class="upload-preview hidden" id="bill-upload-preview">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-bill-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Bill</button>
+      </div>
+    </form>
+  </dialog>
+
+
+  <!-- MODAL: Send To Accounts -->
+  <dialog id="dialog-accounts-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-accounts-title">Send To Accounts Department</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-accounts-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-accounts-add">
+      <input type="hidden" id="edit-accounts-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="accounts-date">Date Sent</label>
+          <input type="date" id="accounts-date" class="form-input" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="accounts-bill-type">Bill Type</label>
+          <select id="accounts-bill-type" class="form-select" required onchange="app.ui.calculateAccountsBatch()">
+            <option value="">Select Bill Type</option>
+            <option value="advance">Advance Cash Bills</option>
+            <option value="hospital">Hospital Cash Bills</option>
+          </select>
+        </div>
+
+        <div class="setup-row" style="margin-bottom: 1rem;">
+          <div class="setup-col" style="background: var(--bg-elevated); padding: 0.75rem; border-radius: var(--radius); border: 1px solid var(--border-color);">
+            <label class="form-label-subtle">Max Available to Send</label>
+            <div class="setup-value" id="accounts-pending-amount" style="font-size: 1.25rem;">₹0.00</div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="accounts-amount">Amount to Send</label>
+          <input type="number" id="accounts-amount" class="form-input" required min="1" step="0.01">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="accounts-ref">Reference No (Optional)</label>
+          <input type="text" id="accounts-ref" class="form-input" placeholder="e.g. Batch #123">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="accounts-remarks">Remarks</label>
+          <textarea id="accounts-remarks" class="form-textarea" placeholder="Additional details..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-accounts-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="btn-accounts-save" disabled>Send to Accounts</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Add Verification & Transfer -->
+  <dialog id="dialog-transfer-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <h3 id="dialog-transfer-title">Record Verification Transfer</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-transfer-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-transfer-add">
+      <input type="hidden" id="edit-transfer-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="transfer-date">Date</label>
+          <input type="date" id="transfer-date" class="form-input" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="transfer-type">Transfer Type</label>
+          <select id="transfer-type" class="form-select" required>
+            <option value="imprest">Imprest Noor Hospital Entry (Advance)</option>
+            <option value="amanat">Amanat Noor Hospital Entry (Hospital)</option>
+          </select>
+        </div>
+
+        <div class="details-badge-row">
+          <div class="detail-badge w-full">
+            <span class="detail-badge-label">Available Pending Limit</span>
+            <span class="detail-badge-val text-warning" id="transfer-pending-limit-display">₹0.00</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="transfer-amount">Transfer Amount (₹)</label>
+          <input type="number" step="0.01" min="0.01" id="transfer-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+          <span class="form-help-error hidden" id="transfer-amount-error-help">Transfer amount exceeds pending bills!</span>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="transfer-remarks">Remarks</label>
+          <textarea id="transfer-remarks" class="form-textarea" placeholder="Verification voucher or reference numbers..." rows="3" required></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-transfer-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Transfer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Confirmation Dialog (Custom Alert Overlay) -->
+  <dialog id="dialog-confirm" closedby="any" class="modal-dialog modal-dialog-sm border-error-subtle">
+    <div class="modal-header">
+      <h3 class="text-error" id="confirm-title">Are you absolutely sure?</h3>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-message" style="margin-bottom: 0.5rem;"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" id="confirm-cancel-btn">Cancel</button>
+      <button type="button" class="btn btn-error" id="confirm-yes-btn">Confirm Reset</button>
+    </div>
+  </dialog>
+
+  <!-- MODAL: Full Screen Document Viewer -->
+  <dialog id="dialog-viewer" closedby="any" class="modal-dialog modal-dialog-lg">
+    <div class="modal-header">
+      <h3 id="viewer-title">Attached Document</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-viewer')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body viewer-body" style="padding:0; max-height:80vh; min-height:450px; display:flex; align-items:center; justify-content:center; overflow:hidden; background-color:#09090b;">
+      <div id="viewer-content" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:1.5rem;">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+    <div class="modal-footer justify-between">
+      <div class="viewer-meta" style="max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <span id="viewer-file-name" class="text-sm font-mono text-muted">document.pdf</span>
+      </div>
+      <div class="flex gap-2" style="max-width: 60%;">
+        <input type="file" id="viewer-replace-input" accept="image/*,application/pdf" class="hidden">
+        <button type="button" class="btn btn-secondary btn-sm" id="viewer-replace-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          <span>Replace</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm text-error" id="viewer-delete-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/></svg>
+          <span>Delete</span>
+        </button>
+        <a id="viewer-download-link" href="#" download class="btn btn-secondary btn-sm" target="_blank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          <span>Download</span>
+        </a>
+        <button type="button" class="btn btn-primary btn-sm" onclick="app.ui.closeModal('dialog-viewer')">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- BOTTOM NAVIGATION BAR (Mobile Only) -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="bottom-nav-item active" data-nav="dashboard" aria-label="Dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="bottom-nav-item" data-nav="ledgers" aria-label="Ledgers">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Ledgers</span>
+    </button>
+    <button class="bottom-nav-item" data-nav="bills" aria-label="Bills">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+      <span>Bills</span>
+      <span class="nav-badge" id="bottom-nav-bills-badge" style="display:none;">0</span>
+    </button>
+    <button class="bottom-nav-item" data-nav="reports" aria-label="Reports">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+      <span>Reports</span>
+    </button>
+    <button class="bottom-nav-item" data-nav="settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+
+  <!-- Mobile Ledgers Sub-Menu -->
+  <div class="mobile-submenu-overlay" id="mobile-ledger-submenu">
+    <div class="mobile-submenu-card">
+      <button class="mobile-submenu-item" data-panel="advance-cash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Advance Cash
+      </button>
+      <button class="mobile-submenu-item" data-panel="hospital-cash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
+        Hospital Cash
+      </button>
+      <button class="mobile-submenu-item" data-panel="hospital-deposits">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
+        Hospital Deposits
+      </button>
+      <button class="mobile-submenu-item" data-panel="temp-slips">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
+        Temporary Slips
+        <span class="submenu-badge" id="submenu-slips-badge">0</span>
+      </button>
+      <button class="mobile-submenu-item" data-panel="accounts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+        Accounts Department
+      </button>
+      <button class="mobile-submenu-item" data-panel="transfers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
+        Verification & Transfers
+      </button>
+    </div>
+  </div>
+
+</body>
+</html>
