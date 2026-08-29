@@ -3755,6 +3755,37 @@ const app = {
         return;
       }
 
+      const selType = document.getElementById('report-select-type') ? document.getElementById('report-select-type').value : '';
+      const sVal = document.getElementById('report-date-start') ? document.getElementById('report-date-start').value : '';
+      const eVal = document.getElementById('report-date-end') ? document.getElementById('report-date-end').value : '';
+      const inRange = (d) => { if(!d) return true; if(sVal && d < sVal) return false; if(eVal && d > eVal) return false; return true; };
+      if (selType === 'advance_bills') {
+        const wbSingle = XLSX.utils.book_new();
+        const rows = [
+          ['Noor Hospital - Advance Cash Dr / Cr Ledger (Against Advance)'],
+          ['Report Date Range', sVal || 'Start', 'to', eVal || 'End'],
+          ['Generated On', new Date().toLocaleString('en-IN')],
+          ['Opening Advance Cash Balance', app.state.openingAdvanceCash],
+          [],
+          ['Date', 'Particulars', 'Voucher Type', 'Dr - Cash In (₹)', 'Cr - Bill Expense (₹)', 'Balance (₹)']
+        ];
+        let bal = app.state.openingAdvanceCash;
+        const comb = [];
+        app.state.advanceCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:e.remarks||'-', vType:'Cash Received', dr:e.amount, cr:0}));
+        app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}${b.category?' - '+b.category:''}`, vType:'Advance Bill', dr:0, cr:b.amount}));
+        comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
+        rows.push(['', 'Opening Balance', '', '', '', bal]);
+        comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([r.date, r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
+        if(!comb.length) rows.push(['', 'No records in selected range', '', '', '', '']);
+        const tDr = comb.reduce((s,r)=>s+r.dr,0);
+        const tCr = comb.reduce((s,r)=>s+r.cr,0);
+        rows.push([]);
+        rows.push(['TOTAL', '', '', tDr, tCr, app.state.openingAdvanceCash + tDr - tCr]);
+        XLSX.utils.book_append_sheet(wbSingle, XLSX.utils.aoa_to_sheet(rows), 'Adv DrCr Ledger');
+        XLSX.writeFile(wbSingle, `NoorHospital_Adv_DrCr_${sVal||'all'}_to_${eVal||'all'}.xlsx`);
+        app.ui.showToast('Dr/Cr Advance Ledger exported (filtered).');
+        return;
+      }
       const wb = XLSX.utils.book_new();
 
       // 1. Sheet: Dashboard Summary
