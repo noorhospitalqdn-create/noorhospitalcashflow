@@ -3642,46 +3642,42 @@ const app = {
         thead.classList.add('hidden');
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
-        const advSorted = [...app.state.advanceCashEntries].sort((a,b) => new Date(a.date) - new Date(b.date));
-        let runningAdv = app.state.openingAdvanceCash;
-        let advRowsHtml = '';
-        let advTotal = 0;
-        advSorted.forEach(entry => {
-          runningAdv += entry.amount;
-          if (startVal && entry.date < startVal) return;
-          if (endVal && entry.date > endVal) return;
-          advTotal += entry.amount;
-          advRowsHtml += `<tr><td class="num-val">${entry.date}</td><td class="num-val text-success">+${app.ui.formatCurrency(entry.amount)}</td><td>${entry.remarks || '-'}</td><td class="num-val text-right">${app.ui.formatCurrency(runningAdv)}</td></tr>`;
+        const advList = filterByDateRange(app.state.advanceCashEntries);
+        const billList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'advance'));
+        const combined = [];
+        advList.forEach(e => combined.push({ date: e.date, type: 'cash', remarks: e.remarks || '-', dr: e.amount, cr: 0, sortDate: e.date }));
+        billList.forEach(b => combined.push({ date: b.date, type: 'bill', remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, dr: 0, cr: b.amount, sortDate: b.date }));
+        combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
+        let runningBal = app.state.openingAdvanceCash;
+        let totalDr = 0;
+        let totalCr = 0;
+        let rowsHtml = `<tr style="background:var(--bg-secondary); font-weight:700;"><td class="num-val">-</td><td>Opening Balance (Advance Cash)</td><td class="num-val text-right"></td><td class="num-val text-right"></td><td class="num-val text-right">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+        combined.forEach(row => {
+          if(row.dr) { totalDr += row.dr; runningBal += row.dr; }
+          if(row.cr) { totalCr += row.cr; runningBal -= row.cr; }
+          const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
+          const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
+          const badge = row.type==='cash' ? '<span class="source-tag" style="background:var(--success-light);color:var(--success)">Cash Received</span>' : '<span class="source-tag" style="background:var(--error-light);color:var(--error)">Bill Expense</span>';
+          rowsHtml += `<tr><td class="num-val">${row.date}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         });
-        if (!advRowsHtml) advRowsHtml = `<tr><td colspan="4" class="text-center text-muted">No advance cash records in range.</td></tr>`;
-        else advRowsHtml += `<tr class="total-row" style="font-weight:bold; border-top:2px solid var(--border-color);"><td colspan="1">Total Advance Cash Received</td><td class="num-val text-success">+${app.ui.formatCurrency(advTotal)}</td><td></td><td class="num-val text-right">${app.ui.formatCurrency(runningAdv)}</td></tr>`;
-        const advBillsFiltered = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'advance'));
-        let billRowsHtml = '';
-        let billTotal = 0;
-        advBillsFiltered.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(bill => {
-          billTotal += bill.amount;
-          billRowsHtml += `<tr><td class="num-val">${bill.date}</td><td class="num-val">${bill.billNumber || '-'}</td><td>${bill.vendor || '-'}</td><td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category || '-'}</span></td><td>${bill.remarks || '-'}</td></tr>`;
-        });
-        if (!billRowsHtml) billRowsHtml = `<tr><td colspan="6" class="text-center text-muted">No advance bills found in range.</td></tr>`;
-        else billRowsHtml += `<tr class="total-row" style="font-weight:bold; border-top:2px solid var(--border-color);"><td colspan="3">Total Advance Bills</td><td class="num-val text-error">-${app.ui.formatCurrency(billTotal)}</td><td colspan="2"></td></tr>`;
+        if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted">No records in selected date range.</td></tr>`;
+        const closingBal = app.state.openingAdvanceCash + totalDr - totalCr;
+        rowsHtml += `<tr class="total-row" style="font-weight:800; border-top:2px solid var(--border-color); background:var(--bg-secondary);"><td colspan="2">TOTAL</td><td class="num-val text-right text-success">${app.ui.formatCurrency(totalDr)}</td><td class="num-val text-right text-error">${app.ui.formatCurrency(totalCr)}</td><td class="num-val text-right">${app.ui.formatCurrency(closingBal)}</td></tr>`;
         bsPlaceholder.innerHTML = `
-          <div style="display:flex; flex-direction:column; gap:1.75rem; padding:1rem 0;">
+          <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
             <div class="card" style="padding:0; overflow:hidden;">
-              <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); font-weight:700; background:var(--bg-secondary);">1. Advance Cash Ledger</div>
+              <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <span>Advance Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Cash In &nbsp;|&nbsp; Cr = Bills Against Advance &nbsp;|&nbsp; Balance = Running</span>
+              </div>
               <div style="overflow-x:auto;">
-                <table class="data-table"><thead><tr><th>Date</th><th>Amount</th><th>Remarks</th><th class="text-right">Running Balance</th></tr></thead><tbody>${advRowsHtml}</tbody></table>
+                <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Cash In)</th><th class="text-right">Cr (Bill Exp)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
               </div>
             </div>
-            <div class="card" style="padding:0; overflow:hidden;">
-              <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); font-weight:700; background:var(--bg-secondary);">2. Advance Bills - Against Advance Cash</div>
-              <div style="overflow-x:auto;">
-                <table class="data-table"><thead><tr><th>Date</th><th>Bill No</th><th>Vendor</th><th>Amount</th><th>Category</th><th>Remarks</th></tr></thead><tbody>${billRowsHtml}</tbody></table>
-              </div>
-            </div>
-            <div class="card" style="padding:1rem 1.25rem; background:var(--bg-secondary); display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:space-between; font-weight:600;">
-              <span>Advance Cash (filtered): <span class="text-success">${app.ui.formatCurrency(advTotal)}</span></span>
-              <span>Advance Bills (filtered): <span class="text-error">${app.ui.formatCurrency(billTotal)}</span></span>
-              <span>Net Balance vs Bills: <span class="${advTotal - billTotal >=0 ? 'text-success':'text-error'}">${app.ui.formatCurrency(advTotal - billTotal)}</span></span>
+            <div class="card" style="padding:1rem 1.1rem; background:var(--bg-secondary); display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:space-between; font-weight:700; font-size:13px;">
+              <span>Opening: ${app.ui.formatCurrency(app.state.openingAdvanceCash)}</span>
+              <span>Total Dr: <span class="text-success">${app.ui.formatCurrency(totalDr)}</span></span>
+              <span>Total Cr: <span class="text-error">${app.ui.formatCurrency(totalCr)}</span></span>
+              <span>Closing Balance: ${app.ui.formatCurrency(closingBal)}</span>
             </div>
           </div>
         `;
