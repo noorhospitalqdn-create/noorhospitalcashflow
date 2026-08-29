@@ -3637,6 +3637,54 @@ const app = {
           tbody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No records found.</td></tr>`;
         }
 
+      } else if (type === 'advance_bills') {
+        titleDisplay.innerText = 'Advance Cash + Advance Bills Report (Against Advance Cash)';
+        thead.classList.add('hidden');
+        tbody.classList.add('hidden');
+        bsPlaceholder.classList.remove('hidden');
+        const advSorted = [...app.state.advanceCashEntries].sort((a,b) => new Date(a.date) - new Date(b.date));
+        let runningAdv = app.state.openingAdvanceCash;
+        let advRowsHtml = '';
+        let advTotal = 0;
+        advSorted.forEach(entry => {
+          runningAdv += entry.amount;
+          if (startVal && entry.date < startVal) return;
+          if (endVal && entry.date > endVal) return;
+          advTotal += entry.amount;
+          advRowsHtml += `<tr><td class="num-val">${entry.date}</td><td class="num-val text-success">+${app.ui.formatCurrency(entry.amount)}</td><td>${entry.remarks || '-'}</td><td class="num-val text-right">${app.ui.formatCurrency(runningAdv)}</td></tr>`;
+        });
+        if (!advRowsHtml) advRowsHtml = `<tr><td colspan="4" class="text-center text-muted">No advance cash records in range.</td></tr>`;
+        else advRowsHtml += `<tr class="total-row" style="font-weight:bold; border-top:2px solid var(--border-color);"><td colspan="1">Total Advance Cash Received</td><td class="num-val text-success">+${app.ui.formatCurrency(advTotal)}</td><td></td><td class="num-val text-right">${app.ui.formatCurrency(runningAdv)}</td></tr>`;
+        const advBillsFiltered = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'advance'));
+        let billRowsHtml = '';
+        let billTotal = 0;
+        advBillsFiltered.sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(bill => {
+          billTotal += bill.amount;
+          billRowsHtml += `<tr><td class="num-val">${bill.date}</td><td class="num-val">${bill.billNumber || '-'}</td><td>${bill.vendor || '-'}</td><td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category || '-'}</span></td><td>${bill.remarks || '-'}</td></tr>`;
+        });
+        if (!billRowsHtml) billRowsHtml = `<tr><td colspan="6" class="text-center text-muted">No advance bills found in range.</td></tr>`;
+        else billRowsHtml += `<tr class="total-row" style="font-weight:bold; border-top:2px solid var(--border-color);"><td colspan="3">Total Advance Bills</td><td class="num-val text-error">-${app.ui.formatCurrency(billTotal)}</td><td colspan="2"></td></tr>`;
+        bsPlaceholder.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:1.75rem; padding:1rem 0;">
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); font-weight:700; background:var(--bg-secondary);">1. Advance Cash Ledger</div>
+              <div style="overflow-x:auto;">
+                <table class="data-table"><thead><tr><th>Date</th><th>Amount</th><th>Remarks</th><th class="text-right">Running Balance</th></tr></thead><tbody>${advRowsHtml}</tbody></table>
+              </div>
+            </div>
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border-color); font-weight:700; background:var(--bg-secondary);">2. Advance Bills - Against Advance Cash</div>
+              <div style="overflow-x:auto;">
+                <table class="data-table"><thead><tr><th>Date</th><th>Bill No</th><th>Vendor</th><th>Amount</th><th>Category</th><th>Remarks</th></tr></thead><tbody>${billRowsHtml}</tbody></table>
+              </div>
+            </div>
+            <div class="card" style="padding:1rem 1.25rem; background:var(--bg-secondary); display:flex; flex-wrap:wrap; gap:1.5rem; justify-content:space-between; font-weight:600;">
+              <span>Advance Cash (filtered): <span class="text-success">${app.ui.formatCurrency(advTotal)}</span></span>
+              <span>Advance Bills (filtered): <span class="text-error">${app.ui.formatCurrency(billTotal)}</span></span>
+              <span>Net Balance vs Bills: <span class="${advTotal - billTotal >=0 ? 'text-success':'text-error'}">${app.ui.formatCurrency(advTotal - billTotal)}</span></span>
+            </div>
+          </div>
+        `;
       } else if (type === 'balance_sheet') {
         titleDisplay.innerText = 'Cash Balance Sheet Statement';
         thead.classList.add('hidden');
