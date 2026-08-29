@@ -3781,7 +3781,15 @@ const app = {
         const tCr = comb.reduce((s,r)=>s+r.cr,0);
         rows.push([]);
         rows.push(['TOTAL', '', '', tDr, tCr, app.state.openingAdvanceCash + tDr - tCr]);
-        XLSX.utils.book_append_sheet(wbSingle, XLSX.utils.aoa_to_sheet(rows), 'Adv DrCr Ledger');
+        const wsSingle = XLSX.utils.aoa_to_sheet(rows);
+        wsSingle['!cols'] = [{wch:13},{wch:44},{wch:16},{wch:18},{wch:18},{wch:18}];
+        wsSingle['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}}];
+        wsSingle['!autofilter'] = { ref: `A6:F6` };
+        wsSingle['!freeze'] = { xSplit: 0, ySplit: 6, topLeftCell: 'A7', activePane: 'bottomLeft' };
+        const rangeS = XLSX.utils.decode_range(wsSingle['!ref']);
+        for(let C=rangeS.s.c; C<=rangeS.e.c; ++C){ const addr = XLSX.utils.encode_cell({r:5,c:C}); if(wsSingle[addr]) wsSingle[addr].s = { font:{bold:true, color:{rgb:"FFFFFF"}}, fill:{fgColor:{rgb:"1F4E79"}}, alignment:{horizontal:"center", vertical:"center", wrapText:true}, border:{top:{style:"thin",color:{rgb:"000000"}},bottom:{style:"thin",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}} }; }
+        wsSingle['A1'].s = { font:{bold:true, sz:14, color:{rgb:"1F4E79"}}, alignment:{horizontal:"center", vertical:"center"} };
+        XLSX.utils.book_append_sheet(wbSingle, wsSingle, 'Adv DrCr Ledger');
         XLSX.writeFile(wbSingle, `NoorHospital_Adv_DrCr_${sVal||'all'}_to_${eVal||'all'}.xlsx`);
         app.ui.showToast('Dr/Cr Advance Ledger exported (filtered).');
         return;
@@ -3972,7 +3980,13 @@ const app = {
       const tCr = drCrCombined.reduce((s,r)=>s+r.cr,0);
       drCrRows.push([]);
       drCrRows.push(['TOTAL', '', '', tDr, tCr, app.state.openingAdvanceCash + tDr - tCr]);
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(drCrRows), 'Adv DrCr Ledger');
+      const wsDrCr = XLSX.utils.aoa_to_sheet(drCrRows);
+      wsDrCr['!cols'] = [{wch:13},{wch:44},{wch:16},{wch:18},{wch:18},{wch:18}];
+      wsDrCr['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}}];
+      wsDrCr['!autofilter'] = { ref: `A4:F4` };
+      wsDrCr['!freeze'] = { xSplit: 0, ySplit: 4, topLeftCell: 'A5', activePane: 'bottomLeft' };
+      try{ const rg = XLSX.utils.decode_range(wsDrCr['!ref']); for(let C=rg.s.c;C<=rg.e.c;++C){ const a=XLSX.utils.encode_cell({r:3,c:C}); if(wsDrCr[a]) wsDrCr[a].s={font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1F4E79"}},alignment:{horizontal:"center",vertical:"center",wrapText:true},border:{top:{style:"thin",color:{rgb:"000000"}},bottom:{style:"thin",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}}}; } wsDrCr['A1'].s={font:{bold:true,sz:14,color:{rgb:"1F4E79"}},alignment:{horizontal:"center"}}; }catch(e){}
+      XLSX.utils.book_append_sheet(wb, wsDrCr, 'Adv DrCr Ledger');
 
       // Trigger download
       XLSX.writeFile(wb, `NoorHospital_CashReport_${new Date().toISOString().split('T')[0]}.xlsx`);
