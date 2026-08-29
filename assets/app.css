@@ -2362,6 +2362,35 @@ html[data-theme="dark"] .toast {
   .balance-item {
     border-bottom: 1px dashed #000000 !important;
   }
+
+  #report-display-container {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  #report-balance-sheet-placeholder {
+    display: block !important;
+  }
+
+  #report-balance-sheet-placeholder.hidden {
+    display: none !important;
+  }
+
+  #report-display-container .card {
+    border: 1px solid #000000 !important;
+    background: #fff !important;
+    padding: 0 !important;
+    margin-bottom: 12px !important;
+    break-inside: avoid;
+  }
+
+  #report-display-container .data-table {
+    page-break-inside: auto;
+  }
+
+  #report-display-container .data-table tr {
+    page-break-inside: avoid;
+  }
 }
 
 /* ==========================================

@@ -3930,11 +3930,41 @@ const app = {
       app.ui.showToast('Multi-sheet report downloaded.');
     },
 
-    /**
-     * Prints current report view.
-     */
     printCurrentReport() {
-      window.print();
+      const titleEl = document.getElementById('report-title-display');
+      const metaEl = document.getElementById('report-meta-display');
+      const container = document.getElementById('report-display-container');
+      const printWin = window.open('', '_blank', 'height=800,width=900');
+      if (!printWin) { window.print(); return; }
+      const title = titleEl ? titleEl.innerText : 'Report';
+      const meta = metaEl ? metaEl.innerText : '';
+      const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
+      const content = container.innerHTML;
+      printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
+        *{box-sizing:border-box;font-family:Plus Jakarta Sans,Arial,sans-serif}
+        body{margin:0;padding:24px;color:#000;background:#fff}
+        h1{font-size:18px;margin:0 0 4px}
+        .meta{font-size:12px;color:#555;margin-bottom:16px}
+        .header{border-bottom:3px double #000;padding-bottom:10px;margin-bottom:16px;text-align:center}
+        .header h2{margin:0;font-size:20px}
+        .header p{margin:4px 0 0;font-size:11px;color:#444}
+        table{width:100%;border-collapse:collapse;margin:12px 0 20px;font-size:11px}
+        th{background:#f1f5f9!important;border:1px solid #000;padding:7px 6px;text-align:left;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        td{border:1px solid #000;padding:6px;font-size:11px;vertical-align:top}
+        .text-right{text-align:right}.text-success{color:#000!important}.text-error{color:#000!important}
+        .section-title{font-size:14px;font-weight:800;margin:18px 0 8px;padding:8px 10px;background:#f1f5f9!important;border:1px solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        .summary-box{border:2px solid #000;padding:10px 12px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;font-size:12px;font-weight:700;margin-top:12px}
+        .card{border:1px solid #000!important;padding:0!important;margin-bottom:16px}
+        .hidden{display:none!important}
+        @media print{body{padding:12px}}
+      </style></head><body>
+        <div class="header"><h2>Noor Hospital - Cash Management System</h2><h1>${title}</h1><p>${meta} &nbsp;|&nbsp; Generated: ${now}</p></div>
+        ${content}
+        <p style="text-align:center;font-size:10px;color:#666;margin-top:24px;border-top:1px solid #999;padding-top:8px">System generated report - Noor Hospital Cash Management</p>
+      </body></html>`);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(()=>{ printWin.print(); printWin.close(); }, 400);
     }
   },
 
