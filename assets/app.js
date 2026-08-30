@@ -2051,7 +2051,7 @@ const app = {
       if (dialog) {
         // Set default dates to today
         const dateInputs = dialog.querySelectorAll('input[type="date"]');
-        const todayStr = new Date().toLocaleDateString('en-CA'); // formats as YYYY-MM-DD local time
+        const todayStr = new Date().toISOString().split('T')[0]; // formats as YYYY-MM-DD local time
         dateInputs.forEach(input => {
           if (!input.value) {
             input.value = todayStr;
@@ -2348,7 +2348,10 @@ const app = {
       if (!val) return '-';
       const d = new Date(val);
       if (isNaN(d.getTime())) return val;
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      return `${dd}-${mm}-${yyyy}`;
     },
 
     /**
@@ -2604,7 +2607,7 @@ const app = {
         const runTxt = run!=='' ? app.ui.formatCurrency(run) : '-';
         list.innerHTML += `
           <tr>
-            <td class="num-val">${entry.date}</td>
+            <td class="num-val">${app.ui.formatDate(entry.date)}</td>
             <td class="num-val text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
             <td>${app.ui.escapeHTML(entry.remarks||'-')}</td>
             <td class="num-val text-bold">${runTxt}</td>
@@ -2645,7 +2648,7 @@ const app = {
         const runTxt = run!=='-'?app.ui.formatCurrency(run):'-';
         list.innerHTML += `
           <tr>
-            <td class="num-val">${entry.date}</td>
+            <td class="num-val">${app.ui.formatDate(entry.date)}</td>
             <td><span class="source-tag">${app.ui.escapeHTML(entry.source)}</span></td>
             <td class="num-val text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
             <td>${app.ui.escapeHTML(entry.remarks || '-')}</td>
@@ -2742,7 +2745,7 @@ const app = {
 
         list.innerHTML += `
           <tr>
-            <td class="num-val">${slip.date}</td>
+            <td class="num-val">${app.ui.formatDate(slip.date)}</td>
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="source-tag">${typeLabel}</span></td>
@@ -2781,7 +2784,7 @@ const app = {
 
         list.innerHTML += `
           <tr>
-            <td class="num-val">${bill.date}</td>
+            <td class="num-val">${app.ui.formatDate(bill.date)}</td>
             <td class="num-val text-bold">${bill.billNumber}</td>
             <td>${bill.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td>
@@ -2812,7 +2815,7 @@ const app = {
       document.getElementById('dialog-accounts-title').innerText = 'Send To Accounts Department';
       document.getElementById('btn-accounts-save').innerText = 'Send to Accounts';
       
-      document.getElementById('accounts-date').value = new Date().toLocaleDateString('en-CA');
+      document.getElementById('accounts-date').value = new Date().toISOString().split('T')[0];
       document.getElementById('accounts-bill-type').value = '';
       document.getElementById('accounts-amount').value = '';
       document.getElementById('accounts-ref').value = '';
@@ -2915,7 +2918,7 @@ const app = {
         const typeLabel = trans.type === 'amanat' ? 'Amanat Noor Hospital' : 'Imprest Noor Hospital';
         list.innerHTML += `
           <tr>
-            <td class="num-val">${trans.date}</td>
+            <td class="num-val">${app.ui.formatDate(trans.date)}</td>
             <td class="text-bold">${typeLabel}</td>
             <td class="num-val text-bold text-success">${app.ui.formatCurrency(trans.amount)}</td>
             <td>${trans.remarks}</td>
@@ -2937,7 +2940,7 @@ const app = {
     renderBalanceSheet() {
       // Set date display
       const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      document.getElementById('balance-sheet-date-display').innerText = `As on: ${todayStr}`;
+      document.getElementById('balance-sheet-date-display').innerText = `As on: ${app.ui.formatDate(new Date().toISOString().split('T')[0])}`;
       
       // Update values
       document.getElementById('bs-advance-cash').innerText = app.ui.formatCurrency(app.state.advanceCashAvailable);
@@ -3360,7 +3363,7 @@ const app = {
 
           tbody.innerHTML += `
             <tr>
-              <td class="num-val">${entry.date}</td>
+              <td class="num-val">${app.ui.formatDate(entry.date)}</td>
               <td class="num-val text-success">+${app.ui.formatCurrency(entry.amount)}</td>
               <td>${entry.remarks}</td>
               <td class="num-val text-right">${app.ui.formatCurrency(running)}</td>
@@ -3394,7 +3397,7 @@ const app = {
 
           tbody.innerHTML += `
             <tr>
-              <td class="num-val">${entry.date}</td>
+              <td class="num-val">${app.ui.formatDate(entry.date)}</td>
               <td><span class="source-tag">${entry.source}</span></td>
               <td class="num-val text-success">+${app.ui.formatCurrency(entry.amount)}</td>
               <td>${entry.remarks || '-'}</td>
@@ -3431,7 +3434,7 @@ const app = {
           
           tbody.innerHTML += `
             <tr>
-              <td class="num-val">${slip.date}</td>
+              <td class="num-val">${app.ui.formatDate(slip.date)}</td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
               <td><span class="source-tag">${typeLabel}</span></td>
@@ -3472,7 +3475,7 @@ const app = {
           
           tbody.innerHTML += `
             <tr>
-              <td class="num-val">${bill.date}</td>
+              <td class="num-val">${app.ui.formatDate(bill.date)}</td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
@@ -3537,7 +3540,7 @@ const app = {
           const typeLabel = trans.type === 'amanat' ? 'Amanat Noor Hospital' : 'Imprest Noor Hospital';
           tbody.innerHTML += `
             <tr>
-              <td class="num-val">${trans.date}</td>
+              <td class="num-val">${app.ui.formatDate(trans.date)}</td>
               <td>${typeLabel}</td>
               <td class="num-val text-success">${app.ui.formatCurrency(trans.amount)}</td>
               <td>${trans.remarks}</td>
@@ -3572,7 +3575,7 @@ const app = {
           
           tbody.innerHTML += `
             <tr>
-              <td class="num-val">${dep.date}</td>
+              <td class="num-val">${app.ui.formatDate(dep.date)}</td>
               <td class="num-val text-bold">${dep.receiptNumber}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(dep.amount)}</td>
               <td>${attachAvailable}</td>
@@ -3675,7 +3678,7 @@ const app = {
           const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
           const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
           const badge = row.type==='cash' ? '<span class="source-tag" style="background:var(--success-light);color:var(--success)">Cash Received</span>' : '<span class="source-tag" style="background:var(--error-light);color:var(--error)">Bill Expense</span>';
-          rowsHtml += `<tr><td class="num-val">${row.date}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+          rowsHtml += `<tr><td class="num-val">${app.ui.formatDate(row.date)}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         });
         if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted">No records in selected date range.</td></tr>`;
         const closingBal = app.state.openingAdvanceCash + totalDr - totalCr;
@@ -3723,7 +3726,7 @@ const app = {
           const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
           const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
           const badge = `<span class="source-tag" style="background:var(--bg-input);color:${row.badgeColor};border-color:${row.badgeColor}">${row.badge}</span>`;
-          rowsHtml += `<tr><td class="num-val">${row.date}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+          rowsHtml += `<tr><td class="num-val">${app.ui.formatDate(row.date)}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         });
         if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted">No records in selected date range.</td></tr>`;
         const closingBal = app.state.openingHospitalCash + totalDr - totalCr;
@@ -3840,7 +3843,7 @@ const app = {
         app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}${b.category?' - '+b.category:''}`, vType:'Advance Bill', dr:0, cr:b.amount}));
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
-        comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([r.date, r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
+        comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([app.ui.formatDate(r.date), r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
         if(!comb.length) rows.push(['', 'No records in selected range', '', '', '', '']);
         const tDr = comb.reduce((s,r)=>s+r.dr,0);
         const tCr = comb.reduce((s,r)=>s+r.cr,0);
@@ -3877,7 +3880,7 @@ const app = {
         app.state.hospitalDeposits.filter(d=>inRange(d.date)).forEach(d=>comb.push({date:d.date, particulars:`${d.receiptNumber||'-'}${d.remarks?' - '+d.remarks:''}`, vType:'Deposit to Muhasib', dr:0, cr:d.amount}));
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
-        comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([r.date, r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
+        comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([app.ui.formatDate(r.date), r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
         if(!comb.length) rows.push(['', 'No records in selected range', '', '', '', '']);
         const tDr = comb.reduce((s,r)=>s+r.dr,0);
         const tCr = comb.reduce((s,r)=>s+r.cr,0);
@@ -3901,7 +3904,7 @@ const app = {
       // 1. Sheet: Dashboard Summary
       const dashRows = [
         ['Noor Hospital Cash Management System - Dashboard Overview'],
-        ['Date Generated', new Date().toLocaleDateString()],
+        ['Date Generated', app.ui.formatDate(new Date().toISOString().split('T')[0])],
         [],
         ['Indicator Title', 'Amount (₹)', 'Calculation Math / Description'],
         ['Advance Cash Available', app.state.advanceCashAvailable, 'Opening Advance + Advance Entries - Advance Expenses'],
@@ -3931,7 +3934,7 @@ const app = {
       let runningAdv = app.state.openingAdvanceCash;
       [...app.state.advanceCashEntries].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(e => {
         runningAdv += e.amount;
-        advRows.push([e.date, e.amount, e.remarks, runningAdv]);
+        advRows.push([app.ui.formatDate(e.date), e.amount, e.remarks, runningAdv]);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(advRows), 'Advance Cash');
 
@@ -3945,7 +3948,7 @@ const app = {
       let runningHosp = app.state.openingHospitalCash;
       [...app.state.hospitalCashEntries].sort((a,b) => new Date(a.date) - new Date(b.date)).forEach(e => {
         runningHosp += e.amount;
-        hospRows.push([e.date, e.source, e.amount, e.remarks, runningHosp]);
+        hospRows.push([app.ui.formatDate(e.date), e.source, e.amount, e.remarks, runningHosp]);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(hospRows), 'Hospital Cash');
 
@@ -3959,7 +3962,7 @@ const app = {
         const attachAvailable = s.attachmentUrl ? 'Yes' : 'No';
         const attachName = s.attachmentUrl ? (s.fileName || 'document') : '-';
         slipRows.push([
-          s.date,
+          app.ui.formatDate(s.date),
           s.vendor,
           s.amount,
           s.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash',
@@ -3981,7 +3984,7 @@ const app = {
         const attachAvailable = b.attachmentUrl ? 'Yes' : 'No';
         const attachName = b.attachmentUrl ? (b.fileName || 'document') : '-';
         billRows.push([
-          b.date,
+          app.ui.formatDate(b.date),
           b.billNumber,
           b.vendor,
           b.amount,
@@ -4002,7 +4005,7 @@ const app = {
       ];
       app.state.accountsRegister.forEach(a => {
         accRows.push([
-          a.dateSent,
+          app.ui.formatDate(a.dateSent),
           a.billType === 'advance' ? 'Advance Cash Bills' : 'Hospital Cash Bills',
           a.amount,
           a.referenceNo || '',
@@ -4018,14 +4021,14 @@ const app = {
         ['Date', 'Transfer Type', 'Amount (₹)', 'Remarks']
       ];
       app.state.transfers.forEach(t => {
-        transRows.push([t.date, t.type === 'imprest' ? 'Imprest Noor Hospital' : 'Amanat Noor Hospital', t.amount, t.remarks || '']);
+        transRows.push([app.ui.formatDate(t.date), t.type === 'imprest' ? 'Imprest Noor Hospital' : 'Amanat Noor Hospital', t.amount, t.remarks || '']);
       });
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(transRows), 'Transfers');
 
       // 7. Sheet: Balance Sheet
       const bsRows = [
         ['Noor Hospital Cash Balance Sheet Statement'],
-        ['As of Date', new Date().toLocaleDateString()],
+        ['As of Date', app.ui.formatDate(new Date().toISOString().split('T')[0])],
         [],
         ['Section / Group', 'Item Name', 'Amount (₹)'],
         ['Cash Position', 'Advance Cash Available', app.state.advanceCashAvailable],
@@ -4052,7 +4055,7 @@ const app = {
         const attachAvailable = d.attachmentUrl ? 'Yes' : 'No';
         const attachName = d.attachmentUrl ? (d.fileName || 'receipt') : '-';
         depRows.push([
-          d.date,
+          app.ui.formatDate(d.date),
           d.receiptNumber,
           d.amount,
           attachAvailable,
@@ -4076,7 +4079,7 @@ const app = {
       drCrCombined.forEach(r => {
         if (r.dr) runningDrCr += r.dr;
         if (r.cr) runningDrCr -= r.cr;
-        drCrRows.push([r.date, r.particulars, r.vType, r.dr || '', r.cr || '', runningDrCr]);
+        drCrRows.push([app.ui.formatDate(r.date), r.particulars, r.vType, r.dr || '', r.cr || '', runningDrCr]);
       });
       const tDr = drCrCombined.reduce((s,r)=>s+r.dr,0);
       const tCr = drCrCombined.reduce((s,r)=>s+r.cr,0);
@@ -4102,39 +4105,39 @@ const app = {
       if(page==='advance'){
         const d=filtered(app.state.advanceCashEntries,'advance');
         rows=[['Advance Cash Ledger (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Amount (₹)','Remarks']];
-        d.forEach(e=>rows.push([e.date,e.amount,e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.amount,e.remarks||'-']));
         if(!d.length) rows.push(['No records']);
         sheetName='Advance Cash';
       } else if(page==='hospital'){
         const d=filtered(app.state.hospitalCashEntries,'hospital');
         rows=[['Hospital Cash Collections (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Source','Amount (₹)','Remarks']];
-        d.forEach(e=>rows.push([e.date,e.source,e.amount,e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.source,e.amount,e.remarks||'-']));
         if(!d.length) rows.push(['No records']);
         sheetName='Hospital Cash';
       } else if(page==='deposits'){
         const d=filtered(app.state.hospitalDeposits,'deposits');
         rows=[['Hospital Deposits (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Receipt No','Amount (₹)','Remarks']];
-        d.forEach(e=>rows.push([e.date,e.receiptNumber,e.amount,e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.receiptNumber,e.amount,e.remarks||'-']));
         sheetName='Deposits';
       } else if(page==='slips'){
         const d=filtered(app.state.temporarySlips,'slips');
         rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
-        d.forEach(e=>rows.push([e.date,e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
         sheetName='Temp Slips';
       } else if(page==='bills'){
         const d=filtered(app.state.bills,'bills');
         rows=[['Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Expense Type','Category','Remarks']];
-        d.forEach(e=>rows.push([e.date,e.billNumber,e.vendor,e.amount,e.expenseType,e.category,e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.billNumber,e.vendor,e.amount,e.expenseType,e.category,e.remarks||'-']));
         sheetName='Bills';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
         rows=[['Accounts Register (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date Sent','Bill Type','Amount (₹)','Reference No','Remarks']];
-        d.forEach(e=>rows.push([e.dateSent,e.billType,e.amount,e.referenceNo||'-',e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.dateSent),e.billType,e.amount,e.referenceNo||'-',e.remarks||'-']));
         sheetName='Accounts';
       } else if(page==='transfers'){
         const d=filtered(app.state.transfers,'transfers');
         rows=[['Transfers (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Type','Amount (₹)','Remarks']];
-        d.forEach(e=>rows.push([e.date,e.type,e.amount,e.remarks||'-']));
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.type,e.amount,e.remarks||'-']));
         sheetName='Transfers';
       }
       const ws=XLSX.utils.aoa_to_sheet(rows);
@@ -4866,7 +4869,7 @@ const app = {
           <div class="mobile-record-card">
             <div class="mobile-card-header">
               <div>
-                <div class="mobile-card-date">${entry.date}</div>
+                <div class="mobile-card-date">${app.ui.formatDate(entry.date)}</div>
               </div>
               <div class="mobile-card-amount inflow">+${app.ui.formatCurrency(entry.amount)}</div>
             </div>
@@ -4914,7 +4917,7 @@ const app = {
           <div class="mobile-record-card">
             <div class="mobile-card-header">
               <div>
-                <div class="mobile-card-date">${entry.date}</div>
+                <div class="mobile-card-date">${app.ui.formatDate(entry.date)}</div>
                 <span class="source-tag" style="margin-top:0.25rem;display:inline-block;">${entry.source}</span>
               </div>
               <div class="mobile-card-amount inflow">+${app.ui.formatCurrency(entry.amount)}</div>
@@ -4994,7 +4997,7 @@ const app = {
               <div class="mobile-card-amount outflow">-${app.ui.formatCurrency(slip.amount)}</div>
             </div>
             <div class="mobile-card-meta">
-              <span class="mobile-card-date">${slip.date}</span>
+              <span class="mobile-card-date">${app.ui.formatDate(slip.date)}</span>
               <span class="source-tag">${typeLabel}</span>
               <span class="status-pill ${statusClass}">${slip.status}</span>
               ${attachmentHtml}
@@ -5038,7 +5041,7 @@ const app = {
             <div class="mobile-card-header">
               <div>
                 <div class="mobile-card-title">${bill.vendor}</div>
-                <div class="mobile-card-date">${bill.billNumber} • ${bill.date}</div>
+                <div class="mobile-card-date">${bill.billNumber} • ${app.ui.formatDate(bill.date)}</div>
               </div>
               <div class="mobile-card-amount outflow">-${app.ui.formatCurrency(bill.amount)}</div>
             </div>
@@ -5140,7 +5143,7 @@ const app = {
               <div class="mobile-card-amount inflow">${app.ui.formatCurrency(trans.amount)}</div>
             </div>
             <div class="mobile-card-meta">
-              <span class="mobile-card-date">${trans.date}</span>
+              <span class="mobile-card-date">${app.ui.formatDate(trans.date)}</span>
               <span class="source-tag">${trans.type === 'amanat' ? 'Hospital → Amanat' : 'Advance → Imprest'}</span>
             </div>
             ${trans.remarks ? `<div class="mobile-card-body">${trans.remarks}</div>` : ''}
@@ -5184,7 +5187,7 @@ const app = {
             <div class="mobile-card-header">
               <div>
                 <div class="mobile-card-title">${deposit.receiptNumber}</div>
-                <div class="mobile-card-date">${deposit.date}</div>
+                <div class="mobile-card-date">${app.ui.formatDate(deposit.date)}</div>
               </div>
               <div class="mobile-card-amount outflow">-${app.ui.formatCurrency(deposit.amount)}</div>
             </div>
