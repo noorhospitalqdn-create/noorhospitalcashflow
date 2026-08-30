@@ -1131,6 +1131,62 @@ const app = {
   // USER INTERFACE & NAVIGATION
   // ==========================================
   ui: {
+    filters:{
+      advance:{search:'',from:'',to:'',sort:'date_desc'},
+      hospital:{search:'',from:'',to:'',sort:'date_desc'},
+      deposits:{search:'',from:'',to:'',sort:'date_desc'},
+      slips:{search:'',from:'',to:'',sort:'date_desc'},
+      bills:{search:'',from:'',to:'',sort:'date_desc'},
+      accounts:{search:'',from:'',to:'',sort:'date_desc'},
+      transfers:{search:'',from:'',to:'',sort:'date_desc'}
+    },
+    applyFilter(page, patch){
+      Object.assign(app.ui.filters[page], patch);
+      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable',bills:'renderBillsTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
+      if(map[page]) app.ui[map[page]]();
+      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards',bills:'renderBillsCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
+      if(app.mobile.isMobile() && app.mobile[mmap[page]]) app.mobile[mmap[page]]();
+    },
+    clearFilters(page){
+      app.ui.filters[page]={search:'',from:'',to:'',sort:'date_desc'};
+      const s=document.getElementById('search-'+page); if(s) s.value='';
+      const f=document.getElementById('filter-'+page+'-from'); if(f) f.value='';
+      const t=document.getElementById('filter-'+page+'-to'); if(t) t.value='';
+      const so=document.getElementById('sort-'+page); if(so) so.value='date_desc';
+      if(page==='bills'){const fb=document.getElementById('filter-bills-type'); if(fb) fb.value='';}
+      if(page==='slips' && document.getElementById('search-slips')) document.getElementById('search-slips').value='';
+      if(page==='deposits' && document.getElementById('search-deposits')) document.getElementById('search-deposits').value='';
+      if(page==='accounts' && document.getElementById('search-accounts')) document.getElementById('search-accounts').value='';
+      const idMap={bills:'filter-bills-type'};
+      app.ui.applyFilter(page,{});
+    },
+    getFiltered(list, page, opts={}){
+      const f=app.ui.filters[page]||{search:'',from:'',to:'',sort:'date_desc'};
+      let out=[...list];
+      if(f.from) out=out.filter(x=>{const d=x.date||x.dateSent||''; return d>=f.from});
+      if(f.to) out=out.filter(x=>{const d=x.date||x.dateSent||''; return d<=f.to});
+      if(f.search){
+        const q=f.search.toLowerCase();
+        out=out.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
+      }
+      if(page==='bills' && opts.billsType!==undefined){
+        const bt=document.getElementById('filter-bills-type')?.value;
+        if(bt) out=out.filter(b=>b.expenseType===bt);
+      }
+      const sort=f.sort||'date_desc';
+      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor',bills:'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
+      const dateKey= page==='accounts' ? 'dateSent' : 'date';
+      out.sort((a,b)=>{
+        if(sort==='date_asc') return new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
+        if(sort==='date_desc') return new Date(b[dateKey]||0)-new Date(a[dateKey]||0);
+        if(sort==='amount_asc') return (a.amount||0)-(b.amount||0);
+        if(sort==='amount_desc') return (b.amount||0)-(a.amount||0);
+        if(sort==='alpha_asc') return String(a[alphaKey]||'').localeCompare(String(b[alphaKey]||''));
+        if(sort==='alpha_desc') return String(b[alphaKey]||'').localeCompare(String(a[alphaKey]||''));
+        return 0;
+      });
+      return out;
+    },
     /**
      * Initializes listeners for click, navigation, form submissions, and dropdown changes.
      */
@@ -1180,16 +1236,19 @@ const app = {
       document.getElementById('theme-light-btn').addEventListener('click', () => app.ui.setTheme('light'));
       document.getElementById('theme-dark-btn').addEventListener('click', () => app.ui.setTheme('dark'));
 
-      // Quick-search input event bindings
-      document.getElementById('search-advance').addEventListener('input', (e) => app.ui.filterTable('table-advance', e.target.value));
-      document.getElementById('search-hospital').addEventListener('input', (e) => app.ui.filterTable('table-hospital', e.target.value));
-      document.getElementById('search-slips').addEventListener('input', (e) => app.ui.filterTable('table-slips', e.target.value));
-      document.getElementById('search-bills').addEventListener('input', (e) => app.ui.filterTable('table-bills', e.target.value));
-      document.getElementById('search-transfers').addEventListener('input', (e) => app.ui.filterTable('table-transfers', e.target.value));
-      document.getElementById('search-deposits').addEventListener('input', (e) => app.ui.filterTable('table-deposits', e.target.value));
-
-      // Filter bills by expense type
-      document.getElementById('filter-bills-type').addEventListener('change', () => {
+      const bindPage=(page)=>{
+        const s=document.getElementById('search-'+page);
+        if(s) s.addEventListener('input', e=> app.ui.applyFilter(page,{search:e.target.value}));
+        const f=document.getElementById('filter-'+page+'-from');
+        if(f) f.addEventListener('change', e=> app.ui.applyFilter(page,{from:e.target.value}));
+        const t=document.getElementById('filter-'+page+'-to');
+        if(t) t.addEventListener('change', e=> app.ui.applyFilter(page,{to:e.target.value}));
+        const so=document.getElementById('sort-'+page);
+        if(so) so.addEventListener('change', e=> app.ui.applyFilter(page,{sort:e.target.value}));
+      };
+      ['advance','hospital','deposits','slips','bills','accounts','transfers'].forEach(bindPage);
+      document.getElementById('search-accounts')?.addEventListener('input', e=> app.ui.applyFilter('accounts',{search:e.target.value}));
+      document.getElementById('filter-bills-type')?.addEventListener('change', () => {
         app.ui.renderBillsTable();
         if (app.mobile.isMobile()) app.mobile.renderBillsCards();
       });
@@ -1904,33 +1963,6 @@ const app = {
     },
 
     switchTab(panelId) {
-      // Reset search inputs and drop-down filters on tab switch to prevent records from disappearing
-      const filterBillsType = document.getElementById('filter-bills-type');
-      if (filterBillsType) {
-        filterBillsType.value = '';
-      }
-      
-      const searchInputs = ['search-advance', 'search-hospital', 'search-deposits', 'search-slips', 'search-bills', 'search-accounts', 'search-transfers'];
-      searchInputs.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
-
-      // Show all rows in desktop tables
-      const tables = ['table-advance', 'table-hospital', 'table-deposits', 'table-slips', 'table-bills', 'table-accounts', 'table-transfers'];
-      tables.forEach(tableId => {
-        const table = document.getElementById(tableId);
-        if (table) {
-          const rows = table.querySelectorAll('tbody tr');
-          rows.forEach(row => row.classList.remove('hidden'));
-        }
-      });
-
-      // Re-render bills table and cards to ensure full dataset displays
-      app.ui.renderBillsTable();
-      if (app.mobile && typeof app.mobile.isMobile === 'function' && app.mobile.isMobile()) {
-        app.mobile.renderBillsCards();
-      }
 
       // Update sidebar highlight
       const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -2332,22 +2364,15 @@ const app = {
         .replace(/'/g, '&#39;');
     },
 
-    /**
-     * Local Table Filtering search bar.
-     */
     filterTable(tableId, query) {
-      const table = document.getElementById(tableId);
-      const rows = table.querySelectorAll('tbody tr');
-      const lowerQuery = query.toLowerCase();
-
-      rows.forEach(row => {
-        const text = row.innerText.toLowerCase();
-        if (text.includes(lowerQuery)) {
-          row.classList.remove('hidden');
-        } else {
-          row.classList.add('hidden');
-        }
-      });
+      const map={'table-advance':'advance','table-hospital':'hospital','table-deposits':'deposits','table-slips':'slips','table-bills':'bills','table-accounts':'accounts','table-transfers':'transfers'};
+      const page=map[tableId];
+      if(page) app.ui.applyFilter(page,{search:query});
+      else{
+        const table=document.getElementById(tableId); if(!table) return;
+        const rows=table.querySelectorAll('tbody tr'); const q=(query||'').toLowerCase();
+        rows.forEach(row=>{ const t=row.innerText.toLowerCase(); row.classList.toggle('hidden', !t.includes(q)); });
+      }
     },
 
     /**
@@ -2555,33 +2580,38 @@ const app = {
 
     renderAdvanceTable() {
       const list = document.getElementById('list-advance');
+      if(!list) return;
       list.innerHTML = '';
-      
-      // Sort ascending to calculate correct running balances chronologically
-      const sorted = [...app.state.advanceCashEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
-      let running = app.state.openingAdvanceCash;
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No cash entry records found.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.advanceCashEntries,'advance');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-advance'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.advance; const isFiltered=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="5" class="text-center text-muted">${isFiltered?'No records match filter.':'No cash entry records found.'}</td></tr>`;
         return;
       }
-
-      sorted.forEach(entry => {
-        running += entry.amount;
+      const sorted=[...filtered].sort((a,b)=> new Date(a.date)-new Date(b.date));
+      let running=app.state.openingAdvanceCash;
+      const sortMode=app.ui.filters.advance.sort;
+      const displayList = (sortMode==='amount_desc'||sortMode==='amount_asc'||sortMode.startsWith('alpha')) ? filtered : sorted;
+      if(!sortMode.startsWith('alpha') && sortMode!=='amount_desc' && sortMode!=='amount_asc'){
+        running=app.state.openingAdvanceCash;
+        displayList.forEach(e=>{ running+=e.amount; e._run=running; });
+        if(sortMode==='date_desc') displayList.reverse();
+      }
+      displayList.forEach(entry => {
+        const run = entry._run!==undefined ? entry._run : '';
+        const runTxt = run!=='' ? app.ui.formatCurrency(run) : '-';
         list.innerHTML += `
           <tr>
             <td class="num-val">${entry.date}</td>
             <td class="num-val text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
-            <td>${entry.remarks}</td>
-            <td class="num-val text-bold">${app.ui.formatCurrency(running)}</td>
+            <td>${app.ui.escapeHTML(entry.remarks||'-')}</td>
+            <td class="num-val text-bold">${runTxt}</td>
             <td class="text-center">
               <div class="flex gap-2 justify-center">
-                <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('advance_cash', ${entry.id})">
-                  Edit
-                </button>
-                <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('advance_cash', ${entry.id})">
-                  Delete
-                </button>
+                <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('advance_cash', ${entry.id})">Edit</button>
+                <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('advance_cash', ${entry.id})">Delete</button>
               </div>
             </td>
           </tr>
@@ -2591,35 +2621,36 @@ const app = {
 
     renderHospitalTable() {
       const list = document.getElementById('list-hospital');
+      if(!list) return;
       list.innerHTML = '';
-
-      const sorted = [...app.state.hospitalCashEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
-      let running = app.state.openingHospitalCash;
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No collections recorded yet.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.hospitalCashEntries,'hospital');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-hospital'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.hospital; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No collections recorded yet.'}</td></tr>`;
         return;
       }
-
-      sorted.forEach(entry => {
-        running += entry.amount;
+      const sorted=[...filtered].sort((a,b)=> new Date(a.date)-new Date(b.date));
+      let running=app.state.openingHospitalCash;
+      const sortMode=app.ui.filters.hospital.sort;
+      const displayList = (sortMode==='amount_desc'||sortMode==='amount_asc'||sortMode.startsWith('alpha')) ? filtered : sorted;
+      if(!sortMode.startsWith('alpha') && sortMode!=='amount_desc' && sortMode!=='amount_asc'){
+        running=app.state.openingHospitalCash;
+        displayList.forEach(e=>{ running+=e.amount; e._run=running; });
+        if(sortMode==='date_desc') displayList.reverse();
+      }
+      displayList.forEach(entry => {
+        const run = entry._run!==undefined ? entry._run : '-';
+        const runTxt = run!=='-'?app.ui.formatCurrency(run):'-';
         list.innerHTML += `
           <tr>
             <td class="num-val">${entry.date}</td>
-            <td><span class="source-tag">${entry.source}</span></td>
+            <td><span class="source-tag">${app.ui.escapeHTML(entry.source)}</span></td>
             <td class="num-val text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
-            <td>${entry.remarks || '-'}</td>
-            <td class="num-val text-bold">${app.ui.formatCurrency(running)}</td>
-            <td class="text-center">
-              <div class="flex gap-2 justify-center">
-                <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_cash', ${entry.id})">
-                  Edit
-                </button>
-                <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_cash', ${entry.id})">
-                  Delete
-                </button>
-              </div>
-            </td>
+            <td>${app.ui.escapeHTML(entry.remarks || '-')}</td>
+            <td class="num-val text-bold">${runTxt}</td>
+            <td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_cash', ${entry.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_cash', ${entry.id})">Delete</button></div></td>
           </tr>
         `;
       });
@@ -2629,40 +2660,29 @@ const app = {
       const list = document.getElementById('list-deposits');
       if (!list) return;
       list.innerHTML = '';
-
-      // Chronological sort ascending
-      const sorted = [...app.state.hospitalDeposits].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No deposits to Muhasib recorded.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.hospitalDeposits,'deposits');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-deposits'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.deposits; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No deposits to Muhasib recorded.'}</td></tr>`;
         return;
       }
-
-      sorted.forEach(deposit => {
+      filtered.forEach(deposit => {
         let attachmentHtml = '-';
         if (deposit.attachmentUrl) {
           const syncClass = deposit.pendingUpload ? 'pending-sync' : '';
           const label = deposit.pendingUpload ? '⏳ Syncing' : (deposit.fileType === 'application/pdf' ? '📄 PDF Attached' : '📷 Image Attached');
           attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('hospital_deposits', ${deposit.id})">${label}</span>`;
         }
-
         list.innerHTML += `
           <tr>
-            <td class="num-val">${deposit.date}</td>
-            <td class="num-val text-bold">${deposit.receiptNumber}</td>
+            <td class="num-val">${app.ui.escapeHTML(deposit.date)}</td>
+            <td class="num-val text-bold">${app.ui.escapeHTML(deposit.receiptNumber)}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(deposit.amount)}</td>
             <td>${attachmentHtml}</td>
-            <td>${deposit.remarks || '-'}</td>
-            <td class="text-center">
-              <div class="flex gap-2 justify-center">
-                <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_deposits', ${deposit.id})">
-                  Edit
-                </button>
-                <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_deposits', ${deposit.id})">
-                  Delete
-                </button>
-              </div>
-            </td>
+            <td>${app.ui.escapeHTML(deposit.remarks || '-')}</td>
+            <td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_deposits', ${deposit.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_deposits', ${deposit.id})">Delete</button></div></td>
           </tr>
         `;
       });
@@ -2670,15 +2690,17 @@ const app = {
 
     renderSlipsTable() {
       const list = document.getElementById('list-slips');
+      if(!list) return;
       list.innerHTML = '';
-
-      // Chronological descending
-      const sorted = [...app.state.temporarySlips].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No temporary slips registered.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.temporarySlips,'slips');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No temporary slips registered.'}</td></tr>`;
         return;
-      }      sorted.forEach(slip => {
+      }
+      filtered.forEach(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
         const typeLabel = slip.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
         
@@ -2735,23 +2757,17 @@ const app = {
 
     renderBillsTable() {
       const list = document.getElementById('list-bills');
+      if(!list) return;
       list.innerHTML = '';
-
-      const filterType = document.getElementById('filter-bills-type').value;
-
-      // Filter state
-      let sorted = [...app.state.bills];
-      if (filterType) {
-        sorted = sorted.filter(b => b.expenseType === filterType);
-      }
-      sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No final bills found.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.bills,'bills');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.bills; const fb=document.getElementById('filter-bills-type')?.value; const isF=f.search||f.from||f.to||fb;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No final bills found.'}</td></tr>`;
         return;
       }
-
-      sorted.forEach(bill => {
+      filtered.forEach(bill => {
         const typeLabel = bill.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
         const isDirect = !bill.slipId;
         const note = isDirect ? 'Direct' : 'From Slip';
@@ -2848,15 +2864,15 @@ const app = {
       const list = document.getElementById('list-accounts');
       if (!list) return;
       list.innerHTML = '';
-      
-      const sorted = [...app.state.accountsRegister].sort((a, b) => new Date(b.dateSent) - new Date(a.dateSent));
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No batches sent to accounts.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.accountsRegister,'accounts');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-accounts'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.accounts; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No batches sent to accounts.'}</td></tr>`;
         return;
       }
-
-      sorted.forEach(acc => {
+      filtered.forEach(acc => {
         const tr = document.createElement('tr');
         const typeBadge = acc.billType === 'advance' 
           ? `<span class="badge badge-primary">Advance</span>` 
@@ -2885,16 +2901,17 @@ const app = {
 
     renderTransfersTable() {
       const list = document.getElementById('list-transfers');
+      if(!list) return;
       list.innerHTML = '';
-
-      const sorted = [...app.state.transfers].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-      if (!sorted.length) {
-        list.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No transfers recorded.</td></tr>`;
+      const filtered = app.ui.getFiltered(app.state.transfers,'transfers');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-transfers'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.transfers; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="5" class="text-center text-muted">${isF?'No records match filter.':'No transfers recorded.'}</td></tr>`;
         return;
       }
-
-      sorted.forEach(trans => {
+      filtered.forEach(trans => {
         const typeLabel = trans.type === 'amanat' ? 'Amanat Noor Hospital' : 'Imprest Noor Hospital';
         list.innerHTML += `
           <tr>
@@ -3992,6 +4009,55 @@ const app = {
       XLSX.writeFile(wb, `NoorHospital_CashReport_${new Date().toISOString().split('T')[0]}.xlsx`);
       app.ui.showToast('Multi-sheet report downloaded.');
     },
+    exportPage(page){
+      if(typeof XLSX==='undefined'){ app.ui.showToast('Excel library loading...','error'); return; }
+      const wb=XLSX.utils.book_new();
+      let rows=[], sheetName=page, fileName=`NoorHospital_${page}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const filtered=(list,pg)=>app.ui.getFiltered(list,pg);
+      if(page==='advance'){
+        const d=filtered(app.state.advanceCashEntries,'advance');
+        rows=[['Advance Cash Ledger (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([e.date,e.amount,e.remarks||'-']));
+        if(!d.length) rows.push(['No records']);
+        sheetName='Advance Cash';
+      } else if(page==='hospital'){
+        const d=filtered(app.state.hospitalCashEntries,'hospital');
+        rows=[['Hospital Cash Collections (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Source','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([e.date,e.source,e.amount,e.remarks||'-']));
+        if(!d.length) rows.push(['No records']);
+        sheetName='Hospital Cash';
+      } else if(page==='deposits'){
+        const d=filtered(app.state.hospitalDeposits,'deposits');
+        rows=[['Hospital Deposits (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Receipt No','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([e.date,e.receiptNumber,e.amount,e.remarks||'-']));
+        sheetName='Deposits';
+      } else if(page==='slips'){
+        const d=filtered(app.state.temporarySlips,'slips');
+        rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
+        d.forEach(e=>rows.push([e.date,e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
+        sheetName='Temp Slips';
+      } else if(page==='bills'){
+        const d=filtered(app.state.bills,'bills');
+        rows=[['Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Expense Type','Category','Remarks']];
+        d.forEach(e=>rows.push([e.date,e.billNumber,e.vendor,e.amount,e.expenseType,e.category,e.remarks||'-']));
+        sheetName='Bills';
+      } else if(page==='accounts'){
+        const d=filtered(app.state.accountsRegister,'accounts');
+        rows=[['Accounts Register (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date Sent','Bill Type','Amount (₹)','Reference No','Remarks']];
+        d.forEach(e=>rows.push([e.dateSent,e.billType,e.amount,e.referenceNo||'-',e.remarks||'-']));
+        sheetName='Accounts';
+      } else if(page==='transfers'){
+        const d=filtered(app.state.transfers,'transfers');
+        rows=[['Transfers (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Type','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([e.date,e.type,e.amount,e.remarks||'-']));
+        sheetName='Transfers';
+      }
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=rows[4]?rows[4].map(()=>({wch:18})): [{wch:18}];
+      XLSX.utils.book_append_sheet(wb,ws,sheetName);
+      XLSX.writeFile(wb,fileName);
+      app.ui.showToast(`${sheetName} exported (${rows.length-5} rows)`);
+    },
 
     printCurrentReport() {
       const titleEl = document.getElementById('report-title-display');
@@ -4696,16 +4762,13 @@ const app = {
       const container = document.getElementById('mobile-list-advance');
       if (!container) return;
       container.innerHTML = '';
-
-      const sorted = [...app.state.advanceCashEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
-      
+      const sorted = app.ui.getFiltered(app.state.advanceCashEntries,'advance');
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No cash entry records found.</div>';
+        const f=app.ui.filters.advance; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No cash entry records found.'}</div>`;
         return;
       }
-
-      // Calculate running balances (ascending order first)
-      const ascending = [...app.state.advanceCashEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const ascending = [...sorted].sort((a, b) => new Date(a.date) - new Date(b.date));
       const balanceMap = {};
       let running = app.state.openingAdvanceCash;
       ascending.forEach(entry => {
@@ -4747,15 +4810,13 @@ const app = {
       const container = document.getElementById('mobile-list-hospital');
       if (!container) return;
       container.innerHTML = '';
-
-      const sorted = [...app.state.hospitalCashEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
-      
+      const sorted = app.ui.getFiltered(app.state.hospitalCashEntries,'hospital');
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No collections recorded yet.</div>';
+        const f=app.ui.filters.hospital; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No collections recorded yet.'}</div>`;
         return;
       }
-
-      const ascending = [...app.state.hospitalCashEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+      const ascending = [...sorted].sort((a, b) => new Date(a.date) - new Date(b.date));
       const balanceMap = {};
       let running = app.state.openingHospitalCash;
       ascending.forEach(entry => {
@@ -4798,11 +4859,10 @@ const app = {
       const container = document.getElementById('mobile-list-slips');
       if (!container) return;
       container.innerHTML = '';
-
-      const sorted = [...app.state.temporarySlips].sort((a, b) => new Date(b.date) - new Date(a.date));
-      
+      const sorted = app.ui.getFiltered(app.state.temporarySlips,'slips');
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No temporary slips registered.</div>';
+        const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No temporary slips registered.'}</div>`;
         return;
       }
 
@@ -4870,19 +4930,13 @@ const app = {
       const container = document.getElementById('mobile-list-bills');
       if (!container) return;
       container.innerHTML = '';
-
-      const filterType = document.getElementById('filter-bills-type').value;
-      let sorted = [...app.state.bills];
-      if (filterType) {
-        sorted = sorted.filter(b => b.expenseType === filterType);
-      }
-      sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const sorted = app.ui.getFiltered(app.state.bills,'bills');
 
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No final bills found.</div>';
+        const f=app.ui.filters.bills; const fb=document.getElementById('filter-bills-type')?.value; const isF=f.search||f.from||f.to||fb;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No final bills found.'}</div>`;
         return;
       }
-
       sorted.forEach(bill => {
         const typeLabel = bill.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
         const note = !bill.slipId ? 'Direct' : 'From Slip';
@@ -4930,14 +4984,13 @@ const app = {
       const container = document.getElementById('mobile-list-accounts');
       if (!container) return;
       container.innerHTML = '';
-      
-      const sorted = [...app.state.accountsRegister].sort((a, b) => new Date(b.dateSent) - new Date(a.dateSent));
+      const sorted = app.ui.getFiltered(app.state.accountsRegister,'accounts');
 
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No batches sent to accounts.</div>';
+        const f=app.ui.filters.accounts; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No batches sent to accounts.'}</div>`;
         return;
       }
-
       sorted.forEach(acc => {
         const typeBadge = acc.billType === 'advance' 
           ? `<span class="badge badge-primary">Advance</span>` 
@@ -4986,11 +5039,10 @@ const app = {
       const container = document.getElementById('mobile-list-transfers');
       if (!container) return;
       container.innerHTML = '';
-
-      const sorted = [...app.state.transfers].sort((a, b) => new Date(b.date) - new Date(a.date));
-      
+      const sorted = app.ui.getFiltered(app.state.transfers,'transfers');
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No transfers recorded.</div>';
+        const f=app.ui.filters.transfers; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No transfers recorded.'}</div>`;
         return;
       }
 
@@ -5027,11 +5079,10 @@ const app = {
       const container = document.getElementById('mobile-list-deposits');
       if (!container) return;
       container.innerHTML = '';
-
-      const sorted = [...app.state.hospitalDeposits].sort((a, b) => new Date(b.date) - new Date(a.date));
-
+      const sorted = app.ui.getFiltered(app.state.hospitalDeposits,'deposits');
       if (!sorted.length) {
-        container.innerHTML = '<div class="mobile-card-empty">No deposits to Muhasib recorded.</div>';
+        const f=app.ui.filters.deposits; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No deposits to Muhasib recorded.'}</div>`;
         return;
       }
 

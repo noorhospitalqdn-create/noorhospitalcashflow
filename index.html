@@ -529,6 +529,24 @@
               <span>Add Cash Entry</span>
             </button>
           </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-advance-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-advance-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-advance" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Remarks A → Z</option>
+              <option value="alpha_desc">Remarks Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-advance">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('advance')">Clear</button>
+          </div>
 
           <div class="card overflow-x">
             <table class="data-table" id="table-advance">
@@ -560,6 +578,24 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               <span>Add Collection Entry</span>
             </button>
+          </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-hospital-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-hospital-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-hospital" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Source A → Z</option>
+              <option value="alpha_desc">Source Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-hospital">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('hospital')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('hospital')">Clear</button>
           </div>
 
           <div class="card overflow-x">
@@ -594,6 +630,24 @@
               <span>Add Deposit Entry</span>
             </button>
           </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-deposits-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-deposits-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-deposits" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Receipt A → Z</option>
+              <option value="alpha_desc">Receipt Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-deposits">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('deposits')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('deposits')">Clear</button>
+          </div>
 
           <div class="card overflow-x">
             <table class="data-table" id="table-deposits">
@@ -626,6 +680,24 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               <span>Add Temporary Slip</span>
             </button>
+          </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-slips-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-slips-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-slips" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Vendor A → Z</option>
+              <option value="alpha_desc">Vendor Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-slips">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('slips')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('slips')">Clear</button>
           </div>
 
           <div class="card overflow-x">
@@ -661,6 +733,24 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
               <span>Send To Accounts</span>
             </button>
+          </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-accounts-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-accounts-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-accounts" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Ref A → Z</option>
+              <option value="alpha_desc">Ref Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-accounts">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('accounts')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('accounts')">Clear</button>
           </div>
 
           <div class="card overflow-x">
@@ -701,6 +791,24 @@
               </button>
             </div>
           </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-bills-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-bills-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-bills" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Vendor A → Z</option>
+              <option value="alpha_desc">Vendor Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-bills">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('bills')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('bills')">Clear</button>
+          </div>
 
           <div class="card overflow-x">
             <table class="data-table" id="table-bills">
@@ -736,6 +844,24 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
               <span>Record Transfer</span>
             </button>
+          </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-transfers-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-transfers-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-transfers" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Remarks A → Z</option>
+              <option value="alpha_desc">Remarks Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-transfers">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('transfers')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('transfers')">Clear</button>
           </div>
 
           <div class="card overflow-x">
