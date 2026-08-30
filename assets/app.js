@@ -3698,6 +3698,54 @@ const app = {
             </div>
           </div>
         `;
+      } else if (type === 'hospital_combined') {
+        titleDisplay.innerText = 'Hospital Cash + Hospital Bills + Temp Slips + Deposits (Dr/Cr Ledger)';
+        thead.classList.add('hidden');
+        tbody.classList.add('hidden');
+        bsPlaceholder.classList.remove('hidden');
+        const hospCashList = filterByDateRange(app.state.hospitalCashEntries);
+        const hospBillList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'hospital'));
+        const hospSlipList = filterByDateRange(app.state.temporarySlips.filter(s => s.expenseType === 'hospital'));
+        const depList = filterByDateRange(app.state.hospitalDeposits);
+        const combined = [];
+        hospCashList.forEach(e => combined.push({ date: e.date, remarks: `${e.source || '-'}${e.remarks ? ' - '+e.remarks : ''}`, dr: e.amount, cr: 0, sortDate: e.date, badge: 'Cash Collection', badgeColor: 'var(--primary)' }));
+        hospBillList.forEach(b => combined.push({ date: b.date, remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, dr: 0, cr: b.amount, sortDate: b.date, badge: 'Hospital Bill', badgeColor: 'var(--error)' }));
+        hospSlipList.forEach(s => combined.push({ date: s.date, remarks: `${s.vendor || '-'}${s.remarks ? ' - '+s.remarks : ''}`, dr: 0, cr: s.amount, sortDate: s.date, badge: 'Temp Slip', badgeColor: 'var(--accent)' }));
+        depList.forEach(d => combined.push({ date: d.date, remarks: `${d.receiptNumber || '-'}${d.remarks ? ' - '+d.remarks : ''}`, dr: 0, cr: d.amount, sortDate: d.date, badge: 'Deposit to Muhasib', badgeColor: 'var(--secondary)' }));
+        combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
+        let runningBal = app.state.openingHospitalCash;
+        let totalDr = 0;
+        let totalCr = 0;
+        let rowsHtml = `<tr style="background:var(--bg-secondary); font-weight:700;"><td class="num-val">-</td><td>Opening Balance (Hospital Cash)</td><td class="num-val text-right"></td><td class="num-val text-right"></td><td class="num-val text-right">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+        combined.forEach(row => {
+          if(row.dr) { totalDr += row.dr; runningBal += row.dr; }
+          if(row.cr) { totalCr += row.cr; runningBal -= row.cr; }
+          const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
+          const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
+          const badge = `<span class="source-tag" style="background:var(--bg-input);color:${row.badgeColor};border-color:${row.badgeColor}">${row.badge}</span>`;
+          rowsHtml += `<tr><td class="num-val">${row.date}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+        });
+        if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted">No records in selected date range.</td></tr>`;
+        const closingBal = app.state.openingHospitalCash + totalDr - totalCr;
+        rowsHtml += `<tr class="total-row" style="font-weight:800; border-top:2px solid var(--border-color); background:var(--bg-secondary);"><td colspan="2">TOTAL</td><td class="num-val text-right text-success">${app.ui.formatCurrency(totalDr)}</td><td class="num-val text-right text-error">${app.ui.formatCurrency(totalCr)}</td><td class="num-val text-right">${app.ui.formatCurrency(closingBal)}</td></tr>`;
+        bsPlaceholder.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
+            <div class="card" style="padding:0; overflow:hidden;">
+              <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                <span>Hospital Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits &nbsp;|&nbsp; Balance = Running</span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Collection)</th><th class="text-right">Cr (Expense/Deposit)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+              </div>
+            </div>
+            <div class="card" style="padding:1rem 1.1rem; background:var(--bg-secondary); display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:space-between; font-weight:700; font-size:13px;">
+              <span>Opening: ${app.ui.formatCurrency(app.state.openingHospitalCash)}</span>
+              <span>Total Dr: <span class="text-success">${app.ui.formatCurrency(totalDr)}</span></span>
+              <span>Total Cr: <span class="text-error">${app.ui.formatCurrency(totalCr)}</span></span>
+              <span>Closing Balance: ${app.ui.formatCurrency(closingBal)}</span>
+            </div>
+          </div>
+        `;
       } else if (type === 'balance_sheet') {
         titleDisplay.innerText = 'Cash Balance Sheet Statement';
         thead.classList.add('hidden');
@@ -3809,6 +3857,43 @@ const app = {
         XLSX.utils.book_append_sheet(wbSingle, wsSingle, 'Adv DrCr Ledger');
         XLSX.writeFile(wbSingle, `NoorHospital_Adv_DrCr_${sVal||'all'}_to_${eVal||'all'}.xlsx`);
         app.ui.showToast('Dr/Cr Advance Ledger exported (filtered).');
+        return;
+      }
+      if (selType === 'hospital_combined') {
+        const wbSingle = XLSX.utils.book_new();
+        const rows = [
+          ['Noor Hospital - Hospital Cash Dr / Cr Ledger (Collections vs Bills/Slips/Deposits)'],
+          ['Report Date Range', sVal || 'Start', 'to', eVal || 'End'],
+          ['Generated On', new Date().toLocaleString('en-IN')],
+          ['Opening Hospital Cash Balance', app.state.openingHospitalCash],
+          [],
+          ['Date', 'Particulars', 'Voucher Type', 'Dr - Collection (₹)', 'Cr - Expense/Deposit (₹)', 'Balance (₹)']
+        ];
+        let bal = app.state.openingHospitalCash;
+        const comb = [];
+        app.state.hospitalCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:`${e.source||'-'}${e.remarks?' - '+e.remarks:''}`, vType:'Cash Collection', dr:e.amount, cr:0}));
+        app.state.bills.filter(b=>b.expenseType==='hospital' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}${b.category?' - '+b.category:''}`, vType:'Hospital Bill', dr:0, cr:b.amount}));
+        app.state.temporarySlips.filter(s=>s.expenseType==='hospital' && inRange(s.date)).forEach(s=>comb.push({date:s.date, particulars:`${s.vendor||'-'}${s.remarks?' - '+s.remarks:''}`, vType:'Temp Slip', dr:0, cr:s.amount}));
+        app.state.hospitalDeposits.filter(d=>inRange(d.date)).forEach(d=>comb.push({date:d.date, particulars:`${d.receiptNumber||'-'}${d.remarks?' - '+d.remarks:''}`, vType:'Deposit to Muhasib', dr:0, cr:d.amount}));
+        comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
+        rows.push(['', 'Opening Balance', '', '', '', bal]);
+        comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([r.date, r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
+        if(!comb.length) rows.push(['', 'No records in selected range', '', '', '', '']);
+        const tDr = comb.reduce((s,r)=>s+r.dr,0);
+        const tCr = comb.reduce((s,r)=>s+r.cr,0);
+        rows.push([]);
+        rows.push(['TOTAL', '', '', tDr, tCr, app.state.openingHospitalCash + tDr - tCr]);
+        const wsSingle = XLSX.utils.aoa_to_sheet(rows);
+        wsSingle['!cols'] = [{wch:13},{wch:44},{wch:18},{wch:18},{wch:18},{wch:18}];
+        wsSingle['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}}];
+        wsSingle['!autofilter'] = { ref: `A6:F6` };
+        wsSingle['!freeze'] = { xSplit: 0, ySplit: 6, topLeftCell: 'A7', activePane: 'bottomLeft' };
+        const rangeH = XLSX.utils.decode_range(wsSingle['!ref']);
+        for(let C=rangeH.s.c; C<=rangeH.e.c; ++C){ const addr = XLSX.utils.encode_cell({r:5,c:C}); if(wsSingle[addr]) wsSingle[addr].s = { font:{bold:true, color:{rgb:"FFFFFF"}}, fill:{fgColor:{rgb:"1F4E79"}}, alignment:{horizontal:"center", vertical:"center", wrapText:true}, border:{top:{style:"thin",color:{rgb:"000000"}},bottom:{style:"thin",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}} }; }
+        wsSingle['A1'].s = { font:{bold:true, sz:14, color:{rgb:"1F4E79"}}, alignment:{horizontal:"center", vertical:"center"} };
+        XLSX.utils.book_append_sheet(wbSingle, wsSingle, 'Hosp DrCr Ledger');
+        XLSX.writeFile(wbSingle, `NoorHospital_Hosp_DrCr_${sVal||'all'}_to_${eVal||'all'}.xlsx`);
+        app.ui.showToast('Dr/Cr Hospital Ledger exported (filtered).');
         return;
       }
       const wb = XLSX.utils.book_new();
