@@ -3703,7 +3703,7 @@ const app = {
           </div>
         `;
       } else if (type === 'hospital_combined') {
-        titleDisplay.innerText = 'Hospital Cash + Hospital Bills + Temp Slips + Deposits (Dr/Cr Ledger)';
+        titleDisplay.innerText = 'Hospital Cash Ledger';
         thead.classList.add('hidden');
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
@@ -3712,10 +3712,14 @@ const app = {
         const hospSlipList = filterByDateRange(app.state.temporarySlips.filter(s => s.expenseType === 'hospital'));
         const depList = filterByDateRange(app.state.hospitalDeposits);
         const combined = [];
-        hospCashList.forEach(e => combined.push({ date: e.date, remarks: `${e.source || '-'}${e.remarks ? ' - '+e.remarks : ''}`, dr: e.amount, cr: 0, sortDate: e.date, badge: 'Cash Collection', badgeColor: 'var(--primary)' }));
-        hospBillList.forEach(b => combined.push({ date: b.date, remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, dr: 0, cr: b.amount, sortDate: b.date, badge: 'Hospital Bill', badgeColor: 'var(--error)' }));
-        hospSlipList.forEach(s => combined.push({ date: s.date, remarks: `${s.vendor || '-'}${s.remarks ? ' - '+s.remarks : ''}`, dr: 0, cr: s.amount, sortDate: s.date, badge: 'Temp Slip', badgeColor: 'var(--accent)' }));
-        depList.forEach(d => combined.push({ date: d.date, remarks: `${d.receiptNumber || '-'}${d.remarks ? ' - '+d.remarks : ''}`, dr: 0, cr: d.amount, sortDate: d.date, badge: 'Deposit to Muhasib', badgeColor: 'var(--secondary)' }));
+        const totalCashAmt = hospCashList.reduce((s,x)=>s+x.amount,0);
+        if(hospCashList.length) combined.push({ date: hospCashList[hospCashList.length-1].date, remarks: `Total Cash Collection (${hospCashList.length} entries)`, dr: totalCashAmt, cr: 0, sortDate: hospCashList[hospCashList.length-1].date, badge: 'Cash Collection - Total', badgeColor: 'var(--primary)' });
+        const totalBillAmt = hospBillList.reduce((s,x)=>s+x.amount,0);
+        if(hospBillList.length) combined.push({ date: hospBillList[hospBillList.length-1].date, remarks: `Total Hospital Bills (${hospBillList.length} bills)`, dr: 0, cr: totalBillAmt, sortDate: hospBillList[hospBillList.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
+        const totalSlipAmt = hospSlipList.reduce((s,x)=>s+x.amount,0);
+        if(hospSlipList.length) combined.push({ date: hospSlipList[hospSlipList.length-1].date, remarks: `Total Temp Slips (${hospSlipList.length} slips)`, dr: 0, cr: totalSlipAmt, sortDate: hospSlipList[hospSlipList.length-1].date, badge: 'Temp Slips - Total', badgeColor: 'var(--accent)' });
+        const totalDepAmt = depList.reduce((s,x)=>s+x.amount,0);
+        if(depList.length) combined.push({ date: depList[depList.length-1].date, remarks: `Total Deposited to Muhasib (${depList.length} deposits)`, dr: 0, cr: totalDepAmt, sortDate: depList[depList.length-1].date, badge: 'Deposits - Total', badgeColor: 'var(--secondary)' });
         combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
         let runningBal = app.state.openingHospitalCash;
         let totalDr = 0;
@@ -3736,7 +3740,7 @@ const app = {
           <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
             <div class="card" style="padding:0; overflow:hidden;">
               <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                <span>Hospital Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits &nbsp;|&nbsp; Balance = Running</span>
+                <span>Hospital Cash Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits &nbsp;|&nbsp; Balance = Running</span>
               </div>
               <div style="overflow-x:auto;">
                 <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Collection)</th><th class="text-right">Cr (Expense/Deposit)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
@@ -3866,7 +3870,7 @@ const app = {
       if (selType === 'hospital_combined') {
         const wbSingle = XLSX.utils.book_new();
         const rows = [
-          ['Noor Hospital - Hospital Cash Dr / Cr Ledger (Collections vs Bills/Slips/Deposits)'],
+          ['Noor Hospital - Hospital Cash Ledger'],
           ['Report Date Range', sVal || 'Start', 'to', eVal || 'End'],
           ['Generated On', new Date().toLocaleString('en-IN')],
           ['Opening Hospital Cash Balance', app.state.openingHospitalCash],
@@ -3875,10 +3879,14 @@ const app = {
         ];
         let bal = app.state.openingHospitalCash;
         const comb = [];
-        app.state.hospitalCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:`${e.source||'-'}${e.remarks?' - '+e.remarks:''}`, vType:'Cash Collection', dr:e.amount, cr:0}));
-        app.state.bills.filter(b=>b.expenseType==='hospital' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}${b.category?' - '+b.category:''}`, vType:'Hospital Bill', dr:0, cr:b.amount}));
-        app.state.temporarySlips.filter(s=>s.expenseType==='hospital' && inRange(s.date)).forEach(s=>comb.push({date:s.date, particulars:`${s.vendor||'-'}${s.remarks?' - '+s.remarks:''}`, vType:'Temp Slip', dr:0, cr:s.amount}));
-        app.state.hospitalDeposits.filter(d=>inRange(d.date)).forEach(d=>comb.push({date:d.date, particulars:`${d.receiptNumber||'-'}${d.remarks?' - '+d.remarks:''}`, vType:'Deposit to Muhasib', dr:0, cr:d.amount}));
+        const _hCash = app.state.hospitalCashEntries.filter(e=>inRange(e.date));
+        if(_hCash.length) comb.push({date:_hCash[_hCash.length-1].date, particulars:`Total Cash Collection (${_hCash.length} entries)`, vType:'Cash Collection - Total', dr:_hCash.reduce((s,x)=>s+x.amount,0), cr:0});
+        const _hBills = app.state.bills.filter(b=>b.expenseType==='hospital' && inRange(b.date));
+        if(_hBills.length) comb.push({date:_hBills[_hBills.length-1].date, particulars:`Total Hospital Bills (${_hBills.length} bills)`, vType:'Hospital Bills - Total', dr:0, cr:_hBills.reduce((s,x)=>s+x.amount,0)});
+        const _hSlips = app.state.temporarySlips.filter(s=>s.expenseType==='hospital' && inRange(s.date));
+        if(_hSlips.length) comb.push({date:_hSlips[_hSlips.length-1].date, particulars:`Total Temp Slips (${_hSlips.length} slips)`, vType:'Temp Slips - Total', dr:0, cr:_hSlips.reduce((s,x)=>s+x.amount,0)});
+        const _hDeps = app.state.hospitalDeposits.filter(d=>inRange(d.date));
+        if(_hDeps.length) comb.push({date:_hDeps[_hDeps.length-1].date, particulars:`Total Deposited to Muhasib (${_hDeps.length} deposits)`, vType:'Deposits - Total', dr:0, cr:_hDeps.reduce((s,x)=>s+x.amount,0)});
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
         comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([app.ui.formatDate(r.date), r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
