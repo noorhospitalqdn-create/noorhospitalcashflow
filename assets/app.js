@@ -1019,6 +1019,7 @@ const app = {
       // 2. Fetch all raw items
       app.state.advanceCashEntries = await app.db.getAll('advance_cash');
       app.state.hospitalCashEntries = await app.db.getAll('hospital_cash');
+      for (const e of app.state.hospitalCashEntries) { if (e.source === 'Other') { e.source = 'Reception Cash'; try { await app.db.put('hospital_cash', e.id, e); } catch(_){} } }
       app.state.temporarySlips = await app.db.getAll('temporary_slips');
       app.state.bills = await app.db.getAll('bills');
       app.state.transfers = await app.db.getAll('transfers');
