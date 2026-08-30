@@ -1916,6 +1916,23 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     </button>
   </nav>
 
+  <dialog id="dialog-report-preview" closedby="any" class="modal-dialog modal-dialog-lg">
+    <div class="modal-header">
+      <h3 id="report-preview-title">Report Preview</h3>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-report-preview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="report-preview-body" style="max-height:65vh; overflow-y:auto; background:#fff; color:#000; padding:16px;"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-report-preview')">Close</button>
+      <button type="button" class="btn btn-primary" onclick="app.reports.doPrintFromPreview()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+        <span>Print</span>
+      </button>
+    </div>
+  </dialog>
+
   <!-- Mobile Ledgers Sub-Menu -->
   <div class="mobile-submenu-overlay" id="mobile-ledger-submenu">
     <div class="mobile-submenu-card">
