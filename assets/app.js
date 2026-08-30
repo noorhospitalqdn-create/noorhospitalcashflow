@@ -4162,10 +4162,12 @@ const app = {
       const metaEl = document.getElementById('report-meta-display');
       const container = document.getElementById('report-display-container');
       const title = titleEl ? titleEl.innerText : 'Report';
+      const printTitle = title === 'Advance Cash + Advance Bills Report (Against Advance Cash)' ? 'Muhasib Adv Report' : title;
       const meta = metaEl ? metaEl.innerText : '';
       const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
       const content = container.innerHTML;
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
+      const printContent = printTitle !== title ? content.split(title).join(printTitle) : content;
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${printTitle}</title><style>
         *{box-sizing:border-box;font-family:Plus Jakarta Sans,Arial,sans-serif}
         body{margin:0;padding:24px;color:#000;background:#fff}
         h1{font-size:18px;margin:0 0 4px}
@@ -4183,15 +4185,15 @@ const app = {
         .hidden{display:none!important}
         @media print{body{padding:12px}}
       </style></head><body>
-        <div class="header"><h2>Noor Hospital - Cash Management System</h2><h1>${title}</h1><p>${meta} &nbsp;|&nbsp; Generated: ${now}</p></div>
-        ${content}
+        <div class="header"><h2>Noor Hospital - Cash Management System</h2><h1>${printTitle}</h1><p>${meta} &nbsp;|&nbsp; Generated: ${now}</p></div>
+        ${printContent}
         <p style="text-align:center;font-size:10px;color:#666;margin-top:24px;border-top:1px solid #999;padding-top:8px">System generated report - Noor Hospital Cash Management</p>
       </body></html>`;
       app.reports._previewHtml = html;
       const bodyEl = document.getElementById('report-preview-body');
       const titlePreview = document.getElementById('report-preview-title');
-      if(bodyEl) bodyEl.innerHTML = `<div style="border:1px solid #ddd; background:#fff;">${content}</div><p style="text-align:center; font-size:11px; color:#888; margin-top:12px;">Preview — click Print to open print dialog</p>`;
-      if(titlePreview) titlePreview.textContent = title + ' — Preview';
+      if(bodyEl) bodyEl.innerHTML = `<div style="border:1px solid #ddd; background:#fff;">${printContent}</div><p style="text-align:center; font-size:11px; color:#888; margin-top:12px;">Preview — click Print to open print dialog</p>`;
+      if(titlePreview) titlePreview.textContent = printTitle + ' — Preview';
       app.ui.openModal('dialog-report-preview');
       return;
     },
