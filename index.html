@@ -2,11 +2,16 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Noor Hospital - Cash Management System</title>
   <!-- SEO & Meta Tags -->
-  <meta name="description" content="Offline-first cash management system for Noor Hospital to track Advance Cash, Hospital Collections, Slips, Bills, and Transfers.">
+  <meta name="description" content="Offline-first cash management system for Noor Hospital to track Muhasib Cash, Hospital Collections, Slips, Bills, and Transfers.">
   <meta name="theme-color" content="#09090b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Noor Hospital">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
   
   <!-- Premium Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -91,25 +96,30 @@
         <div class="nav-section-title">Ledgers & Registers</div>
         <button class="nav-item" data-panel="advance-cash">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-          <span>Advance Cash</span>
+          <span>Muhasib Cash</span>
+        </button>
+        <button class="nav-item" data-panel="advance-bills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
+          <span>Muhasib Bills</span>
+          <span class="badge" style="background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.2)" id="sidebar-advance-bills-badge">0</span>
         </button>
         <button class="nav-item" data-panel="hospital-cash">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
           <span>Hospital Cash</span>
         </button>
-        <button class="nav-item" data-panel="hospital-deposits">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
-          <span>Hospital Deposits</span>
+        <button class="nav-item" data-panel="bills">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+          <span>Hospital Bills</span>
+          <span class="badge badge-accent" id="sidebar-bills-badge">0</span>
         </button>
         <button class="nav-item" data-panel="temp-slips">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
           <span>Temporary Slips</span>
           <span class="badge" id="sidebar-temp-slips-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="bills">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
-          <span>Bills Management</span>
-          <span class="badge badge-accent" id="sidebar-bills-badge">0</span>
+        <button class="nav-item" data-panel="hospital-deposits">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
+          <span>Hospital Deposits</span>
         </button>
         <button class="nav-item" data-panel="accounts">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
@@ -205,7 +215,7 @@
             <!-- Row 1: Available Cash -->
             <div class="card metric-card card-gradient-primary">
               <div class="card-metric-header">
-                <span>Current Advance Cash Available</span>
+                <span>Current Muhasib Cash Available</span>
                 <span class="metric-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
                 </span>
@@ -238,21 +248,21 @@
               </div>
               <div class="card-metric-value" id="dash-total-cash-me">₹0.00</div>
               <div class="card-metric-footer">
-                <span class="formula-info">Advance Cash Available + Hospital Cash Available</span>
+                <span class="formula-info">Muhasib Cash Available + Hospital Cash Available</span>
               </div>
             </div>
 
             <!-- Row 2: Inflow / Received -->
             <div class="card metric-card card-imprest">
               <div class="card-metric-header">
-                <span>Total Advance Cash Received</span>
+                <span>Total Muhasib Cash Received</span>
                 <span class="metric-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
                 </span>
               </div>
               <div class="card-metric-value" id="dash-total-advance-received">₹0.00</div>
               <div class="card-metric-footer">
-                <span>Opening Advance Cash + Advance Entries</span>
+                <span>Opening Muhasib Cash + Advance Entries</span>
               </div>
             </div>
 
@@ -432,7 +442,7 @@
                   </div>
                   <div class="math-operator">=</div>
                   <div class="math-term">
-                    <span class="math-label">Advance Cash Available</span>
+                    <span class="math-label">Muhasib Cash Available</span>
                     <span class="math-value" id="math-adv-cash">₹0.00</span>
                   </div>
                   <div class="math-operator">+</div>
@@ -501,7 +511,7 @@
               <div class="form-group flex-col justify-center height-full">
                 <div class="setup-row">
                   <div class="setup-col">
-                    <label class="form-label-subtle">Opening Advance Cash</label>
+                    <label class="form-label-subtle">Opening Muhasib Cash</label>
                     <div class="setup-value" id="opening-adv-val">₹0.00</div>
                   </div>
                   <div class="setup-col">
@@ -518,7 +528,7 @@
         </section>
 
 
-        <!-- 2. ADVANCE CASH PANEL -->
+        <!-- 2. MUHASIB CASH PANEL -->
         <section class="panel" id="panel-advance-cash">
           <div class="panel-action-bar">
             <div class="search-box">
@@ -773,25 +783,68 @@
           <div class="mobile-card-list" id="mobile-list-accounts"></div>
         </section>
 
-        <!-- 5. BILLS MANAGEMENT PANEL -->
+        <!-- 5. MUHASIB BILLS PANEL -->
+        <section class="panel" id="panel-advance-bills">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search muhasib bills..." class="search-input" id="search-advance-bills">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openBillModal('advance')" style="background:var(--tertiary);border-color:var(--tertiary)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Muhasib Bill</span>
+            </button>
+          </div>
+          <div class="ledger-filter-bar" style="border-left:3px solid var(--tertiary)">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-advance-bills-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-advance-bills-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-advance-bills" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Vendor A → Z</option>
+              <option value="alpha_desc">Vendor Z → A</option>
+            </select>
+            <span class="ledger-total-badge" style="background:var(--tertiary-light);color:var(--tertiary);border-color:rgba(168,85,247,0.2)" id="total-advance-bills">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-bills')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('advance-bills')">Clear</button>
+          </div>
+
+          <div class="card overflow-x" style="border-left:3px solid var(--tertiary)">
+            <table class="data-table" id="table-advance-bills">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Bill Number</th>
+                  <th>Vendor Name</th>
+                  <th>Amount</th>
+                  <th>Category</th>
+                  <th>Attachment</th>
+                  <th>Remarks</th>
+                  <th class="text-center" style="width: 80px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-advance-bills"></tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-advance-bills"></div>
+        </section>
+
+        <!-- 5B. HOSPITAL BILLS PANEL -->
         <section class="panel" id="panel-bills">
           <div class="panel-action-bar">
             <div class="search-box">
-              <input type="text" placeholder="Search bills..." class="search-input" id="search-bills">
+              <input type="text" placeholder="Search hospital bills..." class="search-input" id="search-bills">
             </div>
-            <div class="flex gap-2">
-              <select id="filter-bills-type" class="form-select" style="max-width: 180px;">
-                <option value="">All Types</option>
-                <option value="advance">Advance Expense</option>
-                <option value="hospital">Hospital Expense</option>
-              </select>
-              <button class="btn btn-primary" onclick="app.ui.openModal('dialog-bill-add')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                <span>Add Bill</span>
-              </button>
-            </div>
+            <button class="btn btn-primary" onclick="app.ui.openBillModal('hospital')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Hospital Bill</span>
+            </button>
           </div>
-          <div class="ledger-filter-bar">
+          <div class="ledger-filter-bar" style="border-left:3px solid var(--secondary)">
             <div class="ledger-filter-group">
               <input type="date" id="filter-bills-from" class="form-input form-input-sm" title="From date">
               <span class="filter-sep">to</span>
@@ -805,12 +858,12 @@
               <option value="alpha_asc">Vendor A → Z</option>
               <option value="alpha_desc">Vendor Z → A</option>
             </select>
-            <span class="ledger-total-badge" id="total-bills">Total: ₹0.00 (0)</span>
+            <span class="ledger-total-badge" style="background:var(--secondary-light);color:var(--secondary);border-color:rgba(99,102,241,0.2)" id="total-bills">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('bills')">Export Excel</button>
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('bills')">Clear</button>
           </div>
 
-          <div class="card overflow-x">
+          <div class="card overflow-x" style="border-left:3px solid var(--secondary)">
             <table class="data-table" id="table-bills">
               <thead>
                 <tr>
@@ -818,16 +871,13 @@
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Amount</th>
-                  <th>Expense Type</th>
                   <th>Category</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 80px;">Action</th>
                 </tr>
               </thead>
-              <tbody id="list-bills">
-                <!-- Javascript populated -->
-              </tbody>
+              <tbody id="list-bills"></tbody>
             </table>
           </div>
           <div class="mobile-card-list" id="mobile-list-bills"></div>
@@ -898,7 +948,7 @@
                 <div class="balance-section">
                   <h3 class="balance-section-title">Cash Position</h3>
                   <div class="balance-item">
-                    <span class="balance-item-label">Advance Cash Available</span>
+                    <span class="balance-item-label">Muhasib Cash Available</span>
                     <span class="balance-item-val" id="bs-advance-cash">₹0.00</span>
                   </div>
                   <div class="balance-item border-bottom-subtle">
@@ -974,8 +1024,8 @@
                 <div class="form-group">
                   <label class="form-label" for="report-select-type">Select Report Type</label>
                   <select id="report-select-type" class="form-select">
-                    <option value="advance">Advance Cash Report</option>
-                    <option value="advance_bills">Advance Cash + Advance Bills (Against Advance)</option>
+                    <option value="advance">Muhasib Cash Report</option>
+                    <option value="advance_bills">Muhasib Cash + Advance Bills (Against Advance)</option>
                     <option value="hospital">Hospital Cash Report</option>
                     <option value="hospital_combined">Hospital Cash + Hospital Bills + Temp Slips + Deposits (Dr/Cr)</option>
                     <option value="deposit_history">Hospital Deposit History</option>
@@ -1015,7 +1065,7 @@
           <!-- Report Display Container -->
           <div class="card overflow-x" id="report-display-container">
             <div class="report-header-preview">
-              <h2 id="report-title-display">Advance Cash Ledger Report</h2>
+              <h2 id="report-title-display">Muhasib Cash Ledger Report</h2>
               <p id="report-meta-display">All Records</p>
             </div>
             
@@ -1045,7 +1095,7 @@
               
               <form id="form-update-opening-balances">
                 <div class="form-group">
-                  <label class="form-label" for="setting-opening-advance">Opening Advance Cash (₹)</label>
+                  <label class="form-label" for="setting-opening-advance">Opening Muhasib Cash (₹)</label>
                   <input type="number" step="0.01" min="0" id="setting-opening-advance" class="form-input" inputmode="decimal" required>
                 </div>
                 <div class="form-group">
@@ -1053,6 +1103,93 @@
                   <input type="number" step="0.01" min="0" id="setting-opening-hospital" class="form-input" inputmode="decimal" required>
                 </div>
                 <button type="submit" class="btn btn-primary w-full">Save Opening Balances</button>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Sidebar Custom Colors</div>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Apni marzi se har section ka color set karein. Purple, Green, Yellow etc ya custom color picker se.</p>
+              <form id="form-sidebar-colors">
+                <div class="form-group">
+                  <label class="form-label" for="color-muhasib">Muhasib Cash &amp; Muhasib Bills</label>
+                  <div style="display:flex;gap:0.5rem;align-items:center">
+                    <select id="color-muhasib" class="form-select" style="flex:1">
+                      <option value="#a855f7">Purple</option>
+                      <option value="#10b981">Green</option>
+                      <option value="#6366f1">Indigo</option>
+                      <option value="#f59e0b">Yellow / Amber</option>
+                      <option value="#ef4444">Red</option>
+                      <option value="#ec4899">Pink</option>
+                      <option value="#06b6d4">Cyan</option>
+                      <option value="#14b8a6">Teal</option>
+                      <option value="#f97316">Orange</option>
+                      <option value="#3b82f6">Blue</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    <input type="color" id="color-muhasib-custom" value="#a855f7" style="width:44px;height:40px;padding:2px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="color-hospital">Hospital Cash / Bills / Temp Slips / Deposits</label>
+                  <div style="display:flex;gap:0.5rem;align-items:center">
+                    <select id="color-hospital" class="form-select" style="flex:1">
+                      <option value="#6366f1">Indigo</option>
+                      <option value="#10b981">Green</option>
+                      <option value="#a855f7">Purple</option>
+                      <option value="#f59e0b">Yellow / Amber</option>
+                      <option value="#ef4444">Red</option>
+                      <option value="#ec4899">Pink</option>
+                      <option value="#06b6d4">Cyan</option>
+                      <option value="#14b8a6">Teal</option>
+                      <option value="#f97316">Orange</option>
+                      <option value="#3b82f6">Blue</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    <input type="color" id="color-hospital-custom" value="#6366f1" style="width:44px;height:40px;padding:2px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="color-accounts">Accounts Department</label>
+                  <div style="display:flex;gap:0.5rem;align-items:center">
+                    <select id="color-accounts" class="form-select" style="flex:1">
+                      <option value="#f59e0b">Yellow / Amber</option>
+                      <option value="#a855f7">Purple</option>
+                      <option value="#10b981">Green</option>
+                      <option value="#6366f1">Indigo</option>
+                      <option value="#ef4444">Red</option>
+                      <option value="#ec4899">Pink</option>
+                      <option value="#06b6d4">Cyan</option>
+                      <option value="#14b8a6">Teal</option>
+                      <option value="#f97316">Orange</option>
+                      <option value="#3b82f6">Blue</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    <input type="color" id="color-accounts-custom" value="#f59e0b" style="width:44px;height:40px;padding:2px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="color-transfers">Verification &amp; Transfers</label>
+                  <div style="display:flex;gap:0.5rem;align-items:center">
+                    <select id="color-transfers" class="form-select" style="flex:1">
+                      <option value="#10b981">Green</option>
+                      <option value="#a855f7">Purple</option>
+                      <option value="#6366f1">Indigo</option>
+                      <option value="#f59e0b">Yellow / Amber</option>
+                      <option value="#ef4444">Red</option>
+                      <option value="#ec4899">Pink</option>
+                      <option value="#06b6d4">Cyan</option>
+                      <option value="#14b8a6">Teal</option>
+                      <option value="#f97316">Orange</option>
+                      <option value="#3b82f6">Blue</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    <input type="color" id="color-transfers-custom" value="#10b981" style="width:44px;height:40px;padding:2px;border-radius:8px;border:1px solid var(--border-color);cursor:pointer">
+                  </div>
+                </div>
+                <div style="display:flex;gap:0.5rem;margin-top:1rem">
+                  <button type="submit" class="btn btn-primary" style="flex:1">Save Colors</button>
+                  <button type="button" class="btn btn-secondary" onclick="app.sidebarColors.reset()" style="flex:1">Reset Default</button>
+                </div>
               </form>
             </div>
 
@@ -1281,7 +1418,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     <form id="form-settings-balances">
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label" for="input-opening-advance">Opening Advance Cash (₹)</label>
+          <label class="form-label" for="input-opening-advance">Opening Muhasib Cash (₹)</label>
           <input type="number" step="0.01" min="0" id="input-opening-advance" class="form-input" inputmode="decimal" placeholder="0.00" required>
         </div>
         <div class="form-group">
@@ -1297,10 +1434,10 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
   </dialog>
 
 
-  <!-- MODAL: Add Advance Cash Entry -->
+  <!-- MODAL: Add Muhasib Cash Entry -->
   <dialog id="dialog-advance-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
-      <h3 id="dialog-advance-title">Add Advance Cash Entry</h3>
+      <h3 id="dialog-advance-title">Add Muhasib Cash Entry</h3>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-advance-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -1475,7 +1612,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         <div class="form-group">
           <label class="form-label" for="slip-exp-type">Expense Type</label>
           <select id="slip-exp-type" class="form-select" required>
-            <option value="advance">Advance Cash Expense</option>
+            <option value="advance">Muhasib Cash Expense</option>
             <option value="hospital">Hospital Cash Expense</option>
           </select>
         </div>
@@ -1668,7 +1805,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         <div class="form-group">
           <label class="form-label" for="bill-exp-type">Expense Type</label>
           <select id="bill-exp-type" class="form-select" required>
-            <option value="advance">Advance Cash Expense</option>
+            <option value="advance">Muhasib Cash Expense</option>
             <option value="hospital">Hospital Cash Expense</option>
           </select>
         </div>
@@ -1758,7 +1895,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
           <label class="form-label" for="accounts-bill-type">Bill Type</label>
           <select id="accounts-bill-type" class="form-select" required onchange="app.ui.calculateAccountsBatch()">
             <option value="">Select Bill Type</option>
-            <option value="advance">Advance Cash Bills</option>
+            <option value="advance">Muhasib Cash Bills</option>
             <option value="hospital">Hospital Cash Bills</option>
           </select>
         </div>
@@ -1938,20 +2075,20 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     <div class="mobile-submenu-card">
       <button class="mobile-submenu-item" data-panel="advance-cash">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Advance Cash
+        Muhasib Cash
       </button>
       <button class="mobile-submenu-item" data-panel="hospital-cash">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
         Hospital Cash
       </button>
-      <button class="mobile-submenu-item" data-panel="hospital-deposits">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
-        Hospital Deposits
-      </button>
       <button class="mobile-submenu-item" data-panel="temp-slips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
         Temporary Slips
         <span class="submenu-badge" id="submenu-slips-badge">0</span>
+      </button>
+      <button class="mobile-submenu-item" data-panel="hospital-deposits">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
+        Hospital Deposits
       </button>
       <button class="mobile-submenu-item" data-panel="accounts">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>

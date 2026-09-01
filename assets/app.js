@@ -1138,14 +1138,15 @@ const app = {
       deposits:{search:'',from:'',to:'',sort:'date_desc'},
       slips:{search:'',from:'',to:'',sort:'date_desc'},
       bills:{search:'',from:'',to:'',sort:'date_desc'},
+      'advance-bills':{search:'',from:'',to:'',sort:'date_desc'},
       accounts:{search:'',from:'',to:'',sort:'date_desc'},
       transfers:{search:'',from:'',to:'',sort:'date_desc'}
     },
     applyFilter(page, patch){
       Object.assign(app.ui.filters[page], patch);
-      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable',bills:'renderBillsTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
+      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable',bills:'renderBillsTable','advance-bills':'renderAdvanceBillsTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
       if(map[page]) app.ui[map[page]]();
-      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards',bills:'renderBillsCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
+      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards',bills:'renderBillsCards','advance-bills':'renderAdvanceBillsCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
       if(app.mobile.isMobile() && app.mobile[mmap[page]]) app.mobile[mmap[page]]();
     },
     clearFilters(page){
@@ -1154,11 +1155,6 @@ const app = {
       const f=document.getElementById('filter-'+page+'-from'); if(f) f.value='';
       const t=document.getElementById('filter-'+page+'-to'); if(t) t.value='';
       const so=document.getElementById('sort-'+page); if(so) so.value='date_desc';
-      if(page==='bills'){const fb=document.getElementById('filter-bills-type'); if(fb) fb.value='';}
-      if(page==='slips' && document.getElementById('search-slips')) document.getElementById('search-slips').value='';
-      if(page==='deposits' && document.getElementById('search-deposits')) document.getElementById('search-deposits').value='';
-      if(page==='accounts' && document.getElementById('search-accounts')) document.getElementById('search-accounts').value='';
-      const idMap={bills:'filter-bills-type'};
       app.ui.applyFilter(page,{});
     },
     getFiltered(list, page, opts={}){
@@ -1175,7 +1171,7 @@ const app = {
         if(bt) out=out.filter(b=>b.expenseType===bt);
       }
       const sort=f.sort||'date_desc';
-      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor',bills:'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
+      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor',bills:'vendor','advance-bills':'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
       const dateKey= page==='accounts' ? 'dateSent' : 'date';
       out.sort((a,b)=>{
         if(sort==='date_asc') return new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
@@ -1247,12 +1243,7 @@ const app = {
         const so=document.getElementById('sort-'+page);
         if(so) so.addEventListener('change', e=> app.ui.applyFilter(page,{sort:e.target.value}));
       };
-      ['advance','hospital','deposits','slips','bills','accounts','transfers'].forEach(bindPage);
-      document.getElementById('search-accounts')?.addEventListener('input', e=> app.ui.applyFilter('accounts',{search:e.target.value}));
-      document.getElementById('filter-bills-type')?.addEventListener('change', () => {
-        app.ui.renderBillsTable();
-        if (app.mobile.isMobile()) app.mobile.renderBillsCards();
-      });
+      ['advance','hospital','deposits','slips','bills','advance-bills','accounts','transfers'].forEach(bindPage);
 
       // Auto-switch Google Drive folder link when bill expense type changes
       document.getElementById('bill-exp-type').addEventListener('change', () => {
@@ -1311,7 +1302,7 @@ const app = {
         app.syncState();
       });
 
-      // Form: Add/Edit Advance Cash Entry
+      // Form: Add/Edit Muhasib Cash Entry
       document.getElementById('form-advance-add').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
@@ -1324,16 +1315,16 @@ const app = {
           if (editId) {
             entry.id = parseInt(editId);
             await app.db.put('advance_cash', entry.id, entry);
-            app.ui.showToast('Advance cash entry updated successfully!');
+            app.ui.showToast('Muhasib cash entry updated successfully!');
           } else {
             await app.db.add('advance_cash', entry);
-            app.ui.showToast('Advance cash entry added successfully!');
+            app.ui.showToast('Muhasib cash entry added successfully!');
           }
           app.ui.closeModal('dialog-advance-add');
           app.syncState();
         } catch (err) {
           console.error(err);
-          app.ui.showToast('Failed to save advance cash entry.', 'error');
+          app.ui.showToast('Failed to save Muhasib cash entry.', 'error');
         }
       });
 
@@ -1999,6 +1990,7 @@ const app = {
         'hospital-cash': 'ledgers',
         'hospital-deposits': 'ledgers',
         'temp-slips': 'ledgers',
+        'advance-bills': 'bills',
         'accounts': 'ledgers',
         'transfers': 'ledgers',
         'bills': 'bills',
@@ -2019,11 +2011,12 @@ const app = {
       // Update Top Title Bar
       const titles = {
         'dashboard': 'Overview Dashboard',
-        'advance-cash': 'Advance Cash Ledger',
+        'advance-cash': 'Muhasib Cash Ledger',
         'hospital-cash': 'Hospital Cash Collection Ledger',
         'hospital-deposits': 'Hospital Cash Deposits Ledger',
         'temp-slips': 'Temporary Expense Slips Register',
-        'bills': 'Bills Management Register',
+        'advance-bills': 'Muhasib Bills Register',
+        'bills': 'Hospital Bills Register',
         'accounts': 'Accounts Department Register',
         'transfers': 'Accounts Verification & Transfers',
         'balance-sheet': 'Cash Position Balance Sheet',
@@ -2044,9 +2037,12 @@ const app = {
       }
     },
 
-    /**
-     * Open native modal dialog.
-     */
+    openBillModal(type){
+      const sel=document.getElementById('bill-exp-type');
+      if(sel && type) sel.value=type;
+      if(sel) sel.dispatchEvent(new Event('change'));
+      app.ui.openModal('dialog-bill-add');
+    },
     openModal(dialogId) {
       const dialog = document.getElementById(dialogId);
       if (dialog) {
@@ -2097,7 +2093,7 @@ const app = {
         // Reset staged files & edit states
         if (dialogId === 'dialog-advance-add') {
           document.getElementById('edit-advance-id').value = '';
-          document.getElementById('dialog-advance-title').innerText = 'Add Advance Cash Entry';
+          document.getElementById('dialog-advance-title').innerText = 'Add Muhasib Cash Entry';
           app.attachments.clearStagedFile('slip');
         } else if (dialogId === 'dialog-hospital-add') {
           document.getElementById('edit-hospital-id').value = '';
@@ -2141,7 +2137,7 @@ const app = {
 
         if (storeName === 'advance_cash') {
           document.getElementById('edit-advance-id').value = id;
-          document.getElementById('dialog-advance-title').innerText = 'Edit Advance Cash Entry';
+          document.getElementById('dialog-advance-title').innerText = 'Edit Muhasib Cash Entry';
           document.getElementById('adv-date').value = record.date;
           document.getElementById('adv-amount').value = record.amount;
           document.getElementById('adv-remarks').value = record.remarks;
@@ -2531,9 +2527,11 @@ const app = {
       const slipBadgeVal = `${app.state.temporarySlipsPending} slip${app.state.temporarySlipsPending !== 1 ? 's' : ''}`;
       setSafeText('dash-temp-slips-badge', slipBadgeVal);
 
-      // Sidebar badges counts updates
       setSafeText('sidebar-temp-slips-badge', app.state.temporarySlipsPending);
-      setSafeText('sidebar-bills-badge', app.state.bills.filter(b => b.status === 'pending').length);
+      setSafeText('sidebar-bills-badge', app.state.bills.filter(b => b.expenseType==='hospital').length);
+      setSafeText('sidebar-advance-bills-badge', app.state.bills.filter(b => b.expenseType==='advance').length);
+      const bb=document.getElementById('bottom-nav-bills-badge'); if(bb) bb.textContent=app.state.bills.filter(b=>b.expenseType==='hospital').length;
+      const ab=document.getElementById('bottom-nav-advance-bills-badge'); if(ab) ab.textContent=app.state.bills.filter(b=>b.expenseType==='advance').length;
 
       // Position math block updates
       setSafeText('math-total-cash', app.ui.formatCurrency(app.state.totalCashWithMe));
@@ -2563,11 +2561,11 @@ const app = {
       setSafeVal('setting-gdrive-slips', app.state.gdriveTempSlips || '');
       setSafeVal('setting-gdrive-deposits', app.state.gdriveMuhasibDeposits || '');
 
-      // 2. Render Ledgers
       app.ui.renderAdvanceTable();
       app.ui.renderHospitalTable();
       app.ui.renderDepositsTable();
       app.ui.renderSlipsTable();
+      app.ui.renderAdvanceBillsTable();
       app.ui.renderBillsTable();
       app.ui.renderAccountsTable();
       app.ui.renderTransfersTable();
@@ -2706,7 +2704,7 @@ const app = {
       }
       filtered.forEach(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
-        const typeLabel = slip.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
+        const typeLabel = slip.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash';
         
         let actionBtn = '';
         if (slip.status === 'pending') {
@@ -2759,55 +2757,54 @@ const app = {
       });
     },
 
-    renderBillsTable() {
-      const list = document.getElementById('list-bills');
+    renderAdvanceBillsTable() {
+      const list=document.getElementById('list-advance-bills');
       if(!list) return;
-      list.innerHTML = '';
-      const filtered = app.ui.getFiltered(app.state.bills,'bills');
-      const total = filtered.reduce((s,e)=>s+e.amount,0);
-      const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      list.innerHTML='';
+      const allFiltered=app.ui.getFiltered(app.state.bills,'advance-bills');
+      const filtered=allFiltered.filter(b=>b.expenseType==='advance');
+      const total=filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
-        const f=app.ui.filters.bills; const fb=document.getElementById('filter-bills-type')?.value; const isF=f.search||f.from||f.to||fb;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No final bills found.'}</td></tr>`;
+        const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
-      filtered.forEach(bill => {
-        const typeLabel = bill.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
-        const isDirect = !bill.slipId;
-        const note = isDirect ? 'Direct' : 'From Slip';
-        
-        let attachmentHtml = '-';
-        if (bill.attachmentUrl) {
-          const syncClass = bill.pendingUpload ? 'pending-sync' : '';
-          const label = bill.pendingUpload ? '⏳ Syncing' : (bill.fileType === 'application/pdf' ? '📄 PDF Attached' : '📷 Image Attached');
-          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
+      filtered.forEach(bill=>{
+        const isDirect=!bill.slipId;
+        const note=isDirect?'Direct':'From Slip';
+        let attachmentHtml='-';
+        if(bill.attachmentUrl){
+          const syncClass=bill.pendingUpload?'pending-sync':'';
+          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
+          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-
-        list.innerHTML += `
-          <tr>
-            <td class="num-val">${app.ui.formatDate(bill.date)}</td>
-            <td class="num-val text-bold">${bill.billNumber}</td>
-            <td>${bill.vendor}</td>
-            <td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-            <td>
-              <span class="source-tag">${typeLabel}</span>
-              <span class="text-muted text-xs block" style="display:block; font-size:0.7rem;">${note}</span>
-            </td>
-            <td><span class="source-tag">${bill.category}</span></td>
-            <td>${attachmentHtml}</td>
-            <td>${bill.remarks || '-'}</td>
-            <td class="text-center">
-              <div class="flex gap-2 justify-center">
-                <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">
-                  Edit
-                </button>
-                <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">
-                  Delete
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
+        list.innerHTML+=`<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+      });
+    },
+    renderBillsTable() {
+      const list=document.getElementById('list-bills');
+      if(!list) return;
+      list.innerHTML='';
+      const allFiltered=app.ui.getFiltered(app.state.bills,'bills');
+      const filtered=allFiltered.filter(b=>b.expenseType==='hospital');
+      const total=filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        return;
+      }
+      filtered.forEach(bill=>{
+        const isDirect=!bill.slipId;
+        const note=isDirect?'Direct':'From Slip';
+        let attachmentHtml='-';
+        if(bill.attachmentUrl){
+          const syncClass=bill.pendingUpload?'pending-sync':'';
+          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
+          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
+        }
+        list.innerHTML+=`<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       });
     },
 
@@ -3100,7 +3097,7 @@ const app = {
         app.charts.sources = new Chart(ctxSources, {
           type: 'doughnut',
           data: {
-            labels: ['Total Advance Cash Received', 'Total Hospital Cash Collected'],
+            labels: ['Total Muhasib Cash Received', 'Total Hospital Cash Collected'],
             datasets: [{
               label: 'Sources',
               data: [dataSources.advance, dataSources.hospital],
@@ -3341,7 +3338,7 @@ const app = {
       tbody.classList.remove('hidden');
 
       if (type === 'advance') {
-        titleDisplay.innerText = 'Advance Cash Ledger Report';
+        titleDisplay.innerText = 'Muhasib Cash Ledger Report';
         thead.innerHTML = `
           <tr>
             <th>Date</th>
@@ -3508,7 +3505,7 @@ const app = {
         tbody.innerHTML = '';
 
         filtered.forEach(acc => {
-          const typeLabel = acc.billType === 'advance' ? 'Advance Cash Bills' : 'Hospital Cash Bills';
+          const typeLabel = acc.billType === 'advance' ? 'Muhasib Cash Bills' : 'Hospital Cash Bills';
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(acc.dateSent)}</td>
@@ -3659,7 +3656,7 @@ const app = {
         }
 
       } else if (type === 'advance_bills') {
-        titleDisplay.innerText = 'Advance Cash + Advance Bills Report (Against Advance Cash)';
+        titleDisplay.innerText = 'Muhasib Cash + Advance Bills Report (Against Muhasib Cash)';
         thead.classList.add('hidden');
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
@@ -3672,7 +3669,7 @@ const app = {
         let runningBal = app.state.openingAdvanceCash;
         let totalDr = 0;
         let totalCr = 0;
-        let rowsHtml = `<tr style="background:var(--bg-secondary); font-weight:700;"><td class="num-val">-</td><td>Opening Balance (Advance Cash)</td><td class="num-val text-right"></td><td class="num-val text-right"></td><td class="num-val text-right">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+        let rowsHtml = `<tr style="background:var(--bg-secondary); font-weight:700;"><td class="num-val">-</td><td>Opening Balance (Muhasib Cash)</td><td class="num-val text-right"></td><td class="num-val text-right"></td><td class="num-val text-right">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         combined.forEach(row => {
           if(row.dr) { totalDr += row.dr; runningBal += row.dr; }
           if(row.cr) { totalCr += row.cr; runningBal -= row.cr; }
@@ -3688,7 +3685,7 @@ const app = {
           <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
             <div class="card" style="padding:0; overflow:hidden;">
               <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                <span>Advance Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Cash In &nbsp;|&nbsp; Cr = Bills Against Advance &nbsp;|&nbsp; Balance = Running</span>
+                <span>Muhasib Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Cash In &nbsp;|&nbsp; Cr = Bills Against Advance &nbsp;|&nbsp; Balance = Running</span>
               </div>
               <div style="overflow-x:auto;">
                 <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Cash In)</th><th class="text-right">Cr (Bill Exp)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
@@ -3768,7 +3765,7 @@ const app = {
                 <div class="balance-section">
                   <h3 class="balance-section-title">Cash Position</h3>
                   <div class="balance-item">
-                    <span>Advance Cash Available</span>
+                    <span>Muhasib Cash Available</span>
                     <span class="num-val">${app.ui.formatCurrency(app.state.advanceCashAvailable)}</span>
                   </div>
                   <div class="balance-item border-bottom-subtle">
@@ -3835,10 +3832,10 @@ const app = {
       if (selType === 'advance_bills') {
         const wbSingle = XLSX.utils.book_new();
         const rows = [
-          ['Noor Hospital - Advance Cash Dr / Cr Ledger (Against Advance)'],
+          ['Noor Hospital - Muhasib Cash Dr / Cr Ledger (Against Advance)'],
           ['Report Date Range', sVal || 'Start', 'to', eVal || 'End'],
           ['Generated On', new Date().toLocaleString('en-IN')],
-          ['Opening Advance Cash Balance', app.state.openingAdvanceCash],
+          ['Opening Muhasib Cash Balance', app.state.openingAdvanceCash],
           [],
           ['Date', 'Particulars', 'Voucher Type', 'Dr - Cash In (₹)', 'Cr - Bill Expense (₹)', 'Balance (₹)']
         ];
@@ -3916,9 +3913,9 @@ const app = {
         ['Date Generated', app.ui.formatDate(new Date().toISOString().split('T')[0])],
         [],
         ['Indicator Title', 'Amount (₹)', 'Calculation Math / Description'],
-        ['Advance Cash Available', app.state.advanceCashAvailable, 'Opening Advance + Advance Entries - Advance Expenses'],
+        ['Muhasib Cash Available', app.state.advanceCashAvailable, 'Opening Advance + Advance Entries - Advance Expenses'],
         ['Hospital Cash Available', app.state.hospitalCashAvailable, 'Opening Hospital + Collections - Hospital Expenses'],
-        ['Total Cash With Me', app.state.totalCashWithMe, 'Advance Cash Available + Hospital Cash Available'],
+        ['Total Cash With Me', app.state.totalCashWithMe, 'Muhasib Cash Available + Hospital Cash Available'],
         [],
         ['Advance Bills Pending', app.state.advanceBillsPending, 'Advance Bills - Imprest Transfers'],
         ['Hospital Bills Pending', app.state.hospitalBillsPending, 'Hospital Bills - Amanat Transfers'],
@@ -3933,10 +3930,10 @@ const app = {
       ];
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(dashRows), 'Dashboard');
 
-      // 2. Sheet: Advance Cash Ledger
+      // 2. Sheet: Muhasib Cash Ledger
       const advRows = [
-        ['Advance Cash Ledger Inflows'],
-        ['Opening Advance Cash Balance', app.state.openingAdvanceCash],
+        ['Muhasib Cash Ledger Inflows'],
+        ['Opening Muhasib Cash Balance', app.state.openingAdvanceCash],
         [],
         ['Date', 'Cash Inflow Amount (₹)', 'Remarks', 'Running Balance']
       ];
@@ -3945,7 +3942,7 @@ const app = {
         runningAdv += e.amount;
         advRows.push([app.ui.formatDate(e.date), e.amount, e.remarks, runningAdv]);
       });
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(advRows), 'Advance Cash');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(advRows), 'Muhasib Cash');
 
       // 3. Sheet: Hospital Cash Ledger
       const hospRows = [
@@ -3974,7 +3971,7 @@ const app = {
           app.ui.formatDate(s.date),
           s.vendor,
           s.amount,
-          s.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash',
+          s.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash',
           s.status,
           attachAvailable,
           attachName,
@@ -3997,7 +3994,7 @@ const app = {
           b.billNumber,
           b.vendor,
           b.amount,
-          b.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash',
+          b.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash',
           b.category,
           attachAvailable,
           attachName,
@@ -4015,7 +4012,7 @@ const app = {
       app.state.accountsRegister.forEach(a => {
         accRows.push([
           app.ui.formatDate(a.dateSent),
-          a.billType === 'advance' ? 'Advance Cash Bills' : 'Hospital Cash Bills',
+          a.billType === 'advance' ? 'Muhasib Cash Bills' : 'Hospital Cash Bills',
           a.amount,
           a.referenceNo || '',
           a.remarks || ''
@@ -4040,7 +4037,7 @@ const app = {
         ['As of Date', app.ui.formatDate(new Date().toISOString().split('T')[0])],
         [],
         ['Section / Group', 'Item Name', 'Amount (₹)'],
-        ['Cash Position', 'Advance Cash Available', app.state.advanceCashAvailable],
+        ['Cash Position', 'Muhasib Cash Available', app.state.advanceCashAvailable],
         ['Cash Position', 'Hospital Cash Available', app.state.hospitalCashAvailable],
         ['Cash Position', 'Total Cash With Me', app.state.totalCashWithMe],
         [],
@@ -4075,8 +4072,8 @@ const app = {
       XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(depRows), 'Hospital Deposits');
 
       const drCrRows = [
-        ['Advance Cash - Dr / Cr Ledger (Against Advance Cash)'],
-        ['Opening Advance Cash Balance', app.state.openingAdvanceCash],
+        ['Muhasib Cash - Dr / Cr Ledger (Against Muhasib Cash)'],
+        ['Opening Muhasib Cash Balance', app.state.openingAdvanceCash],
         [],
         ['Date', 'Particulars', 'Voucher Type', 'Dr - Cash In (₹)', 'Cr - Bill Expense (₹)', 'Balance (₹)']
       ];
@@ -4113,10 +4110,10 @@ const app = {
       const filtered=(list,pg)=>app.ui.getFiltered(list,pg);
       if(page==='advance'){
         const d=filtered(app.state.advanceCashEntries,'advance');
-        rows=[['Advance Cash Ledger (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Amount (₹)','Remarks']];
+        rows=[['Muhasib Cash Ledger (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Amount (₹)','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.amount,e.remarks||'-']));
         if(!d.length) rows.push(['No records']);
-        sheetName='Advance Cash';
+        sheetName='Muhasib Cash';
       } else if(page==='hospital'){
         const d=filtered(app.state.hospitalCashEntries,'hospital');
         rows=[['Hospital Cash Collections (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Source','Amount (₹)','Remarks']];
@@ -4133,11 +4130,16 @@ const app = {
         rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
         sheetName='Temp Slips';
+      } else if(page==='advance-bills'){
+        const d=filtered(app.state.bills,'advance-bills').filter(b=>b.expenseType==='advance');
+        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Category','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
+        sheetName='Muhasib Bills';
       } else if(page==='bills'){
-        const d=filtered(app.state.bills,'bills');
-        rows=[['Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Expense Type','Category','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.billNumber,e.vendor,e.amount,e.expenseType,e.category,e.remarks||'-']));
-        sheetName='Bills';
+        const d=filtered(app.state.bills,'bills').filter(b=>b.expenseType==='hospital');
+        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Category','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
+        sheetName='Hospital Bills';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
         rows=[['Accounts Register (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date Sent','Bill Type','Amount (₹)','Reference No','Remarks']];
@@ -4162,7 +4164,7 @@ const app = {
       const metaEl = document.getElementById('report-meta-display');
       const container = document.getElementById('report-display-container');
       const title = titleEl ? titleEl.innerText : 'Report';
-      const printTitle = title === 'Advance Cash + Advance Bills Report (Against Advance Cash)' ? 'Muhasib Adv Report' : title;
+      const printTitle = title === 'Muhasib Cash + Advance Bills Report (Against Muhasib Cash)' ? 'Muhasib Adv Report' : title;
       const meta = metaEl ? metaEl.innerText : '';
       const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
       const content = container.innerHTML;
@@ -4837,6 +4839,7 @@ const app = {
       app.mobile.renderHospitalCards();
       app.mobile.renderDepositsCards();
       app.mobile.renderSlipsCards();
+      app.mobile.renderAdvanceBillsCards();
       app.mobile.renderBillsCards();
       app.mobile.renderAccountsCards();
       app.mobile.renderTransfersCards();
@@ -4868,7 +4871,7 @@ const app = {
     },
 
     /**
-     * Advance Cash mobile card list.
+     * Muhasib Cash mobile card list.
      */
     renderAdvanceCards() {
       const container = document.getElementById('mobile-list-advance');
@@ -4980,7 +4983,7 @@ const app = {
 
       sorted.forEach(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
-        const typeLabel = slip.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
+        const typeLabel = slip.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash';
         
         let attachmentHtml = '';
         if (slip.attachmentUrl) {
@@ -5038,57 +5041,48 @@ const app = {
     /**
      * Bills mobile card list.
      */
-    renderBillsCards() {
-      const container = document.getElementById('mobile-list-bills');
-      if (!container) return;
-      container.innerHTML = '';
-      const sorted = app.ui.getFiltered(app.state.bills,'bills');
-
-      if (!sorted.length) {
-        const f=app.ui.filters.bills; const fb=document.getElementById('filter-bills-type')?.value; const isF=f.search||f.from||f.to||fb;
-        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No final bills found.'}</div>`;
+    renderAdvanceBillsCards() {
+      const container=document.getElementById('mobile-list-advance-bills');
+      if(!container) return;
+      container.innerHTML='';
+      const all=app.ui.getFiltered(app.state.bills,'advance-bills');
+      const filtered=all.filter(b=>b.expenseType==='advance');
+      if(!filtered.length){
+        const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
+        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No muhasib bills found.'}</div>`;
         return;
       }
-      sorted.forEach(bill => {
-        const typeLabel = bill.expenseType === 'advance' ? 'Advance Cash' : 'Hospital Cash';
-        const note = !bill.slipId ? 'Direct' : 'From Slip';
-        
-        let attachmentHtml = '';
-        if (bill.attachmentUrl) {
-          const syncClass = bill.pendingUpload ? 'pending-sync' : '';
-          const label = bill.pendingUpload ? '⏳ Syncing' : (bill.fileType === 'application/pdf' ? '📄 PDF' : '📷 Image');
-          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
+      filtered.forEach(bill=>{
+        const note=!bill.slipId?'Direct':'From Slip';
+        let attachmentHtml='';
+        if(bill.attachmentUrl){
+          const syncClass=bill.pendingUpload?'pending-sync':'';
+          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
+          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         }
-
-        container.innerHTML += `
-          <div class="mobile-record-card">
-            <div class="mobile-card-header">
-              <div>
-                <div class="mobile-card-title">${bill.vendor}</div>
-                <div class="mobile-card-date">${bill.billNumber} • ${app.ui.formatDate(bill.date)}</div>
-              </div>
-              <div class="mobile-card-amount outflow">-${app.ui.formatCurrency(bill.amount)}</div>
-            </div>
-            <div class="mobile-card-meta">
-              <span class="source-tag">${typeLabel}</span>
-              <span class="source-tag">${bill.category}</span>
-              ${attachmentHtml}
-            </div>
-            ${bill.remarks ? `<div class="mobile-card-body">${bill.remarks}</div>` : ''}
-            <div class="mobile-card-row">
-              <span class="mobile-card-label">Source</span>
-              <span class="mobile-card-val" style="font-family:var(--font-sans);font-size:0.78rem;">${note}</span>
-            </div>
-            <div class="mobile-card-footer">
-              <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">
-                Edit
-              </button>
-              <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">
-                Delete
-              </button>
-            </div>
-          </div>
-        `;
+        container.innerHTML+=`<div class="mobile-record-card"><div class="mobile-card-header"><div><div class="mobile-card-title">${bill.vendor}</div><div class="mobile-card-date">${bill.billNumber} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta"><span class="source-tag">${bill.category}</span>${attachmentHtml}</div>${bill.remarks?`<div class="mobile-card-body">${bill.remarks}</div>`:''}<div class="mobile-card-row"><span class="mobile-card-label">Source</span><span class="mobile-card-val" style="font-family:var(--font-sans);font-size:0.78rem;">${note}</span></div><div class="mobile-card-footer"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></div>`;
+      });
+    },
+    renderBillsCards() {
+      const container=document.getElementById('mobile-list-bills');
+      if(!container) return;
+      container.innerHTML='';
+      const all=app.ui.getFiltered(app.state.bills,'bills');
+      const filtered=all.filter(b=>b.expenseType==='hospital');
+      if(!filtered.length){
+        const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
+        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No hospital bills found.'}</div>`;
+        return;
+      }
+      filtered.forEach(bill=>{
+        const note=!bill.slipId?'Direct':'From Slip';
+        let attachmentHtml='';
+        if(bill.attachmentUrl){
+          const syncClass=bill.pendingUpload?'pending-sync':'';
+          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
+          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
+        }
+        container.innerHTML+=`<div class="mobile-record-card"><div class="mobile-card-header"><div><div class="mobile-card-title">${bill.vendor}</div><div class="mobile-card-date">${bill.billNumber} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta"><span class="source-tag">${bill.category}</span>${attachmentHtml}</div>${bill.remarks?`<div class="mobile-card-body">${bill.remarks}</div>`:''}<div class="mobile-card-row"><span class="mobile-card-label">Source</span><span class="mobile-card-val" style="font-family:var(--font-sans);font-size:0.78rem;">${note}</span></div><div class="mobile-card-footer"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></div>`;
       });
     },
 
@@ -5233,6 +5227,95 @@ const app = {
     }
   },
 
+  sidebarColors: {
+    defaults: { muhasib: '#a855f7', hospital: '#6366f1', accounts: '#f59e0b', transfers: '#10b981' },
+    get() {
+      try { return JSON.parse(localStorage.getItem('noor_sidebar_colors')) || app.sidebarColors.defaults; } catch(e) { return app.sidebarColors.defaults; }
+    },
+    save(c) { localStorage.setItem('noor_sidebar_colors', JSON.stringify(c)); },
+    apply() {
+      const c = app.sidebarColors.get();
+      let s = document.getElementById('dynamic-sidebar-colors');
+      if (!s) { s = document.createElement('style'); s.id = 'dynamic-sidebar-colors'; document.head.appendChild(s); }
+      const hex = (col) => col;
+      const light = (col) => col + '1A';
+      s.textContent = `
+.nav-item[data-panel="advance-cash"], .nav-item[data-panel="advance-bills"] { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; }
+.nav-item[data-panel="advance-cash"].active, .nav-item[data-panel="advance-bills"].active { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-left: 3px solid ${hex(c.muhasib)} !important; }
+.nav-item[data-panel="advance-cash"] .badge, .nav-item[data-panel="advance-bills"] .badge { background: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; }
+.nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
+.nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
+.nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }
+.nav-item[data-panel="accounts"] { background-color: ${light(hex(c.accounts))} !important; color: ${hex(c.accounts)} !important; }
+.nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.accounts))} !important; color: ${hex(c.accounts)} !important; border-left: 3px solid ${hex(c.accounts)} !important; }
+.nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.accounts))} !important; color: ${hex(c.accounts)} !important; border-color: ${hex(c.accounts)}33 !important; }
+.nav-item[data-panel="transfers"] { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; }
+.nav-item[data-panel="transfers"].active { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-left: 3px solid ${hex(c.transfers)} !important; }
+.nav-item[data-panel="transfers"] .badge { background: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-color: ${hex(c.transfers)}33 !important; }
+.metric-card:has(#dash-advance-cash), .metric-card:has(#dash-total-advance-received), .metric-card:has(#dash-imprest-received), .metric-card:has(#dash-advance-bills-pending) { border-left: 4px solid ${hex(c.muhasib)} !important; background: ${light(hex(c.muhasib))} !important; }
+.metric-card:has(#dash-advance-cash) .card-metric-value, .metric-card:has(#dash-total-advance-received) .card-metric-value, .metric-card:has(#dash-imprest-received) .card-metric-value, .metric-card:has(#dash-advance-bills-pending) .card-metric-value { color: ${hex(c.muhasib)} !important; }
+.metric-card:has(#dash-advance-cash) .card-metric-header span, .metric-card:has(#dash-total-advance-received) .card-metric-header span, .metric-card:has(#dash-imprest-received) .card-metric-header span, .metric-card:has(#dash-advance-bills-pending) .card-metric-header span, .metric-card:has(#dash-advance-cash) .card-metric-header, .metric-card:has(#dash-total-advance-received) .card-metric-header, .metric-card:has(#dash-imprest-received) .card-metric-header, .metric-card:has(#dash-advance-bills-pending) .card-metric-header { color: ${hex(c.muhasib)} !important; }
+.metric-card:has(#dash-advance-cash) .metric-icon, .metric-card:has(#dash-total-advance-received) .metric-icon, .metric-card:has(#dash-imprest-received) .metric-icon, .metric-card:has(#dash-advance-bills-pending) .metric-icon { color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; opacity:1 !important; }
+.metric-card:has(#dash-hospital-cash), .metric-card:has(#dash-total-hospital-collected), .metric-card:has(#dash-total-hospital-deposited), .metric-card:has(#dash-amanat-received), .metric-card:has(#dash-hospital-bills-pending) { border-left: 4px solid ${hex(c.hospital)} !important; background: ${light(hex(c.hospital))} !important; }
+.metric-card:has(#dash-hospital-cash) .card-metric-value, .metric-card:has(#dash-total-hospital-collected) .card-metric-value, .metric-card:has(#dash-total-hospital-deposited) .card-metric-value, .metric-card:has(#dash-amanat-received) .card-metric-value, .metric-card:has(#dash-hospital-bills-pending) .card-metric-value { color: ${hex(c.hospital)} !important; }
+.metric-card:has(#dash-hospital-cash) .card-metric-header span, .metric-card:has(#dash-total-hospital-collected) .card-metric-header span, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header span, .metric-card:has(#dash-amanat-received) .card-metric-header span, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header span, .metric-card:has(#dash-hospital-cash) .card-metric-header, .metric-card:has(#dash-total-hospital-collected) .card-metric-header, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header, .metric-card:has(#dash-amanat-received) .card-metric-header, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header { color: ${hex(c.hospital)} !important; }
+.metric-card:has(#dash-hospital-cash) .metric-icon, .metric-card:has(#dash-total-hospital-collected) .metric-icon, .metric-card:has(#dash-total-hospital-deposited) .metric-icon, .metric-card:has(#dash-amanat-received) .metric-icon, .metric-card:has(#dash-hospital-bills-pending) .metric-icon { color: ${hex(c.hospital)} !important; opacity:1 !important; }
+.metric-card:has(#dash-total-sent-to-accounts), .metric-card:has(#dash-awaiting-transfer) { border-left: 4px solid ${hex(c.accounts)} !important; background: ${light(hex(c.accounts))} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .card-metric-value, .metric-card:has(#dash-awaiting-transfer) .card-metric-value { color: ${hex(c.accounts)} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .card-metric-header span, .metric-card:has(#dash-awaiting-transfer) .card-metric-header span, .metric-card:has(#dash-total-sent-to-accounts) .card-metric-header, .metric-card:has(#dash-awaiting-transfer) .card-metric-header { color: ${hex(c.accounts)} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .metric-icon, .metric-card:has(#dash-awaiting-transfer) .metric-icon { color: ${hex(c.accounts)} !important; opacity:1 !important; }
+.metric-card:has(#dash-total-transferred), .metric-card:has(#dash-total-cash-me) { border-left: 4px solid ${hex(c.transfers)} !important; background: ${light(hex(c.transfers))} !important; }
+.metric-card:has(#dash-total-transferred) .card-metric-value, .metric-card:has(#dash-total-cash-me) .card-metric-value { color: ${hex(c.transfers)} !important; }
+.metric-card:has(#dash-total-transferred) .card-metric-header span, .metric-card:has(#dash-total-cash-me) .card-metric-header span, .metric-card:has(#dash-total-transferred) .card-metric-header, .metric-card:has(#dash-total-cash-me) .card-metric-header { color: ${hex(c.transfers)} !important; }
+.metric-card:has(#dash-total-transferred) .metric-icon, .metric-card:has(#dash-total-cash-me) .metric-icon { color: ${hex(c.transfers)} !important; opacity:1 !important; }
+`;
+    },
+    bindForm() {
+      const c = app.sidebarColors.get();
+      const setVal = (sel, cust, val) => {
+        const s = document.getElementById(sel);
+        const cu = document.getElementById(cust);
+        if (!s || !cu) return;
+        const opts = Array.from(s.options).map(o=>o.value);
+        if (opts.includes(val)) { s.value = val; cu.value = val; } else { s.value = 'custom'; cu.value = val; }
+      };
+      setVal('color-muhasib','color-muhasib-custom', c.muhasib);
+      setVal('color-hospital','color-hospital-custom', c.hospital);
+      setVal('color-accounts','color-accounts-custom', c.accounts);
+      setVal('color-transfers','color-transfers-custom', c.transfers);
+      const bind = (sel, cust) => {
+        const s = document.getElementById(sel), cu = document.getElementById(cust);
+        if (!s || !cu) return;
+        s.addEventListener('change', () => { if (s.value !== 'custom') cu.value = s.value; });
+        cu.addEventListener('input', () => { s.value = 'custom'; });
+      };
+      bind('color-muhasib','color-muhasib-custom');
+      bind('color-hospital','color-hospital-custom');
+      bind('color-accounts','color-accounts-custom');
+      bind('color-transfers','color-transfers-custom');
+      const form = document.getElementById('form-sidebar-colors');
+      if (form) form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const getVal = (sel, cust) => {
+          const s = document.getElementById(sel).value;
+          const cu = document.getElementById(cust).value;
+          return s === 'custom' ? cu : s;
+        };
+        const nc = { muhasib: getVal('color-muhasib','color-muhasib-custom'), hospital: getVal('color-hospital','color-hospital-custom'), accounts: getVal('color-accounts','color-accounts-custom'), transfers: getVal('color-transfers','color-transfers-custom') };
+        app.sidebarColors.save(nc);
+        app.sidebarColors.apply();
+        app.ui.showToast('Sidebar colors saved!');
+      });
+    },
+    reset() {
+      localStorage.removeItem('noor_sidebar_colors');
+      app.sidebarColors.apply();
+      app.sidebarColors.bindForm();
+      app.ui.showToast('Colors reset to default');
+    },
+    init() { app.sidebarColors.apply(); app.sidebarColors.bindForm(); }
+  },
+
   // ==========================================
   // INITIAL ENTRY POINT
   // ==========================================
@@ -5269,6 +5352,9 @@ const app = {
 
       // 2b. Setup Mobile-specific behaviors
       app.mobile.init();
+
+      // 2c. Sidebar Custom Colors
+      try { app.sidebarColors.init(); } catch(e) { console.error(e); }
 
       // 3. Load Theme configuration
       const storedTheme = await app.db.getSetting('theme', 'dark');

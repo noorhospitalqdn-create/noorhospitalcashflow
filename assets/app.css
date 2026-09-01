@@ -33,6 +33,10 @@ html[data-theme="light"] {
   --accent-hover: #d97706;
   --accent-light: #fef3c7;
   
+  --tertiary: #a855f7;
+  --tertiary-hover: #9333ea;
+  --tertiary-light: #f3e8ff;
+  
   --error: #ef4444;
   --error-hover: #dc2626;
   --error-light: #fee2e2;
@@ -44,6 +48,7 @@ html[data-theme="light"] {
   --card-glow-primary: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
   --card-glow-secondary: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   --card-glow-accent: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  --card-glow-tertiary: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
   --card-glow-error: linear-gradient(135deg, #fff5f5 0%, #fee2e2 100%);
 }
 
@@ -74,6 +79,10 @@ html[data-theme="dark"] {
   --accent-hover: #d97706;
   --accent-light: rgba(245, 158, 11, 0.1);
   
+  --tertiary: #a855f7;
+  --tertiary-hover: #9333ea;
+  --tertiary-light: rgba(168, 85, 247, 0.1);
+  
   --error: #ef4444;
   --error-hover: #dc2626;
   --error-light: rgba(239, 68, 68, 0.1);
@@ -85,6 +94,7 @@ html[data-theme="dark"] {
   --card-glow-primary: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.03) 100%);
   --card-glow-secondary: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(79, 70, 229, 0.03) 100%);
   --card-glow-accent: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.03) 100%);
+  --card-glow-tertiary: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(147, 51, 234, 0.03) 100%);
   --card-glow-error: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(220, 38, 38, 0.03) 100%);
 }
 
@@ -245,6 +255,54 @@ body {
   background-color: var(--primary-light);
   color: var(--primary);
   font-weight: 600;
+}
+.nav-item[data-panel="advance-cash"],
+.nav-item[data-panel="advance-bills"] {
+  background-color: var(--tertiary-light);
+  color: var(--tertiary);
+}
+.nav-item[data-panel="advance-cash"].active,
+.nav-item[data-panel="advance-bills"].active {
+  background-color: var(--tertiary-light);
+  color: var(--tertiary);
+  border-left: 3px solid var(--tertiary);
+  font-weight: 700;
+}
+.nav-item[data-panel="hospital-cash"],
+.nav-item[data-panel="bills"],
+.nav-item[data-panel="temp-slips"],
+.nav-item[data-panel="hospital-deposits"] {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+.nav-item[data-panel="hospital-cash"].active,
+.nav-item[data-panel="bills"].active,
+.nav-item[data-panel="temp-slips"].active,
+.nav-item[data-panel="hospital-deposits"].active {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border-left: 3px solid var(--primary);
+  font-weight: 700;
+}
+.nav-item[data-panel="accounts"] {
+  background-color: var(--tertiary-light);
+  color: var(--tertiary);
+}
+.nav-item[data-panel="accounts"].active {
+  background-color: var(--tertiary-light);
+  color: var(--tertiary);
+  border-left: 3px solid var(--tertiary);
+  font-weight: 700;
+}
+.nav-item[data-panel="transfers"] {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+.nav-item[data-panel="transfers"].active {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  border-left: 3px solid var(--primary);
+  font-weight: 700;
 }
 
 .badge {
@@ -579,6 +637,24 @@ body {
 }
 .card-gradient-accent .metric-icon {
   color: var(--accent);
+  opacity: 1;
+}
+
+/* Dedicated Muhasib Cash color (violet) - distinct from Hospital Cash (indigo) */
+.card-gradient-tertiary {
+  background: var(--card-glow-tertiary), var(--bg-card);
+  border-left-color: var(--tertiary);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+.card-gradient-tertiary .card-metric-value {
+  color: var(--tertiary);
+  text-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
+}
+.card-gradient-tertiary .card-metric-header span {
+  color: var(--tertiary);
+}
+.card-gradient-tertiary .metric-icon {
+  color: var(--tertiary);
   opacity: 1;
 }
 
@@ -921,6 +997,21 @@ html[data-theme="light"] .data-table tbody tr:hover {
 
 .text-success {
   color: var(--primary) !important;
+}
+
+/* Violet identity for the Muhasib (Advance) Cash ledger - Ledgers & Registers section */
+.text-tertiary {
+  color: var(--tertiary) !important;
+}
+#list-advance td.text-success {
+  color: var(--tertiary) !important;
+}
+#list-advance .ledger-total-badge {
+  color: var(--tertiary);
+  border-color: var(--tertiary);
+}
+#mobile-list-advance .mobile-card-amount.inflow {
+  color: var(--tertiary);
 }
 
 /* Status Badges */
@@ -1350,19 +1441,34 @@ html[data-theme="dark"] .toast {
     max-width: 100vw;
   }
 
+  html {
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     overflow-x: hidden;
     overflow-y: auto;
     height: auto;
     min-height: 100vh;
+    min-height: 100dvh;
     -webkit-tap-highlight-color: transparent;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: manipulation;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     max-width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
   }
-
-  html {
-    overflow-x: hidden;
+  .main-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
+  input, select, textarea { font-size: 16px !important; }
+  * { scrollbar-width: none; -ms-overflow-style: none; }
+  *::-webkit-scrollbar { display: none; }
 
   /* --- Sidebar (slide-in overlay, not primary nav) --- */
   .sidebar {
