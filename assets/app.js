@@ -2765,7 +2765,12 @@ const app = {
       if(!list) return;
       list.innerHTML='';
       const allFiltered=app.ui.getFiltered(app.state.bills,'advance-bills');
-      const filtered=allFiltered.filter(b=>b.expenseType==='advance');
+      let filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance');
+      if(!filtered.length && app.state.bills.length){
+        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance');
+        if(raw.length && !app.ui.filters['advance-bills'].search && !app.ui.filters['advance-bills'].from && !app.ui.filters['advance-bills'].to) filtered=raw;
+        else if(raw.length && !filtered.length) filtered=raw;
+      }
       const total=filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
@@ -2806,7 +2811,12 @@ const app = {
       if(!list) return;
       list.innerHTML='';
       const allFiltered=app.ui.getFiltered(app.state.bills,'bills');
-      const filtered=allFiltered.filter(b=>b.expenseType==='hospital');
+      let filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+      if(!filtered.length && app.state.bills.length){
+        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+        if(raw.length && !app.ui.filters.bills.search && !app.ui.filters.bills.from && !app.ui.filters.bills.to) filtered=raw;
+        else if(raw.length && !filtered.length) filtered=raw;
+      }
       const total=filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
@@ -4955,16 +4965,15 @@ const app = {
      * Render all mobile card views (called from renderAll).
      */
     renderAllMobileCards() {
-      if (!app.mobile.isMobile()) return;
-      app.mobile.renderAdvanceCards();
-      app.mobile.renderHospitalCards();
-      app.mobile.renderDepositsCards();
-      app.mobile.renderSlipsCards();
-      app.mobile.renderAdvanceBillsCards();
-      app.mobile.renderBillsCards();
-      app.mobile.renderAccountsCards();
-      app.mobile.renderTransfersCards();
-      app.mobile.updateMobileBadges();
+      try{ app.mobile.renderAdvanceCards(); }catch(e){ console.error('advanceCards',e); }
+      try{ app.mobile.renderHospitalCards(); }catch(e){ console.error('hospitalCards',e); }
+      try{ app.mobile.renderDepositsCards(); }catch(e){ console.error('depositsCards',e); }
+      try{ app.mobile.renderSlipsCards(); }catch(e){ console.error('slipsCards',e); }
+      try{ app.mobile.renderAdvanceBillsCards(); }catch(e){ console.error('advBillsCards',e); }
+      try{ app.mobile.renderBillsCards(); }catch(e){ console.error('billsCards',e); }
+      try{ app.mobile.renderAccountsCards(); }catch(e){ console.error('accountsCards',e); }
+      try{ app.mobile.renderTransfersCards(); }catch(e){ console.error('transfersCards',e); }
+      try{ app.mobile.updateMobileBadges(); }catch(e){ console.error('badges',e); }
     },
 
     /**
@@ -5170,11 +5179,16 @@ const app = {
       const container=document.getElementById('mobile-list-advance-bills');
       if(!container) return;
       container.innerHTML='';
-      const all=app.ui.getFiltered(app.state.bills,'advance-bills');
-      const filtered=all.filter(b=>b.expenseType==='advance');
+      let all=app.ui.getFiltered(app.state.bills,'advance-bills');
+      let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance');
+      if(!filtered.length && app.state.bills.length){
+        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance');
+        if(raw.length) filtered = app.ui.filters['advance-bills'].search||app.ui.filters['advance-bills'].from||app.ui.filters['advance-bills'].to ? filtered : raw;
+        if(!filtered.length && raw.length) filtered=raw;
+      }
       if(!filtered.length){
         const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
-        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No muhasib bills found.'}</div>`;
+        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter. <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters(\'advance-bills\')">Clear Filter</button>':'No muhasib bills found.'} <small style="display:block;margin-top:4px;opacity:0.6">Total bills: ${app.state.bills.length}, Advance: ${app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance').length}</small></div>`;
         return;
       }
       filtered.forEach(bill=>{
@@ -5192,11 +5206,16 @@ const app = {
       const container=document.getElementById('mobile-list-bills');
       if(!container) return;
       container.innerHTML='';
-      const all=app.ui.getFiltered(app.state.bills,'bills');
-      const filtered=all.filter(b=>b.expenseType==='hospital');
+      let all=app.ui.getFiltered(app.state.bills,'bills');
+      let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+      if(!filtered.length && app.state.bills.length){
+        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+        if(raw.length) filtered = app.ui.filters.bills.search||app.ui.filters.bills.from||app.ui.filters.bills.to ? filtered : raw;
+        if(!filtered.length && raw.length) filtered=raw;
+      }
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
-        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No hospital bills found.'}</div>`;
+        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter. <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters(\'bills\')">Clear Filter</button>':'No hospital bills found.'} <small style="display:block;margin-top:4px;opacity:0.6">Total bills: ${app.state.bills.length}, Hospital: ${app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital').length}</small></div>`;
         return;
       }
       filtered.forEach(bill=>{
