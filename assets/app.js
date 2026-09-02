@@ -1984,6 +1984,7 @@ const app = {
       if (ledgerSub) ledgerSub.classList.remove('active');
       const billsSub2 = document.getElementById('mobile-bills-submenu');
       if (billsSub2) billsSub2.classList.remove('active');
+      if (app.mobile.isMobile()) setTimeout(()=>app.mobile.renderAllMobileCards(),50);
 
       // Sync bottom nav active state
       const bottomNavMapping = {
