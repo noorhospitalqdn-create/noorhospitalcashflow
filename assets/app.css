@@ -918,6 +918,44 @@ html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(
   border: 1px solid var(--error-border);
 }
 
+/* ---------- 10b. REPORTS CENTRE CONTROLS & DISPLAY ---------- */
+.reports-control-panel {
+  margin-bottom: 20px;
+}
+.reports-filters-card {
+  padding: 16px 20px;
+}
+.reports-filters-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.2fr auto;
+  gap: 14px;
+  align-items: flex-end;
+}
+#report-display-container {
+  padding: 20px 24px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.report-header-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+#report-title-display {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.01em;
+}
+#report-meta-display {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 /* ---------- 11. ERGONOMIC DATA ENTRY MODALS ---------- */
 dialog, .modal-dialog {
   background: var(--bg-card);
@@ -1431,9 +1469,43 @@ dialog::backdrop {
   }
   .ledger-filter-bar .btn { min-height: 36px !important; font-size: 0.74rem !important; }
 
-  /* Table to cards switch */
-  .card.overflow-x .data-table { display: none; }
+  /* Table to cards switch (exempt Report Centre which needs horizontal scroll table) */
+  .card.overflow-x:not(#report-display-container) .data-table { display: none; }
   .mobile-card-list { display: flex; }
+
+  /* Report Centre Mobile Viewport */
+  .reports-filters-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .reports-filters-grid .form-group.flex {
+    flex-direction: row !important;
+    gap: 10px !important;
+  }
+  #report-display-container {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 14px !important;
+    border-radius: var(--radius-md) !important;
+  }
+  #report-display-container .data-table,
+  #report-display-container #table-report {
+    display: table !important;
+    width: 100% !important;
+    min-width: 540px !important;
+    font-size: 0.76rem !important;
+  }
+  #report-display-container .report-header-preview {
+    display: block !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+  #report-balance-sheet-placeholder:not(.hidden) {
+    display: block !important;
+    overflow-x: auto !important;
+  }
 
   /* Modals on Mobile */
   dialog, .modal-dialog {

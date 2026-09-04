@@ -1738,6 +1738,14 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         </div>
 
         <div class="form-group">
+          <label class="form-label" for="convert-bill-exptype">Bill Register Destination</label>
+          <select id="convert-bill-exptype" class="form-select" required>
+            <option value="hospital" selected>Hospital Bills (Against Hospital Cash Collection)</option>
+            <option value="advance">Muhasib Bills (Against Muhasib Advance Float)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label class="form-label" for="convert-bill-number">Bill Number</label>
           <input type="text" id="convert-bill-number" class="form-input" placeholder="e.g. NH-98273" required>
         </div>

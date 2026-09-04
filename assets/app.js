@@ -1036,27 +1036,27 @@ const app = {
       app.state.totalAdvanceCashReceived = app.state.openingAdvanceCash + advanceCashInflows;
       app.state.totalHospitalCashCollected = app.state.openingHospitalCash + hospitalCashInflows;
 
-      // Totals of all slips (all slips represent cash spent immediately)
+      // Totals of active pending temporary slips (cash given out on pending vouchers)
       const allAdvanceSlipsAmount = app.state.temporarySlips
-        .filter(s => s.expenseType === 'advance')
+        .filter(s => s.expenseType === 'advance' && s.status === 'pending')
         .reduce((sum, s) => sum + s.amount, 0);
 
       const allHospitalSlipsAmount = app.state.temporarySlips
-        .filter(s => s.expenseType === 'hospital')
+        .filter(s => s.expenseType === 'hospital' && s.status === 'pending')
         .reduce((sum, s) => sum + s.amount, 0);
 
-      // Totals of bills entered directly (bills without a parent temporary slip)
-      const advanceBillsDirectAmount = app.state.bills
-        .filter(b => b.expenseType === 'advance' && (!b.slipId || b.slipId === ''))
+      // Totals of all final bills in bills store
+      const allAdvanceBillsAmount = app.state.bills
+        .filter(b => b.expenseType === 'advance')
         .reduce((sum, b) => sum + b.amount, 0);
 
-      const hospitalBillsDirectAmount = app.state.bills
-        .filter(b => b.expenseType === 'hospital' && (!b.slipId || b.slipId === ''))
+      const allHospitalBillsAmount = app.state.bills
+        .filter(b => b.expenseType === 'hospital')
         .reduce((sum, b) => sum + b.amount, 0);
 
-      // Total Expenses
-      const advanceExpenses = allAdvanceSlipsAmount + advanceBillsDirectAmount;
-      const hospitalExpenses = allHospitalSlipsAmount + hospitalBillsDirectAmount;
+      // Total Expenses: Pending Slips + Final Bills
+      const advanceExpenses = allAdvanceSlipsAmount + allAdvanceBillsAmount;
+      const hospitalExpenses = allHospitalSlipsAmount + allHospitalBillsAmount;
 
       // Sent To Accounts = total historically sent to accounts (must be computed BEFORE available cash so dashboard matches ledger)
       app.state.totalAdvanceSentToAccounts = app.state.accountsRegister
@@ -1546,7 +1546,7 @@ const app = {
         e.preventDefault();
         try {
           const slipId = parseInt(document.getElementById('convert-slip-id').value);
-          const expenseType = document.getElementById('convert-slip-exptype').value;
+          const expenseType = document.getElementById('convert-bill-exptype')?.value || document.getElementById('convert-slip-exptype')?.value || 'hospital';
           const originalVendor = document.getElementById('convert-slip-vendor-display').innerText;
 
           const slip = app.state.temporarySlips.find(s => s.id === slipId);
@@ -1601,7 +1601,7 @@ const app = {
             billNumber: document.getElementById('convert-bill-number').value,
             vendor: originalVendor, // carried over
             amount: parseFloat(document.getElementById('convert-bill-amount').value),
-            expenseType: expenseType, // carried over
+            expenseType: expenseType, // Hospital Bill (or chosen destination)
             category: document.getElementById('convert-bill-category').value,
             remarks: document.getElementById('convert-bill-remarks').value,
             slipId: slipId, // references parent slip
@@ -1612,15 +1612,17 @@ const app = {
           // Save bill entry
           await app.db.add('bills', bill);
 
-          // Update slip status to converted
+          // Update slip status to converted and synchronize expenseType to bill destination
           if (slip) {
             slip.status = 'converted';
+            slip.expenseType = expenseType;
             await app.db.put('temporary_slips', slipId, slip);
           }
 
           app.attachments.clearStagedFile('convert');
           app.ui.closeModal('dialog-slip-convert');
-          app.ui.showToast('Temporary slip successfully converted to final bill!');
+          const destLabel = expenseType === 'hospital' ? 'Hospital Bills' : 'Muhasib Bills';
+          app.ui.showToast(`Temporary slip converted to ${destLabel}! Removed from Temp Slips.`);
           app.syncState();
         } catch (err) {
           console.error(err);
@@ -2499,13 +2501,22 @@ const app = {
      */
     initiateSlipConversion(id, vendor, amount, expenseType) {
       document.getElementById('convert-slip-id').value = id;
-      document.getElementById('convert-slip-exptype').value = expenseType;
+      const targetExp = 'hospital'; // Converted slips go to Hospital Bills by default
+      if (document.getElementById('convert-slip-exptype')) {
+        document.getElementById('convert-slip-exptype').value = targetExp;
+      }
+      if (document.getElementById('convert-bill-exptype')) {
+        document.getElementById('convert-bill-exptype').value = targetExp;
+      }
       document.getElementById('convert-slip-vendor-display').innerText = vendor;
       document.getElementById('convert-slip-amount-display').innerText = app.ui.formatCurrency(amount);
       
       // Pre-populate final bill inputs
       document.getElementById('convert-bill-amount').value = amount;
       document.getElementById('convert-bill-number').value = '';
+      if (document.getElementById('convert-bill-date')) {
+        document.getElementById('convert-bill-date').value = new Date().toISOString().split('T')[0];
+      }
       
       // Clear staged convert attachment
       app.attachments.stagedConvertAttachment = null;
@@ -2759,12 +2770,14 @@ const app = {
       const list = document.getElementById('list-slips');
       if(!list) return;
       list.innerHTML = '';
-      const filtered = app.ui.getFiltered(app.state.temporarySlips,'slips');
+      // Filter out converted slips so they are removed from the temporary slips list
+      const activeSlips = app.state.temporarySlips.filter(s => s.status !== 'converted');
+      const filtered = app.ui.getFiltered(activeSlips,'slips');
       const total = filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No pending temporary slips registered.'}</td></tr>`;
         return;
       }
       filtered.forEach(slip => {
@@ -5110,9 +5123,11 @@ const app = {
           });
           break;
         case 'reports':
-          app.ui.switchTab('balance-sheet');
+          closeAll();
+          app.ui.switchTab('reports');
           break;
         case 'settings':
+          closeAll();
           app.ui.switchTab('settings');
           break;
       }
@@ -5265,10 +5280,12 @@ const app = {
       const container = document.getElementById('mobile-list-slips');
       if (!container) return;
       container.innerHTML = '';
-      const sorted = app.ui.getFiltered(app.state.temporarySlips,'slips');
+      // Filter out converted slips so they are removed from the temporary slips mobile list
+      const activeSlips = app.state.temporarySlips.filter(s => s.status !== 'converted');
+      const sorted = app.ui.getFiltered(activeSlips, 'slips');
       if (!sorted.length) {
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No temporary slips registered.'}</div>`;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No pending temporary slips registered.'}</div>`;
         return;
       }
 
