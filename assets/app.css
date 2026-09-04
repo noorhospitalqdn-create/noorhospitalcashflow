@@ -198,9 +198,6 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
   max-width: 100%;
   -webkit-overflow-scrolling: touch;
 }
-  position: relative;
-  scroll-behavior: smooth;
-}
 .panel {
   display: none;
   flex-direction: column;
