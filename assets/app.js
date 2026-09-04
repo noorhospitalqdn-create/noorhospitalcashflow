@@ -4398,29 +4398,6 @@ const app = {
               </div>
             </div>
 
-            <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border-color); border-radius:var(--radius-md);">
-              <div style="padding:12px 16px; border-bottom:1px solid var(--border-color); background:var(--bg-card); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <div>
-                  <h4 style="font-size:0.92rem; font-weight:800; color:var(--text-main);">Comprehensive Statement of Cash Flows & Reconciled Balances</h4>
-                  <p style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Itemized audit of all collections, float additions, expenses, slips, deposits, and reconciled closing cash.</p>
-                </div>
-                <span class="status-pill verified">Audit Reconciled</span>
-              </div>
-              <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
-                <table class="data-table" style="min-width:600px; width:100%;">
-                  <thead>
-                    <tr>
-                      <th style="width:44%;">Accounting Particulars</th>
-                      <th style="width:18%;">Category / Store</th>
-                      <th class="text-right" style="width:19%;">Inflow Dr (+)</th>
-                      <th class="text-right" style="width:19%;">Outflow Cr (-)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${statementRows}
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         `;
