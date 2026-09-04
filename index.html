@@ -2182,27 +2182,6 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     </button>
   </nav>
 
-  <dialog id="dialog-report-preview" closedby="any" class="modal-dialog modal-dialog-lg">
-    <div class="modal-header">
-      <h3 id="report-preview-title">Report Preview</h3>
-      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-report-preview')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div class="modal-body" id="report-preview-body" style="max-height:65vh; overflow-y:auto; background:#fff; color:#000; padding:16px;"></div>
-    <div class="modal-footer" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;">
-      <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-report-preview')">Close</button>
-      <button type="button" class="btn btn-secondary" onclick="app.reports.downloadReportPdfFile()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-        <span>Save File</span>
-      </button>
-      <button type="button" class="btn btn-primary" onclick="app.reports.doPrintFromPreview()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-        <span>Print / Save PDF</span>
-      </button>
-    </div>
-  </dialog>
-
   <!-- Mobile Ledgers Sub-Menu -->
   <div class="mobile-submenu-overlay" id="mobile-ledger-submenu">
     <div class="mobile-submenu-card">
@@ -2287,7 +2266,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
   </div>
 
 <script>
-// Premium hero sync — mirrors dashboard totals into hero banner + panel subtitles (no logic change)
+// Premium hero sync — mirrors dashboard totals into hero banner + panel subtitles (event driven, no lag)
 (function(){
   var map=[["dash-advance-cash","hero-adv-cash"],["dash-hospital-cash","hero-hosp-cash"],["dash-total-pending-bills","hero-pending"]];
   var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "advance-bills":"Muhasib purchase bills • Imprest settlement", "bills":"Hospital purchase bills • Amanat settlement", "transfers":"Verification & settlement transfers", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "settings":"Opening balances, backup & restore"};
@@ -2297,7 +2276,10 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     if(t&&s){var key=(t.textContent||"").toLowerCase();var found=null;Object.keys(subs).forEach(function(k){if(key.indexOf(k.split("-")[0])>-1&&!found)found=k;});
       var active=document.querySelector(".nav-item.active");if(active&&active.dataset&&active.dataset.panel&&subs[active.dataset.panel])s.textContent=subs[active.dataset.panel];}
   }
-  setInterval(sync,800);document.addEventListener("DOMContentLoaded",sync);sync();
+  window.syncHeroUI = sync;
+  document.addEventListener("DOMContentLoaded", sync);
+  window.addEventListener("app:rendered", sync);
+  sync();
 })();
 </script>
 <script>
@@ -2392,7 +2374,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         },80);
       }
     });
-    setInterval(refreshVendors,3000);refreshVendors();
+    refreshVendors();
   }
 })();
 </script>
