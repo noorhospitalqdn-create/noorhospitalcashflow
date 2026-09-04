@@ -74,28 +74,48 @@ const app = {
    * @returns {string} e.g. TS-1001, MB-1001, HB-1001
    */
   generateToken(type) {
-    const prefixMap = { slip: 'TS', advance_bill: 'MB', hospital_bill: 'HB' };
-    const prefix = prefixMap[type] || 'TK';
+    const prefixMap = {
+      hospital_bill: 'HB',
+      advance_bill: 'MB',
+      hospital_slip: 'HS',
+      advance_slip: 'MS',
+      slip: 'TS'
+    };
+    let resolvedType = type;
+    if (resolvedType === 'slip') {
+      const expEl = document.getElementById('slip-exp-type');
+      resolvedType = (expEl?.value === 'hospital') ? 'hospital_slip' : 'advance_slip';
+    }
+    const prefix = prefixMap[resolvedType] || prefixMap[type] || 'TK';
     let maxNum = 1000;
 
-    const extractNum = (token) => {
+    const extractNum = (token, pfx) => {
       if (!token) return 0;
-      const match = String(token).match(/-(\d+)$/);
+      const str = String(token).trim();
+      const match = str.match(new RegExp('^' + pfx + '-(\\d+)$', 'i')) || str.match(/-(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     };
 
-    if (type === 'slip') {
-      (app.state.temporarySlips || []).forEach(s => {
-        const n = extractNum(s.tokenNumber);
-        if (n > maxNum) maxNum = n;
-      });
-    } else {
-      const expType = type === 'advance_bill' ? 'advance' : 'hospital';
+    if (resolvedType === 'hospital_bill' || resolvedType === 'advance_bill') {
+      const expType = resolvedType === 'advance_bill' ? 'advance' : 'hospital';
       (app.state.bills || []).forEach(b => {
         if (String(b.expenseType || '').toLowerCase().trim() === expType) {
-          const n = extractNum(b.tokenNumber);
+          const n = extractNum(b.tokenNumber, prefix);
           if (n > maxNum) maxNum = n;
         }
+      });
+    } else if (resolvedType === 'hospital_slip' || resolvedType === 'advance_slip') {
+      const expType = resolvedType === 'advance_slip' ? 'advance' : 'hospital';
+      (app.state.temporarySlips || []).forEach(s => {
+        if (String(s.expenseType || '').toLowerCase().trim() === expType) {
+          const n = extractNum(s.tokenNumber, prefix);
+          if (n > maxNum) maxNum = n;
+        }
+      });
+    } else {
+      (app.state.temporarySlips || []).forEach(s => {
+        const n = extractNum(s.tokenNumber, prefix);
+        if (n > maxNum) maxNum = n;
       });
     }
 
@@ -543,6 +563,9 @@ const app = {
             if (queuedDeletes.has(String(remote.id))) continue;
             
             const local = localMap.get(remote.id);
+            if (!remote.tokenNumber && local && local.tokenNumber) {
+              remote.tokenNumber = local.tokenNumber;
+            }
             if (!local) {
               await app.db.put(table, null, remote, true); // localOnly = true
             } else {
@@ -1132,6 +1155,26 @@ const app = {
         );
       }
 
+      // Auto-assign token numbers to any existing bills lacking one
+      const sortedBills = (app.state.bills || []).slice().sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0) || (a.id || 0) - (b.id || 0));
+      for (const bill of sortedBills) {
+        if (!bill.tokenNumber || bill.tokenNumber === '-' || !String(bill.tokenNumber).match(/^[A-Z]{2}-\d+$/i)) {
+          const isAdv = String(bill.expenseType || '').toLowerCase().trim() === 'advance';
+          bill.tokenNumber = app.generateToken(isAdv ? 'advance_bill' : 'hospital_bill');
+          try { await app.db.put('bills', bill.id, bill); } catch (_) {}
+        }
+      }
+
+      // Auto-assign token numbers to any existing slips lacking one
+      const sortedSlips = (app.state.temporarySlips || []).slice().sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0) || (a.id || 0) - (b.id || 0));
+      for (const slip of sortedSlips) {
+        if (!slip.tokenNumber || slip.tokenNumber === '-' || !String(slip.tokenNumber).match(/^[A-Z]{2}-\d+$/i)) {
+          const isAdv = String(slip.expenseType || '').toLowerCase().trim() === 'advance';
+          slip.tokenNumber = app.generateToken(isAdv ? 'advance_slip' : 'hospital_slip');
+          try { await app.db.put('temporary_slips', slip.id, slip); } catch (_) {}
+        }
+      }
+
       // 3. Mathematical Aggregates
       
       // Totals of inflows
@@ -1383,13 +1426,40 @@ const app = {
           syncBillSegUI(btn.dataset.val);
         });
       });
-      // Auto-switch Google Drive folder link when bill expense type changes
+      // Auto-switch Google Drive folder link & dynamic token when bill expense type changes
       document.getElementById('bill-exp-type').addEventListener('change', () => {
-        syncBillSegUI(document.getElementById('bill-exp-type').value);
+        const val = document.getElementById('bill-exp-type').value;
+        syncBillSegUI(val);
+        const billTokenEl = document.getElementById('bill-token');
+        if (billTokenEl && !document.getElementById('edit-bill-id')?.value) {
+          billTokenEl.value = app.generateToken(val === 'advance' ? 'advance_bill' : 'hospital_bill');
+        }
         if (app.attachments.activeSources['bill'] === 'gdrive') {
           app.attachments.setUploadSource('bill', 'gdrive');
         }
       });
+
+      // Dynamic token when slip expense type changes
+      const slipExpEl = document.getElementById('slip-exp-type');
+      if (slipExpEl) {
+        slipExpEl.addEventListener('change', () => {
+          const slipTokenEl = document.getElementById('slip-token');
+          if (slipTokenEl && !document.getElementById('edit-slip-id')?.value) {
+            slipTokenEl.value = app.generateToken(slipExpEl.value === 'hospital' ? 'hospital_slip' : 'advance_slip');
+          }
+        });
+      }
+
+      // Dynamic token when convert destination expense type changes
+      const convertExpEl = document.getElementById('convert-bill-exptype');
+      if (convertExpEl) {
+        convertExpEl.addEventListener('change', () => {
+          const convertTokenEl = document.getElementById('convert-bill-token');
+          if (convertTokenEl) {
+            convertTokenEl.value = app.generateToken(convertExpEl.value === 'advance' ? 'advance_bill' : 'hospital_bill');
+          }
+        });
+      }
 
       // Transfer amount field validation as user types
       const transferTypeSelect = document.getElementById('transfer-type');
@@ -1602,16 +1672,18 @@ const app = {
             }
           }
 
+          const slipExp = document.getElementById('slip-exp-type').value;
+          const slipTokenType = slipExp === 'hospital' ? 'hospital_slip' : 'advance_slip';
           const slip = {
             date: document.getElementById('slip-date').value,
             vendor: document.getElementById('slip-vendor').value,
             amount: parseFloat(document.getElementById('slip-amount').value),
-            expenseType: document.getElementById('slip-exp-type').value,
+            expenseType: slipExp,
             remarks: document.getElementById('slip-remarks').value,
             status: editId ? app.attachments.activeViewedRecord.status : 'pending',
             tokenNumber: editId
-              ? (app.attachments.activeViewedRecord.tokenNumber || app.generateToken('slip'))
-              : (document.getElementById('slip-token')?.value || app.generateToken('slip')),
+              ? (app.attachments.activeViewedRecord.tokenNumber || app.generateToken(slipTokenType))
+              : (document.getElementById('slip-token')?.value || app.generateToken(slipTokenType)),
             ...attachmentProps
           };
 
@@ -1706,7 +1778,7 @@ const app = {
             remarks: document.getElementById('convert-bill-remarks').value,
             slipId: slipId, // references parent slip
             status: 'pending', // pending / transferred
-            tokenNumber: app.generateToken(expenseType === 'advance' ? 'advance_bill' : 'hospital_bill'),
+            tokenNumber: document.getElementById('convert-bill-token')?.value || app.generateToken(expenseType === 'advance' ? 'advance_bill' : 'hospital_bill'),
             ...attachmentProps
           };
 
@@ -2643,6 +2715,10 @@ const app = {
       if (document.getElementById('convert-bill-exptype')) {
         document.getElementById('convert-bill-exptype').value = targetExp;
       }
+      const convertTokenEl = document.getElementById('convert-bill-token');
+      if (convertTokenEl) {
+        convertTokenEl.value = app.generateToken(targetExp === 'advance' ? 'advance_bill' : 'hospital_bill');
+      }
       document.getElementById('convert-slip-vendor-display').innerText = vendor;
       document.getElementById('convert-slip-amount-display').innerText = app.ui.formatCurrency(amount);
       
@@ -3011,8 +3087,9 @@ const app = {
       app.ui.showConfirm('Convert Bill',`${sourceLabel} #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) ko ${targetLabel} me convert karna hai? Ye bill ${sourceLabel} se hat kar ${targetLabel} me chala jayega.`, async()=>{
         try{
           bill.expenseType=targetType;
+          bill.tokenNumber = app.generateToken(toHospital ? 'hospital_bill' : 'advance_bill');
           await app.db.put('bills',bill.id,bill);
-          app.ui.showToast(`Converted to ${targetLabel}!`);
+          app.ui.showToast(`Converted to ${targetLabel}! Token: ${bill.tokenNumber}`);
           app.syncState();
         }catch(e){ app.ui.showToast('Convert failed: '+(e.message||e),'error'); }
       });

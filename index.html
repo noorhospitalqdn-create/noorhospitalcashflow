@@ -1675,7 +1675,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       <input type="hidden" id="edit-slip-id">
       <div class="modal-body">
         <div class="form-group">
-          <label class="form-label" for="slip-token">Token Number</label>
+          <label class="form-label" for="slip-token">Token Number (Auto-Generated)</label>
           <input type="text" id="slip-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
         </div>
         <div class="form-group">
@@ -1779,6 +1779,11 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         </div>
 
         <div class="form-group">
+          <label class="form-label" for="convert-bill-token">Token Number (Auto-Generated)</label>
+          <input type="text" id="convert-bill-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
+        </div>
+
+        <div class="form-group">
           <label class="form-label" for="convert-bill-exptype">Bill Register Destination</label>
           <select id="convert-bill-exptype" class="form-select" required>
             <option value="hospital" selected>Hospital Bills (Against Hospital Cash Collection)</option>
@@ -1787,7 +1792,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="convert-bill-number">Bill Number</label>
+          <label class="form-label" for="convert-bill-number">Vendor Bill / Invoice Number</label>
           <input type="text" id="convert-bill-number" class="form-input" placeholder="e.g. NH-98273" required>
         </div>
         <div class="form-group">
@@ -1880,7 +1885,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       <div class="modal-body bill-easy">
         <!-- Token Number auto-generated -->
         <div class="form-group" style="margin-bottom:0.7rem">
-          <label class="form-label" for="bill-token">Token Number</label>
+          <label class="form-label" for="bill-token">Token Number (Auto-Generated)</label>
           <input type="text" id="bill-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
         </div>
         <!-- 1. Amount hero -->
@@ -1908,7 +1913,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         <!-- 3. Bill no + Date -->
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label" for="bill-number">Bill Number <button type="button" class="link-btn" id="bill-next-btn" title="Auto next number">Auto</button></label>
+            <label class="form-label" for="bill-number">Vendor Bill / Invoice Number <button type="button" class="link-btn" id="bill-next-btn" title="Auto next number">Auto</button></label>
             <input type="text" id="bill-number" class="form-input" placeholder="INV-1002" required autocomplete="off">
           </div>
           <div class="form-group">
@@ -2311,7 +2316,18 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
   function init(){
     var sel=$("bill-exp-type"),cat=$("bill-category"),amt=$("bill-amount"),vendor=$("bill-vendor"),
         bno=$("bill-number"),remarks=$("bill-remarks"),dlg=$("dialog-bill-add"),form=$("form-bill-add");
-    function paintSeg(){var v=sel.value||"advance";document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.classList.toggle("active",b.dataset.val===v);});}
+    function syncBillTokenUI(){
+      var btok=$("bill-token"), isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
+      if(btok && !isEdit && window.app && window.app.generateToken){
+        var curType = (sel && sel.value === "advance") ? "advance_bill" : "hospital_bill";
+        btok.value = window.app.generateToken(curType);
+      }
+    }
+    function paintSeg(){
+      var v=sel.value||"advance";
+      document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.classList.toggle("active",b.dataset.val===v);});
+      syncBillTokenUI();
+    }
     document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.addEventListener("click",function(){sel.value=b.dataset.val;sel.dispatchEvent(new Event("change"));paintSeg();try{localStorage.setItem("nh_last_bill_type",sel.value);}catch(e){}});});
     sel.addEventListener("change",paintSeg);paintSeg();
     function paintCat(){document.querySelectorAll("#bill-cat-chips button").forEach(function(b){b.classList.toggle("active",b.dataset.cat===cat.value);});}
@@ -2346,15 +2362,15 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     window.app.ui.openModal=function(id){
       origOpen(id);
       if(id==="dialog-bill-add"){
-        refreshVendors();paintSeg();paintCat();
+        refreshVendors();
         var isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
         if(!isEdit){
           try{
             var ex=window._billExplicitType; if(ex){sel.value=ex; sel.dispatchEvent(new Event("change")); window._billExplicitType=null;} else {var lt=localStorage.getItem("nh_last_bill_type");if(lt){sel.value=lt;sel.dispatchEvent(new Event("change"));}}
             var lc=localStorage.getItem("nh_last_bill_cat");if(lc){cat.value=lc;}
-            paintSeg();paintCat();
           }catch(e){}
-          if(!bno.value)bno.placeholder=nextBillNo();
+          paintSeg();paintCat();syncBillTokenUI();
+          if(!bno.value)bno.placeholder="e.g. INV-1002 or Invoice #";
         }
         setTimeout(function(){try{(amt.value?vendor:amt).focus();}catch(e){}},120);
       }
