@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260905_06">
+  <link rel="stylesheet" href="assets/app.css?v=20260905_07">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260905_06" defer></script>
+  <script src="assets/app.js?v=20260905_07" defer></script>
 </head>
 <body>
 
@@ -1970,7 +1970,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
           <div class="form-group">
             <label class="form-label">Bill Attachment (Photo / PDF)</label>
             <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.6rem;">
-              <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="bill-source-supabase" onclick="app.attachments.setUploadSource('bill', 'supabase)">
+              <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="bill-source-supabase" onclick="app.attachments.setUploadSource('bill', 'supabase')">
                 <span>Upload Photo</span>
               </button>
               <button type="button" class="btn btn-secondary btn-sm flex-1" id="bill-source-gdrive" onclick="app.attachments.setUploadSource('bill', 'gdrive')">

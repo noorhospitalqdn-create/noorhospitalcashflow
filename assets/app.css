@@ -1060,9 +1060,8 @@ dialog, .modal-dialog {
   box-shadow: var(--shadow-lg);
   max-width: 520px;
   width: calc(100vw - 32px);
-  height: -webkit-fit-content;
-  height: -moz-fit-content;
-  height: fit-content;
+  height: min(88vh, 660px);
+  height: min(88dvh, 660px);
   max-height: min(90dvh, 88vh);
   display: none;
   flex-direction: column;
@@ -1071,6 +1070,9 @@ dialog, .modal-dialog {
   position: fixed;
   inset: 0;
   z-index: 1000;
+}
+dialog.modal-dialog-sm {
+  height: auto !important;
 }
 dialog[open], .modal-dialog[open] {
   display: flex !important;
@@ -1081,6 +1083,7 @@ dialog form, .modal-dialog form {
   flex-direction: column !important;
   flex: 1 1 auto !important;
   min-height: 0 !important;
+  height: 100% !important;
   max-height: 100% !important;
   width: 100% !important;
   overflow: hidden !important;
@@ -1805,20 +1808,24 @@ dialog::backdrop {
     z-index: 1000 !important;
     width: calc(100vw - 20px) !important;
     max-width: 480px !important;
-    height: -webkit-fit-content !important;
-    height: -moz-fit-content !important;
-    height: fit-content !important;
+    height: min(88vh, 640px) !important;
+    height: min(88dvh, 640px) !important;
     max-height: calc(92vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
     max-height: calc(92dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
     border-radius: var(--radius-md) !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
   }
+  dialog.modal-dialog-sm[open] {
+    height: auto !important;
+    min-height: auto !important;
+  }
   dialog form, .modal-dialog form {
     display: flex !important;
     flex-direction: column !important;
     flex: 1 1 auto !important;
     min-height: 0 !important;
+    height: 100% !important;
     max-height: 100% !important;
     width: 100% !important;
     overflow: hidden !important;
@@ -1839,8 +1846,6 @@ dialog::backdrop {
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     overscroll-behavior: contain !important;
-    max-height: calc(75vh - 90px) !important;
-    max-height: calc(75dvh - 90px) !important;
   }
   .modal-footer {
     flex-shrink: 0 !important;
