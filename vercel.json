@@ -4,7 +4,16 @@
   "trailingSlash": false,
   "headers": [
     {
-      "source": "/assets/(.*)",
+      "source": "/assets/(app\\.js|app\\.css)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(chart\\.min\\.js|xlsx\\.min\\.js)",
       "headers": [
         {
           "key": "Cache-Control",

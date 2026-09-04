@@ -102,6 +102,23 @@ const app = {
     return `${prefix}-${maxNum + 1}`;
   },
 
+  /**
+   * Returns only true active, pending temporary slips.
+   * Explicitly filters out:
+   * 1) status === 'converted'
+   * 2) Any slip whose ID is already referenced by a final bill (b.slipId) in the bills store.
+   */
+  getActiveTemporarySlips() {
+    const convertedSlipIds = new Set(
+      (app.state.bills || [])
+        .filter(b => b.slipId !== null && b.slipId !== undefined && b.slipId !== '')
+        .map(b => String(b.slipId))
+    );
+    return (app.state.temporarySlips || []).filter(s => 
+      s.status !== 'converted' && !convertedSlipIds.has(String(s.id))
+    );
+  },
+
   // Simple Authentication Module
   auth: {
     credentials: {
@@ -514,8 +531,8 @@ const app = {
 
           // Build sets of pending queue operations so we never overwrite local intent
           const syncQueue = await app.db.getAll('sync_queue');
-          const queuedInserts = new Set(syncQueue.filter(q => q.table === table && q.method === 'INSERT').map(q => q.recordId));
-          const queuedDeletes = new Set(syncQueue.filter(q => q.table === table && q.method === 'DELETE').map(q => q.recordId));
+          const queuedInserts = new Set(syncQueue.filter(q => q.table === table && q.method === 'INSERT').map(q => String(q.recordId)));
+          const queuedDeletes = new Set(syncQueue.filter(q => q.table === table && q.method === 'DELETE').map(q => String(q.recordId)));
           
           for (const remote of remoteRecords) {
             if (remote.amount !== undefined) remote.amount = parseFloat(remote.amount);
@@ -523,7 +540,7 @@ const app = {
             if (remote.transferId !== undefined && remote.transferId !== null) remote.transferId = parseInt(remote.transferId);
 
             // Skip any record that is queued for local deletion – do not restore it.
-            if (queuedDeletes.has(remote.id)) continue;
+            if (queuedDeletes.has(String(remote.id))) continue;
             
             const local = localMap.get(remote.id);
             if (!local) {
@@ -781,9 +798,13 @@ const app = {
       await new Promise((resolve, reject) => {
         app.db.getTransaction(storeName, 'readwrite')
           .then(store => {
-            const request = store.delete(id);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
+            store.delete(id);
+            if (typeof id === 'string' && !isNaN(parseInt(id, 10))) {
+              try { store.delete(parseInt(id, 10)); } catch (_) {}
+            } else if (typeof id === 'number') {
+              try { store.delete(String(id)); } catch (_) {}
+            }
+            resolve();
           })
           .catch(reject);
       });
@@ -1078,19 +1099,38 @@ const app = {
       app.state.advanceCashEntries = await app.db.getAll('advance_cash');
       app.state.hospitalCashEntries = await app.db.getAll('hospital_cash');
       for (const e of app.state.hospitalCashEntries) { if (e.source === 'Other') { e.source = 'Reception Cash'; try { await app.db.put('hospital_cash', e.id, e); } catch(_){} } }
-      app.state.temporarySlips = await app.db.getAll('temporary_slips');
-      // Auto-purge any legacy converted slips so they are totally removed from temporary slips
-      const legacyConverted = app.state.temporarySlips.filter(s => s.status === 'converted');
-      if (legacyConverted.length > 0) {
-        for (const cs of legacyConverted) {
-          try { await app.db.delete('temporary_slips', cs.id); } catch (_) {}
-        }
-        app.state.temporarySlips = app.state.temporarySlips.filter(s => s.status !== 'converted');
-      }
       app.state.bills = await app.db.getAll('bills');
       app.state.transfers = await app.db.getAll('transfers');
       app.state.hospitalDeposits = await app.db.getAll('hospital_deposits');
       app.state.accountsRegister = await app.db.getAll('accounts_register');
+
+      app.state.temporarySlips = await app.db.getAll('temporary_slips');
+      // Auto-purge any converted slips so they are totally removed from temporary slips:
+      // 1) explicitly status === 'converted'
+      // 2) any slip whose id is already converted into a bill (b.slipId in bills store)
+      const convertedSlipIds = new Set(
+        (app.state.bills || [])
+          .filter(b => b.slipId !== null && b.slipId !== undefined && b.slipId !== '')
+          .map(b => String(b.slipId))
+      );
+      const slipsToPurge = (app.state.temporarySlips || []).filter(s => 
+        s.status === 'converted' || convertedSlipIds.has(String(s.id))
+      );
+      if (slipsToPurge.length > 0) {
+        for (const cs of slipsToPurge) {
+          try { 
+            await app.db.delete('temporary_slips', cs.id);
+            if (typeof cs.id === 'string' && !isNaN(parseInt(cs.id, 10))) {
+              try { await app.db.delete('temporary_slips', parseInt(cs.id, 10)); } catch (_) {}
+            } else if (typeof cs.id === 'number') {
+              try { await app.db.delete('temporary_slips', String(cs.id)); } catch (_) {}
+            }
+          } catch (_) {}
+        }
+        app.state.temporarySlips = (app.state.temporarySlips || []).filter(s => 
+          s.status !== 'converted' && !convertedSlipIds.has(String(s.id))
+        );
+      }
 
       // 3. Mathematical Aggregates
       
@@ -1103,12 +1143,13 @@ const app = {
       app.state.totalHospitalCashCollected = app.state.openingHospitalCash + hospitalCashInflows;
 
       // Totals of active pending temporary slips (cash given out on pending vouchers)
-      const allAdvanceSlipsAmount = app.state.temporarySlips
-        .filter(s => s.expenseType === 'advance' && s.status === 'pending')
+      const activeSlipsList = app.getActiveTemporarySlips();
+      const allAdvanceSlipsAmount = activeSlipsList
+        .filter(s => s.expenseType === 'advance')
         .reduce((sum, s) => sum + s.amount, 0);
 
-      const allHospitalSlipsAmount = app.state.temporarySlips
-        .filter(s => s.expenseType === 'hospital' && s.status === 'pending')
+      const allHospitalSlipsAmount = activeSlipsList
+        .filter(s => s.expenseType === 'hospital')
         .reduce((sum, s) => sum + s.amount, 0);
 
       // Totals of all final bills in bills store
@@ -1172,9 +1213,8 @@ const app = {
       app.state.totalTransferred = app.state.amanatReceived + app.state.imprestReceived;
 
       // Temporary Slips Pending Indicators
-      const pendingSlips = app.state.temporarySlips.filter(s => s.status === 'pending');
-      app.state.temporarySlipsPending = pendingSlips.length;
-      app.state.temporarySlipsPendingAmount = pendingSlips.reduce((sum, s) => sum + s.amount, 0);
+      app.state.temporarySlipsPending = activeSlipsList.length;
+      app.state.temporarySlipsPendingAmount = activeSlipsList.reduce((sum, s) => sum + s.amount, 0);
 
       // Trigger Render and Refresh Viewports
       app.ui.renderAll();
@@ -1670,17 +1710,28 @@ const app = {
             ...attachmentProps
           };
 
+          // Immediately mark converted in memory so no stale render can ever show it
+          if (slip) {
+            slip.status = 'converted';
+          }
+          app.state.temporarySlips = (app.state.temporarySlips || []).filter(s => String(s.id) !== String(slipId));
+
           // Save bill entry
           await app.db.add('bills', bill);
 
           // When converted to bill, completely delete the slip from temporary_slips store
           await app.db.delete('temporary_slips', slipId);
+          if (typeof slipId === 'string' && !isNaN(parseInt(slipId, 10))) {
+            try { await app.db.delete('temporary_slips', parseInt(slipId, 10)); } catch (_) {}
+          } else if (typeof slipId === 'number') {
+            try { await app.db.delete('temporary_slips', String(slipId)); } catch (_) {}
+          }
 
           app.attachments.clearStagedFile('convert');
           app.ui.closeModal('dialog-slip-convert');
           const destLabel = expenseType === 'hospital' ? 'Hospital Bills' : 'Muhasib Bills';
           app.ui.showToast(`Temporary slip converted to ${destLabel}! Removed from Temp Slips.`);
-          app.syncState();
+          await app.syncState();
         } catch (err) {
           console.error(err);
           app.ui.showToast('Failed to convert temporary slip to bill.', 'error');
@@ -2855,7 +2906,7 @@ const app = {
       if(!list) return;
       list.innerHTML = '';
       // Filter out converted slips so they are removed from the temporary slips list
-      const activeSlips = app.state.temporarySlips.filter(s => s.status !== 'converted');
+      const activeSlips = app.getActiveTemporarySlips();
       const filtered = app.ui.getFiltered(activeSlips,'slips');
       const total = filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
@@ -3717,8 +3768,8 @@ const app = {
       `;
 
       // 3. Active Temporary Slips (Float Committed/In Circulation)
-      const activeSlips = (app.state.temporarySlips || [])
-        .filter(s => (s.status === 'pending' || !s.status || s.status === 'active') && inRange(s.date))
+      const activeSlips = app.getActiveTemporarySlips()
+        .filter(s => inRange(s.date))
         .sort((a,b) => new Date(a.date) - new Date(b.date));
       let subtotalActiveSlips = activeSlips.reduce((s,sItem) => s + (sItem.amount || 0), 0);
 
@@ -4016,7 +4067,7 @@ const app = {
           </tr>
         `;
         
-        const filtered = filterByDateRange(app.state.temporarySlips);
+        const filtered = filterByDateRange(app.getActiveTemporarySlips());
         tbody.innerHTML = '';
         
         filtered.forEach(slip => {
@@ -4369,8 +4420,8 @@ const app = {
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
         const hospCashList = filterByDateRange(app.state.hospitalCashEntries);
-        const hospBillList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'hospital' && (!b.slipId || b.slipId === '')));
-        const hospSlipList = filterByDateRange(app.state.temporarySlips.filter(s => s.expenseType === 'hospital'));
+        const hospBillList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'hospital'));
+        const hospSlipList = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'hospital'));
         const depList = filterByDateRange(app.state.hospitalDeposits);
         const accList = app.state.accountsRegister.filter(a => {
           if (a.billType !== 'hospital') return false;
@@ -4383,7 +4434,7 @@ const app = {
         const totalCashAmt = hospCashList.reduce((s,x)=>s+x.amount,0);
         if(hospCashList.length) combined.push({ date: hospCashList[hospCashList.length-1].date, remarks: `Total Cash Collection (${hospCashList.length} entries)`, dr: totalCashAmt, cr: 0, sortDate: hospCashList[hospCashList.length-1].date, badge: 'Cash Collection - Total', badgeColor: 'var(--primary)' });
         const totalBillAmt = hospBillList.reduce((s,x)=>s+x.amount,0);
-        if(hospBillList.length) combined.push({ date: hospBillList[hospBillList.length-1].date, remarks: `Total Hospital Bills Direct (${hospBillList.length} bills, excl. slip-converted)`, dr: 0, cr: totalBillAmt, sortDate: hospBillList[hospBillList.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
+        if(hospBillList.length) combined.push({ date: hospBillList[hospBillList.length-1].date, remarks: `Total Hospital Bills (${hospBillList.length} bills)`, dr: 0, cr: totalBillAmt, sortDate: hospBillList[hospBillList.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
         const totalSlipAmt = hospSlipList.reduce((s,x)=>s+x.amount,0);
         if(hospSlipList.length) combined.push({ date: hospSlipList[hospSlipList.length-1].date, remarks: `Total Temp Slips (${hospSlipList.length} slips)`, dr: 0, cr: totalSlipAmt, sortDate: hospSlipList[hospSlipList.length-1].date, badge: 'Temp Slips - Total', badgeColor: 'var(--accent)' });
         const totalDepAmt = depList.reduce((s,x)=>s+x.amount,0);
@@ -4556,10 +4607,10 @@ const app = {
         const comb = [];
         const _hCash = app.state.hospitalCashEntries.filter(e=>inRange(e.date));
         if(_hCash.length) comb.push({date:_hCash[_hCash.length-1].date, particulars:`Total Cash Collection (${_hCash.length} entries)`, vType:'Cash Collection - Total', dr:_hCash.reduce((s,x)=>s+x.amount,0), cr:0});
-        const _hBills = app.state.bills.filter(b=>b.expenseType==='hospital' && (!b.slipId || b.slipId === '') && inRange(b.date));
-        if(_hBills.length) comb.push({date:_hBills[_hBills.length-1].date, particulars:`Total Hospital Bills Direct (${_hBills.length} bills, excl. slip-converted)`, vType:'Hospital Bills - Total', dr:0, cr:_hBills.reduce((s,x)=>s+x.amount,0)});
-        const _hSlips = app.state.temporarySlips.filter(s=>s.expenseType==='hospital' && inRange(s.date));
-        if(_hSlips.length) comb.push({date:_hSlips[_hSlips.length-1].date, particulars:`Total Temp Slips (${_hSlips.length} slips)`, vType:'Temp Slips - Total', dr:0, cr:_hSlips.reduce((s,x)=>s+x.amount,0)});
+        const _hBills = app.state.bills.filter(b=>b.expenseType==='hospital' && inRange(b.date));
+        if(_hBills.length) comb.push({date:_hBills[_hBills.length-1].date, particulars:`Total Hospital Bills (${_hBills.length} bills)`, vType:'Hospital Bills - Total', dr:0, cr:_hBills.reduce((s,x)=>s+x.amount,0)});
+        const _hSlips = app.getActiveTemporarySlips().filter(s=>s.expenseType==='hospital' && inRange(s.date));
+        if(_hSlips.length) comb.push({date:_hSlips[_hSlips.length-1].date, particulars:`Total Active Temp Slips (${_hSlips.length} slips)`, vType:'Temp Slips - Total', dr:0, cr:_hSlips.reduce((s,x)=>s+x.amount,0)});
         const _hDeps = app.state.hospitalDeposits.filter(d=>inRange(d.date));
         if(_hDeps.length) comb.push({date:_hDeps[_hDeps.length-1].date, particulars:`Total Deposited to Muhasib (${_hDeps.length} deposits)`, vType:'Deposits - Total', dr:0, cr:_hDeps.reduce((s,x)=>s+x.amount,0)});
         const _inAccRange = (a) => { if (a.billType !== 'hospital') return false; const d = a.dateSent || a.date || ''; if(sVal && d < sVal) return false; if(eVal && d > eVal) return false; return true; };
@@ -4822,7 +4873,7 @@ const app = {
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.receiptNumber,e.amount,e.remarks||'-']));
         sheetName='Deposits';
       } else if(page==='slips'){
-        const d=filtered(app.state.temporarySlips,'slips');
+        const d=filtered(app.getActiveTemporarySlips(),'slips');
         rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
         sheetName='Temp Slips';
@@ -5361,7 +5412,7 @@ const app = {
       const subtotalAdvBills = advBills.reduce((s,b) => s + (b.amount || 0), 0);
       rows.push(['PART II: OUTFLOWS', 'Subtotal: Muhasib Bills Paid', '', '', subtotalAdvBills, '']);
 
-      const activeSlips = (app.state.temporarySlips || []).filter(s => s.status === 'pending' || !s.status || s.status === 'active');
+      const activeSlips = app.getActiveTemporarySlips();
       activeSlips.forEach(s => {
         rows.push(['PART II: OUTFLOWS', `Active Temp Slip #${s.slipNumber || '-'}: ${s.vendor || '-'}`, s.expenseType === 'advance' ? 'Adv Slip' : 'Hosp Slip', '', s.amount || 0, '']);
       });
