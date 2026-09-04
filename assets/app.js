@@ -1058,13 +1058,24 @@ const app = {
       const advanceExpenses = allAdvanceSlipsAmount + advanceBillsDirectAmount;
       const hospitalExpenses = allHospitalSlipsAmount + hospitalBillsDirectAmount;
 
+      // Sent To Accounts = total historically sent to accounts (must be computed BEFORE available cash so dashboard matches ledger)
+      app.state.totalAdvanceSentToAccounts = app.state.accountsRegister
+        .filter(a => a.billType === 'advance')
+        .reduce((sum, a) => sum + a.amount, 0);
+      app.state.totalHospitalSentToAccounts = app.state.accountsRegister
+        .filter(a => a.billType === 'hospital')
+        .reduce((sum, a) => sum + a.amount, 0);
+      app.state.totalSentToAccounts = app.state.totalAdvanceSentToAccounts + app.state.totalHospitalSentToAccounts;
+
       // Available Cash Calculations
       app.state.advanceCashAvailable = app.state.openingAdvanceCash + advanceCashInflows - advanceExpenses;
       
       const hospitalDepositsSum = app.state.hospitalDeposits.reduce((sum, d) => sum + d.amount, 0);
       app.state.totalHospitalDeposited = hospitalDepositsSum;
       
-      app.state.hospitalCashAvailable = app.state.openingHospitalCash + hospitalCashInflows - hospitalExpenses - hospitalDepositsSum;
+      // Hospital Cash Available = Opening + Collections - Slips/Bills Expenses - Deposits to Muhasib - Sent To Accounts (hospital)
+      // Accounts deduction added so dashboard matches Hospital Cash Ledger report (Dr = Collections | Cr = Bills/Slips/Deposits/Accounts)
+      app.state.hospitalCashAvailable = app.state.openingHospitalCash + hospitalCashInflows - hospitalExpenses - hospitalDepositsSum - app.state.totalHospitalSentToAccounts;
       app.state.totalCashWithMe = app.state.advanceCashAvailable + app.state.hospitalCashAvailable;
 
       // Transfers & Settlements
@@ -1084,15 +1095,6 @@ const app = {
       const allHospitalBillsAmount = app.state.bills
         .filter(b => b.expenseType === 'hospital')
         .reduce((sum, b) => sum + b.amount, 0);
-
-      // Sent To Accounts = total historically sent to accounts
-      app.state.totalAdvanceSentToAccounts = app.state.accountsRegister
-        .filter(a => a.billType === 'advance')
-        .reduce((sum, a) => sum + a.amount, 0);
-      app.state.totalHospitalSentToAccounts = app.state.accountsRegister
-        .filter(a => a.billType === 'hospital')
-        .reduce((sum, a) => sum + a.amount, 0);
-      app.state.totalSentToAccounts = app.state.totalAdvanceSentToAccounts + app.state.totalHospitalSentToAccounts;
 
       // Pending Bills = Total Bills - Total Transferred
       app.state.advanceBillsPending = allAdvanceBillsAmount - imprestTransfersAmount;
@@ -1245,8 +1247,30 @@ const app = {
       };
       ['advance','hospital','deposits','slips','bills','advance-bills','accounts','transfers'].forEach(bindPage);
 
+      // Paid From segmented control <-> hidden select sync (fixes mode not changing)
+      const syncBillSegUI = (val) => {
+        const v = val || document.getElementById('bill-exp-type')?.value || 'advance';
+        document.querySelectorAll('#bill-seg .seg-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.val === v);
+        });
+        const sel = document.getElementById('bill-exp-type');
+        if (sel && sel.value !== v) sel.value = v;
+        if (typeof app.ui.updateDriveFolderUI === 'function') app.ui.updateDriveFolderUI();
+      };
+      window.syncBillSegUI = syncBillSegUI;
+      document.querySelectorAll('#bill-seg .seg-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sel = document.getElementById('bill-exp-type');
+          if (sel) {
+            sel.value = btn.dataset.val;
+            sel.dispatchEvent(new Event('change'));
+          }
+          syncBillSegUI(btn.dataset.val);
+        });
+      });
       // Auto-switch Google Drive folder link when bill expense type changes
       document.getElementById('bill-exp-type').addEventListener('change', () => {
+        syncBillSegUI(document.getElementById('bill-exp-type').value);
         if (app.attachments.activeSources['bill'] === 'gdrive') {
           app.attachments.setUploadSource('bill', 'gdrive');
         }
@@ -2034,10 +2058,12 @@ const app = {
         app.reports.renderReportView();
       }
 
-      // Scroll to top on mobile
-      if (window.innerWidth <= 768) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      // Scroll to top on mobile (panel-container is the scroller, not window)
+      try {
+        var sc = document.querySelector('.panel-container');
+        if (sc) sc.scrollTo({ top: 0, behavior: 'auto' });
+        else window.scrollTo({ top: 0 });
+      } catch (e) { window.scrollTo(0, 0); }
     },
 
     openBillModal(type){
@@ -2063,6 +2089,7 @@ const app = {
           app.attachments.clearStagedFile('slip');
         } else if (dialogId === 'dialog-bill-add') {
           app.attachments.clearStagedFile('bill');
+          if (window.syncBillSegUI) setTimeout(() => window.syncBillSegUI(document.getElementById('bill-exp-type')?.value || 'advance'), 0);
         } else if (dialogId === 'dialog-deposit-add') {
           app.attachments.clearStagedFile('deposit');
         } else if (dialogId === 'dialog-settings') {
@@ -2113,6 +2140,7 @@ const app = {
           document.getElementById('edit-bill-id').value = '';
           document.getElementById('dialog-bill-title').innerText = 'Add Direct Bill';
           app.attachments.clearStagedFile('bill');
+          if (window.syncBillSegUI) window.syncBillSegUI('advance');
         } else if (dialogId === 'dialog-transfer-add') {
           document.getElementById('edit-transfer-id').value = '';
           document.getElementById('dialog-transfer-title').innerText = 'Record Verification Transfer';
@@ -2186,6 +2214,7 @@ const app = {
           document.getElementById('bill-vendor').value = record.vendor;
           document.getElementById('bill-amount').value = record.amount;
           document.getElementById('bill-exp-type').value = record.expenseType;
+          if (window.syncBillSegUI) window.syncBillSegUI(record.expenseType);
           document.getElementById('bill-category').value = record.category;
           document.getElementById('bill-remarks').value = record.remarks || '';
           
@@ -3804,18 +3833,27 @@ const app = {
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
         const hospCashList = filterByDateRange(app.state.hospitalCashEntries);
-        const hospBillList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'hospital'));
+        const hospBillList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'hospital' && (!b.slipId || b.slipId === '')));
         const hospSlipList = filterByDateRange(app.state.temporarySlips.filter(s => s.expenseType === 'hospital'));
         const depList = filterByDateRange(app.state.hospitalDeposits);
+        const accList = app.state.accountsRegister.filter(a => {
+          if (a.billType !== 'hospital') return false;
+          const d = a.dateSent || a.date || '';
+          if (startVal && d < startVal) return false;
+          if (endVal && d > endVal) return false;
+          return true;
+        });
         const combined = [];
         const totalCashAmt = hospCashList.reduce((s,x)=>s+x.amount,0);
         if(hospCashList.length) combined.push({ date: hospCashList[hospCashList.length-1].date, remarks: `Total Cash Collection (${hospCashList.length} entries)`, dr: totalCashAmt, cr: 0, sortDate: hospCashList[hospCashList.length-1].date, badge: 'Cash Collection - Total', badgeColor: 'var(--primary)' });
         const totalBillAmt = hospBillList.reduce((s,x)=>s+x.amount,0);
-        if(hospBillList.length) combined.push({ date: hospBillList[hospBillList.length-1].date, remarks: `Total Hospital Bills (${hospBillList.length} bills)`, dr: 0, cr: totalBillAmt, sortDate: hospBillList[hospBillList.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
+        if(hospBillList.length) combined.push({ date: hospBillList[hospBillList.length-1].date, remarks: `Total Hospital Bills Direct (${hospBillList.length} bills, excl. slip-converted)`, dr: 0, cr: totalBillAmt, sortDate: hospBillList[hospBillList.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
         const totalSlipAmt = hospSlipList.reduce((s,x)=>s+x.amount,0);
         if(hospSlipList.length) combined.push({ date: hospSlipList[hospSlipList.length-1].date, remarks: `Total Temp Slips (${hospSlipList.length} slips)`, dr: 0, cr: totalSlipAmt, sortDate: hospSlipList[hospSlipList.length-1].date, badge: 'Temp Slips - Total', badgeColor: 'var(--accent)' });
         const totalDepAmt = depList.reduce((s,x)=>s+x.amount,0);
         if(depList.length) combined.push({ date: depList[depList.length-1].date, remarks: `Total Deposited to Muhasib (${depList.length} deposits)`, dr: 0, cr: totalDepAmt, sortDate: depList[depList.length-1].date, badge: 'Deposits - Total', badgeColor: 'var(--secondary)' });
+        const totalAccAmt = accList.reduce((s,x)=>s+x.amount,0);
+        if(accList.length) combined.push({ date: accList[accList.length-1].dateSent || accList[accList.length-1].date, remarks: `Total Sent To Accounts (${accList.length} entries)`, dr: 0, cr: totalAccAmt, sortDate: accList[accList.length-1].dateSent || accList[accList.length-1].date, badge: 'Accounts Dept - Total', badgeColor: 'var(--primary)' });
         combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
         let runningBal = app.state.openingHospitalCash;
         let totalDr = 0;
@@ -3836,7 +3874,7 @@ const app = {
           <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
             <div class="card" style="padding:0; overflow:hidden;">
               <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                <span>Hospital Cash Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits &nbsp;|&nbsp; Balance = Running</span>
+                <span>Hospital Cash Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits / Accounts &nbsp;|&nbsp; Balance = Running</span>
               </div>
               <div style="overflow-x:auto;">
                 <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Collection)</th><th class="text-right">Cr (Expense/Deposit)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
@@ -3977,12 +4015,15 @@ const app = {
         const comb = [];
         const _hCash = app.state.hospitalCashEntries.filter(e=>inRange(e.date));
         if(_hCash.length) comb.push({date:_hCash[_hCash.length-1].date, particulars:`Total Cash Collection (${_hCash.length} entries)`, vType:'Cash Collection - Total', dr:_hCash.reduce((s,x)=>s+x.amount,0), cr:0});
-        const _hBills = app.state.bills.filter(b=>b.expenseType==='hospital' && inRange(b.date));
-        if(_hBills.length) comb.push({date:_hBills[_hBills.length-1].date, particulars:`Total Hospital Bills (${_hBills.length} bills)`, vType:'Hospital Bills - Total', dr:0, cr:_hBills.reduce((s,x)=>s+x.amount,0)});
+        const _hBills = app.state.bills.filter(b=>b.expenseType==='hospital' && (!b.slipId || b.slipId === '') && inRange(b.date));
+        if(_hBills.length) comb.push({date:_hBills[_hBills.length-1].date, particulars:`Total Hospital Bills Direct (${_hBills.length} bills, excl. slip-converted)`, vType:'Hospital Bills - Total', dr:0, cr:_hBills.reduce((s,x)=>s+x.amount,0)});
         const _hSlips = app.state.temporarySlips.filter(s=>s.expenseType==='hospital' && inRange(s.date));
         if(_hSlips.length) comb.push({date:_hSlips[_hSlips.length-1].date, particulars:`Total Temp Slips (${_hSlips.length} slips)`, vType:'Temp Slips - Total', dr:0, cr:_hSlips.reduce((s,x)=>s+x.amount,0)});
         const _hDeps = app.state.hospitalDeposits.filter(d=>inRange(d.date));
         if(_hDeps.length) comb.push({date:_hDeps[_hDeps.length-1].date, particulars:`Total Deposited to Muhasib (${_hDeps.length} deposits)`, vType:'Deposits - Total', dr:0, cr:_hDeps.reduce((s,x)=>s+x.amount,0)});
+        const _inAccRange = (a) => { if (a.billType !== 'hospital') return false; const d = a.dateSent || a.date || ''; if(sVal && d < sVal) return false; if(eVal && d > eVal) return false; return true; };
+        const _hAcc = app.state.accountsRegister.filter(a=>_inAccRange(a));
+        if(_hAcc.length) comb.push({date:_hAcc[_hAcc.length-1].dateSent || _hAcc[_hAcc.length-1].date, particulars:`Total Sent To Accounts (${_hAcc.length} entries)`, vType:'Accounts Dept - Total', dr:0, cr:_hAcc.reduce((s,x)=>s+x.amount,0)});
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
         comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([app.ui.formatDate(r.date), r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
@@ -4028,7 +4069,7 @@ const app = {
         [],
         ['Indicator Title', 'Amount (₹)', 'Calculation Math / Description'],
         ['Muhasib Cash Available', app.state.advanceCashAvailable, 'Opening Advance + Advance Entries - Advance Expenses'],
-        ['Hospital Cash Available', app.state.hospitalCashAvailable, 'Opening Hospital + Collections - Hospital Expenses'],
+        ['Hospital Cash Available', app.state.hospitalCashAvailable, 'Opening Hospital + Collections - Hospital Expenses - Deposits to Muhasib - Sent To Accounts (Hospital)'],
         ['Total Cash With Me', app.state.totalCashWithMe, 'Muhasib Cash Available + Hospital Cash Available'],
         [],
         ['Advance Bills Pending', app.state.advanceBillsPending, 'Advance Bills - Imprest Transfers'],
@@ -5372,7 +5413,7 @@ const app = {
   },
 
   sidebarColors: {
-    defaults: { muhasib: '#a855f7', hospital: '#6366f1', accounts: '#f59e0b', transfers: '#10b981' },
+    defaults: { muhasib: '#a855f7', hospital: '#6366f1', accounts: '#6366f1', transfers: '#10b981' },
     get() {
       try { return JSON.parse(localStorage.getItem('noor_sidebar_colors')) || app.sidebarColors.defaults; } catch(e) { return app.sidebarColors.defaults; }
     },
@@ -5387,12 +5428,9 @@ const app = {
 .nav-item[data-panel="advance-cash"], .nav-item[data-panel="advance-bills"] { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; }
 .nav-item[data-panel="advance-cash"].active, .nav-item[data-panel="advance-bills"].active { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-left: 3px solid ${hex(c.muhasib)} !important; }
 .nav-item[data-panel="advance-cash"] .badge, .nav-item[data-panel="advance-bills"] .badge { background: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; }
-.nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
-.nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
-.nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }
-.nav-item[data-panel="accounts"] { background-color: ${light(hex(c.accounts))} !important; color: ${hex(c.accounts)} !important; }
-.nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.accounts))} !important; color: ${hex(c.accounts)} !important; border-left: 3px solid ${hex(c.accounts)} !important; }
-.nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.accounts))} !important; color: ${hex(c.accounts)} !important; border-color: ${hex(c.accounts)}33 !important; }
+.nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"], .nav-item[data-panel="accounts"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
+.nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active, .nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
+.nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge, .nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }
 .nav-item[data-panel="transfers"] { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; }
 .nav-item[data-panel="transfers"].active { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-left: 3px solid ${hex(c.transfers)} !important; }
 .nav-item[data-panel="transfers"] .badge { background: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-color: ${hex(c.transfers)}33 !important; }
@@ -5404,10 +5442,10 @@ const app = {
 .metric-card:has(#dash-hospital-cash) .card-metric-value, .metric-card:has(#dash-total-hospital-collected) .card-metric-value, .metric-card:has(#dash-total-hospital-deposited) .card-metric-value, .metric-card:has(#dash-amanat-received) .card-metric-value, .metric-card:has(#dash-hospital-bills-pending) .card-metric-value { color: ${hex(c.hospital)} !important; }
 .metric-card:has(#dash-hospital-cash) .card-metric-header span, .metric-card:has(#dash-total-hospital-collected) .card-metric-header span, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header span, .metric-card:has(#dash-amanat-received) .card-metric-header span, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header span, .metric-card:has(#dash-hospital-cash) .card-metric-header, .metric-card:has(#dash-total-hospital-collected) .card-metric-header, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header, .metric-card:has(#dash-amanat-received) .card-metric-header, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header { color: ${hex(c.hospital)} !important; }
 .metric-card:has(#dash-hospital-cash) .metric-icon, .metric-card:has(#dash-total-hospital-collected) .metric-icon, .metric-card:has(#dash-total-hospital-deposited) .metric-icon, .metric-card:has(#dash-amanat-received) .metric-icon, .metric-card:has(#dash-hospital-bills-pending) .metric-icon { color: ${hex(c.hospital)} !important; opacity:1 !important; }
-.metric-card:has(#dash-total-sent-to-accounts), .metric-card:has(#dash-awaiting-transfer) { border-left: 4px solid ${hex(c.accounts)} !important; background: ${light(hex(c.accounts))} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .card-metric-value, .metric-card:has(#dash-awaiting-transfer) .card-metric-value { color: ${hex(c.accounts)} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .card-metric-header span, .metric-card:has(#dash-awaiting-transfer) .card-metric-header span, .metric-card:has(#dash-total-sent-to-accounts) .card-metric-header, .metric-card:has(#dash-awaiting-transfer) .card-metric-header { color: ${hex(c.accounts)} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .metric-icon, .metric-card:has(#dash-awaiting-transfer) .metric-icon { color: ${hex(c.accounts)} !important; opacity:1 !important; }
+.metric-card:has(#dash-total-sent-to-accounts), .metric-card:has(#dash-awaiting-transfer) { border-left: 4px solid ${hex(c.hospital)} !important; background: ${light(hex(c.hospital))} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .card-metric-value, .metric-card:has(#dash-awaiting-transfer) .card-metric-value { color: ${hex(c.hospital)} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .card-metric-header span, .metric-card:has(#dash-awaiting-transfer) .card-metric-header span, .metric-card:has(#dash-total-sent-to-accounts) .card-metric-header, .metric-card:has(#dash-awaiting-transfer) .card-metric-header { color: ${hex(c.hospital)} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .metric-icon, .metric-card:has(#dash-awaiting-transfer) .metric-icon { color: ${hex(c.hospital)} !important; opacity:1 !important; }
 .metric-card:has(#dash-total-transferred), .metric-card:has(#dash-total-cash-me) { border-left: 4px solid ${hex(c.transfers)} !important; background: ${light(hex(c.transfers))} !important; }
 .metric-card:has(#dash-total-transferred) .card-metric-value, .metric-card:has(#dash-total-cash-me) .card-metric-value { color: ${hex(c.transfers)} !important; }
 .metric-card:has(#dash-total-transferred) .card-metric-header span, .metric-card:has(#dash-total-cash-me) .card-metric-header span, .metric-card:has(#dash-total-transferred) .card-metric-header, .metric-card:has(#dash-total-cash-me) .card-metric-header { color: ${hex(c.transfers)} !important; }
@@ -5425,7 +5463,7 @@ const app = {
       };
       setVal('color-muhasib','color-muhasib-custom', c.muhasib);
       setVal('color-hospital','color-hospital-custom', c.hospital);
-      setVal('color-accounts','color-accounts-custom', c.accounts);
+      setVal('color-accounts','color-accounts-custom', c.hospital);
       setVal('color-transfers','color-transfers-custom', c.transfers);
       const bind = (sel, cust) => {
         const s = document.getElementById(sel), cu = document.getElementById(cust);
@@ -5437,6 +5475,15 @@ const app = {
       bind('color-hospital','color-hospital-custom');
       bind('color-accounts','color-accounts-custom');
       bind('color-transfers','color-transfers-custom');
+      const hospSel = document.getElementById('color-hospital'), hospCust = document.getElementById('color-hospital-custom');
+      const accSel = document.getElementById('color-accounts'), accCust = document.getElementById('color-accounts-custom');
+      const syncAccToHosp = () => {
+        const hv = hospSel.value === 'custom' ? hospCust.value : hospSel.value;
+        const opts = Array.from(accSel.options).map(o=>o.value);
+        if (opts.includes(hv)) { accSel.value = hv; accCust.value = hv; } else { accSel.value = 'custom'; accCust.value = hv; }
+      };
+      if (hospSel) hospSel.addEventListener('change', syncAccToHosp);
+      if (hospCust) hospCust.addEventListener('input', syncAccToHosp);
       const form = document.getElementById('form-sidebar-colors');
       if (form) form.addEventListener('submit', (e) => {
         e.preventDefault();
@@ -5445,7 +5492,8 @@ const app = {
           const cu = document.getElementById(cust).value;
           return s === 'custom' ? cu : s;
         };
-        const nc = { muhasib: getVal('color-muhasib','color-muhasib-custom'), hospital: getVal('color-hospital','color-hospital-custom'), accounts: getVal('color-accounts','color-accounts-custom'), transfers: getVal('color-transfers','color-transfers-custom') };
+        const hospVal = getVal('color-hospital','color-hospital-custom');
+        const nc = { muhasib: getVal('color-muhasib','color-muhasib-custom'), hospital: hospVal, accounts: hospVal, transfers: getVal('color-transfers','color-transfers-custom') };
         app.sidebarColors.save(nc);
         app.sidebarColors.apply();
         app.ui.showToast('Sidebar colors saved!');
