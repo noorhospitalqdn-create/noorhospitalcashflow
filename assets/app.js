@@ -2021,6 +2021,8 @@ const app = {
       if (ledgerSub) ledgerSub.classList.remove('active');
       const billsSub2 = document.getElementById('mobile-bills-submenu');
       if (billsSub2) billsSub2.classList.remove('active');
+      const reportsSub = document.getElementById('mobile-reports-submenu');
+      if (reportsSub) reportsSub.classList.remove('active');
       if (app.mobile.isMobile()) setTimeout(()=>app.mobile.renderAllMobileCards(),50);
 
       // Sync bottom nav active state
@@ -5842,12 +5844,23 @@ const app = {
         });
       });
 
-      // Mobile Ledger Sub-Menu item handlers
-      const submenuItems = document.querySelectorAll('.mobile-submenu-item');
-      submenuItems.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const panelId = btn.getAttribute('data-panel');
-          app.ui.switchTab(panelId);
+      // Mobile Sub-Menu item handlers (delegated for robust click handling)
+      document.addEventListener('click', (e) => {
+        const itemBtn = e.target.closest('.mobile-submenu-item');
+        if (itemBtn) {
+          const panelId = itemBtn.getAttribute('data-panel');
+          if (panelId) {
+            app.ui.switchTab(panelId);
+          }
+        }
+      });
+
+      // Close submenus when tapping on overlay backdrop
+      document.querySelectorAll('.mobile-submenu-overlay').forEach(overlay => {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            overlay.classList.remove('active');
+          }
         });
       });
 
@@ -5855,16 +5868,24 @@ const app = {
       document.addEventListener('click', (e) => {
         const ledgerSub = document.getElementById('mobile-ledger-submenu');
         const billsSub = document.getElementById('mobile-bills-submenu');
+        const reportsSub = document.getElementById('mobile-reports-submenu');
         const ledgerBtn = document.querySelector('.bottom-nav-item[data-nav="ledgers"]');
         const billsBtn = document.querySelector('.bottom-nav-item[data-nav="bills"]');
+        const reportsBtn = document.querySelector('.bottom-nav-item[data-nav="reports"]');
+
         if (ledgerSub && ledgerSub.classList.contains('active')) {
-          if (!ledgerSub.contains(e.target) && !ledgerBtn.contains(e.target)) {
+          if (!ledgerSub.querySelector('.mobile-submenu-card')?.contains(e.target) && !ledgerBtn?.contains(e.target)) {
             ledgerSub.classList.remove('active');
           }
         }
         if (billsSub && billsSub.classList.contains('active')) {
-          if (!billsSub.contains(e.target) && !billsBtn.contains(e.target)) {
+          if (!billsSub.querySelector('.mobile-submenu-card')?.contains(e.target) && !billsBtn?.contains(e.target)) {
             billsSub.classList.remove('active');
+          }
+        }
+        if (reportsSub && reportsSub.classList.contains('active')) {
+          if (!reportsSub.querySelector('.mobile-submenu-card')?.contains(e.target) && !reportsBtn?.contains(e.target)) {
+            reportsSub.classList.remove('active');
           }
         }
       });
@@ -5885,7 +5906,12 @@ const app = {
     handleBottomNav(navTarget) {
       const ledgerSub = document.getElementById('mobile-ledger-submenu');
       const billsSub = document.getElementById('mobile-bills-submenu');
-      const closeAll = ()=>{ if(ledgerSub) ledgerSub.classList.remove('active'); if(billsSub) billsSub.classList.remove('active'); };
+      const reportsSub = document.getElementById('mobile-reports-submenu');
+      const closeAll = ()=>{ 
+        if(ledgerSub) ledgerSub.classList.remove('active'); 
+        if(billsSub) billsSub.classList.remove('active'); 
+        if(reportsSub) reportsSub.classList.remove('active');
+      };
       
       switch (navTarget) {
         case 'dashboard':
@@ -5894,10 +5920,9 @@ const app = {
           break;
         case 'ledgers':
           if(billsSub) billsSub.classList.remove('active');
-          if (ledgerSub.classList.contains('active')) {
-            ledgerSub.classList.remove('active');
-          } else {
-            ledgerSub.classList.add('active');
+          if(reportsSub) reportsSub.classList.remove('active');
+          if (ledgerSub) {
+            ledgerSub.classList.toggle('active');
           }
           document.querySelectorAll('.bottom-nav-item').forEach(item => {
             item.classList.toggle('active', item.getAttribute('data-nav') === 'ledgers');
@@ -5905,18 +5930,25 @@ const app = {
           break;
         case 'bills':
           if(ledgerSub) ledgerSub.classList.remove('active');
-          if (billsSub.classList.contains('active')) {
-            billsSub.classList.remove('active');
-          } else {
-            billsSub.classList.add('active');
+          if(reportsSub) reportsSub.classList.remove('active');
+          if (billsSub) {
+            billsSub.classList.toggle('active');
           }
           document.querySelectorAll('.bottom-nav-item').forEach(item => {
             item.classList.toggle('active', item.getAttribute('data-nav') === 'bills');
           });
           break;
         case 'reports':
-          closeAll();
-          app.ui.switchTab('reports');
+          if(ledgerSub) ledgerSub.classList.remove('active');
+          if(billsSub) billsSub.classList.remove('active');
+          if (reportsSub) {
+            reportsSub.classList.toggle('active');
+          } else {
+            app.ui.switchTab('reports');
+          }
+          document.querySelectorAll('.bottom-nav-item').forEach(item => {
+            item.classList.toggle('active', item.getAttribute('data-nav') === 'reports');
+          });
           break;
         case 'settings':
           closeAll();
