@@ -68,6 +68,40 @@ const app = {
     return deviceId;
   },
 
+  /**
+   * Generate a unique sequential token number for entries.
+   * @param {'slip'|'advance_bill'|'hospital_bill'} type
+   * @returns {string} e.g. TS-1001, MB-1001, HB-1001
+   */
+  generateToken(type) {
+    const prefixMap = { slip: 'TS', advance_bill: 'MB', hospital_bill: 'HB' };
+    const prefix = prefixMap[type] || 'TK';
+    let maxNum = 1000;
+
+    const extractNum = (token) => {
+      if (!token) return 0;
+      const match = String(token).match(/-(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+
+    if (type === 'slip') {
+      (app.state.temporarySlips || []).forEach(s => {
+        const n = extractNum(s.tokenNumber);
+        if (n > maxNum) maxNum = n;
+      });
+    } else {
+      const expType = type === 'advance_bill' ? 'advance' : 'hospital';
+      (app.state.bills || []).forEach(b => {
+        if (String(b.expenseType || '').toLowerCase().trim() === expType) {
+          const n = extractNum(b.tokenNumber);
+          if (n > maxNum) maxNum = n;
+        }
+      });
+    }
+
+    return `${prefix}-${maxNum + 1}`;
+  },
+
   // Simple Authentication Module
   auth: {
     credentials: {
@@ -232,15 +266,39 @@ const app = {
       const clone = { ...record };
       delete clone.id;
       
-      const results = await app.supabase.request(table, 'POST', clone);
-      return results && results.length > 0 ? results[0] : null;
+      try {
+        const results = await app.supabase.request(table, 'POST', clone);
+        return results && results.length > 0 ? results[0] : null;
+      } catch (err) {
+        // If Supabase table doesn't have tokenNumber column yet, retry without tokenNumber
+        if (clone.tokenNumber && String(err.message || '').includes('tokenNumber')) {
+          console.warn(`Supabase table "${table}" does not have tokenNumber column yet. Retrying payload without tokenNumber.`);
+          const fallbackClone = { ...clone };
+          delete fallbackClone.tokenNumber;
+          const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
+          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
+        }
+        throw err;
+      }
     },
 
     async update(table, id, record) {
       const clone = { ...record };
       delete clone.id; // Id should not be in the patch payload body
-      const results = await app.supabase.request(table, 'PATCH', clone, { id: `eq.${id}` });
-      return results && results.length > 0 ? results[0] : null;
+      try {
+        const results = await app.supabase.request(table, 'PATCH', clone, { id: `eq.${id}` });
+        return results && results.length > 0 ? results[0] : null;
+      } catch (err) {
+        // If Supabase table doesn't have tokenNumber column yet, retry without tokenNumber
+        if (clone.tokenNumber && String(err.message || '').includes('tokenNumber')) {
+          console.warn(`Supabase table "${table}" does not have tokenNumber column yet. Retrying update without tokenNumber.`);
+          const fallbackClone = { ...clone };
+          delete fallbackClone.tokenNumber;
+          const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
+          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
+        }
+        throw err;
+      }
     },
 
     async delete(table, id) {
@@ -1021,6 +1079,14 @@ const app = {
       app.state.hospitalCashEntries = await app.db.getAll('hospital_cash');
       for (const e of app.state.hospitalCashEntries) { if (e.source === 'Other') { e.source = 'Reception Cash'; try { await app.db.put('hospital_cash', e.id, e); } catch(_){} } }
       app.state.temporarySlips = await app.db.getAll('temporary_slips');
+      // Auto-purge any legacy converted slips so they are totally removed from temporary slips
+      const legacyConverted = app.state.temporarySlips.filter(s => s.status === 'converted');
+      if (legacyConverted.length > 0) {
+        for (const cs of legacyConverted) {
+          try { await app.db.delete('temporary_slips', cs.id); } catch (_) {}
+        }
+        app.state.temporarySlips = app.state.temporarySlips.filter(s => s.status !== 'converted');
+      }
       app.state.bills = await app.db.getAll('bills');
       app.state.transfers = await app.db.getAll('transfers');
       app.state.hospitalDeposits = await app.db.getAll('hospital_deposits');
@@ -1503,6 +1569,9 @@ const app = {
             expenseType: document.getElementById('slip-exp-type').value,
             remarks: document.getElementById('slip-remarks').value,
             status: editId ? app.attachments.activeViewedRecord.status : 'pending',
+            tokenNumber: editId
+              ? (app.attachments.activeViewedRecord.tokenNumber || app.generateToken('slip'))
+              : (document.getElementById('slip-token')?.value || app.generateToken('slip')),
             ...attachmentProps
           };
 
@@ -1597,18 +1666,15 @@ const app = {
             remarks: document.getElementById('convert-bill-remarks').value,
             slipId: slipId, // references parent slip
             status: 'pending', // pending / transferred
+            tokenNumber: app.generateToken(expenseType === 'advance' ? 'advance_bill' : 'hospital_bill'),
             ...attachmentProps
           };
 
           // Save bill entry
           await app.db.add('bills', bill);
 
-          // Update slip status to converted and synchronize expenseType to bill destination
-          if (slip) {
-            slip.status = 'converted';
-            slip.expenseType = expenseType;
-            await app.db.put('temporary_slips', slipId, slip);
-          }
+          // When converted to bill, completely delete the slip from temporary_slips store
+          await app.db.delete('temporary_slips', slipId);
 
           app.attachments.clearStagedFile('convert');
           app.ui.closeModal('dialog-slip-convert');
@@ -1658,17 +1724,21 @@ const app = {
             }
           }
 
+          const expenseType = document.getElementById('bill-exp-type').value;
           const bill = {
             date: document.getElementById('bill-date').value,
             billNumber: document.getElementById('bill-number').value,
             vendor: document.getElementById('bill-vendor').value,
             amount: parseFloat(document.getElementById('bill-amount').value),
-            expenseType: document.getElementById('bill-exp-type').value,
+            expenseType: expenseType,
             category: document.getElementById('bill-category').value,
             remarks: document.getElementById('bill-remarks').value,
             slipId: editId ? app.attachments.activeViewedRecord.slipId : null,
             status: editId ? app.attachments.activeViewedRecord.status : 'pending',
             transferId: editId ? app.attachments.activeViewedRecord.transferId : null,
+            tokenNumber: editId
+              ? (app.attachments.activeViewedRecord.tokenNumber || app.generateToken(expenseType === 'advance' ? 'advance_bill' : 'hospital_bill'))
+              : (document.getElementById('bill-token')?.value || app.generateToken(expenseType === 'advance' ? 'advance_bill' : 'hospital_bill')),
             ...attachmentProps
           };
 
@@ -2104,9 +2174,20 @@ const app = {
         // Initialize display values for specific dialogs
         if (dialogId === 'dialog-slip-add') {
           app.attachments.clearStagedFile('slip');
+          // Auto-generate token for new slips
+          const slipTokenEl = document.getElementById('slip-token');
+          if (slipTokenEl && !document.getElementById('edit-slip-id').value) {
+            slipTokenEl.value = app.generateToken('slip');
+          }
         } else if (dialogId === 'dialog-bill-add') {
           app.attachments.clearStagedFile('bill');
           if (window.syncBillSegUI) setTimeout(() => window.syncBillSegUI(document.getElementById('bill-exp-type')?.value || 'advance'), 0);
+          // Auto-generate token for new bills
+          const billTokenEl = document.getElementById('bill-token');
+          if (billTokenEl && !document.getElementById('edit-bill-id').value) {
+            const billExpType = document.getElementById('bill-exp-type')?.value || 'advance';
+            billTokenEl.value = app.generateToken(billExpType === 'advance' ? 'advance_bill' : 'hospital_bill');
+          }
         } else if (dialogId === 'dialog-deposit-add') {
           app.attachments.clearStagedFile('deposit');
         } else if (dialogId === 'dialog-settings') {
@@ -2153,11 +2234,15 @@ const app = {
           document.getElementById('edit-slip-id').value = '';
           document.getElementById('dialog-slip-title').innerText = 'Add Temporary Slip';
           app.attachments.clearStagedFile('slip');
+          const slipTokenEl = document.getElementById('slip-token');
+          if (slipTokenEl) slipTokenEl.value = '';
         } else if (dialogId === 'dialog-bill-add') {
           document.getElementById('edit-bill-id').value = '';
           document.getElementById('dialog-bill-title').innerText = 'Add Direct Bill';
           app.attachments.clearStagedFile('bill');
           if (window.syncBillSegUI) window.syncBillSegUI('advance');
+          const billTokenEl = document.getElementById('bill-token');
+          if (billTokenEl) billTokenEl.value = '';
         } else if (dialogId === 'dialog-transfer-add') {
           document.getElementById('edit-transfer-id').value = '';
           document.getElementById('dialog-transfer-title').innerText = 'Record Verification Transfer';
@@ -2219,6 +2304,8 @@ const app = {
           document.getElementById('slip-amount').value = record.amount;
           document.getElementById('slip-exp-type').value = record.expenseType;
           document.getElementById('slip-remarks').value = record.remarks || '';
+          const slipTokenEl = document.getElementById('slip-token');
+          if (slipTokenEl) slipTokenEl.value = record.tokenNumber || '';
           
           app.ui.setupEditAttachment('slip', record);
           app.ui.openModal('dialog-slip-add');
@@ -2234,6 +2321,8 @@ const app = {
           if (window.syncBillSegUI) window.syncBillSegUI(record.expenseType);
           document.getElementById('bill-category').value = record.category;
           document.getElementById('bill-remarks').value = record.remarks || '';
+          const billTokenEl = document.getElementById('bill-token');
+          if (billTokenEl) billTokenEl.value = record.tokenNumber || '';
           
           app.ui.setupEditAttachment('bill', record);
           app.ui.openModal('dialog-bill-add');
@@ -2772,7 +2861,7 @@ const app = {
       const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No pending temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No pending temporary slips registered.'}</td></tr>`;
         return;
       }
       filtered.forEach(slip => {
@@ -2818,6 +2907,7 @@ const app = {
         list.innerHTML += `
           <tr>
             <td class="num-val">${app.ui.formatDate(slip.date)}</td>
+            <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="source-tag">${typeLabel}</span></td>
@@ -2845,7 +2935,7 @@ const app = {
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
       filtered.forEach(bill=>{
@@ -2857,7 +2947,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-        list.innerHTML+=`<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+        list.innerHTML+=`<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       });
     },
     async convertBill(id){
@@ -2891,7 +2981,7 @@ const app = {
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
         return;
       }
       filtered.forEach(bill=>{
@@ -2903,7 +2993,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-        list.innerHTML+=`<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+        list.innerHTML+=`<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       });
     },
 
@@ -4733,18 +4823,18 @@ const app = {
         sheetName='Deposits';
       } else if(page==='slips'){
         const d=filtered(app.state.temporarySlips,'slips');
-        rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
+        rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
         sheetName='Temp Slips';
       } else if(page==='advance-bills'){
         const d=filtered(app.state.bills,'advance-bills').filter(b=>b.expenseType==='advance');
-        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Category','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
+        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Category','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
         sheetName='Muhasib Bills';
       } else if(page==='bills'){
         const d=filtered(app.state.bills,'bills').filter(b=>b.expenseType==='hospital');
-        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Bill No','Vendor','Amount (₹)','Category','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
+        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Category','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
         sheetName='Hospital Bills';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
@@ -4772,47 +4862,92 @@ const app = {
      * the system native print sheet / Save as PDF.
      */
     _printHtmlViaIframe(html) {
-      let iframe = document.getElementById('nh-report-print-frame');
-      if (!iframe) {
+      if (!html) return;
+
+      // Check if user is on iOS / Safari mobile
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+      // Method A: Direct window print attempt if opened via direct preview tab
+      let printSuccess = false;
+
+      // Method B: Blob URL window for mobile devices (avoids iframe restrictions in Safari/Chrome Mobile)
+      if (isIOS) {
+        try {
+          const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+          const blobUrl = URL.createObjectURL(blob);
+          const printWindow = window.open(blobUrl, '_blank');
+          if (printWindow) {
+            printWindow.focus();
+            setTimeout(() => {
+              try {
+                printWindow.print();
+              } catch (e) {
+                console.warn('Direct blob window print failed:', e);
+              }
+            }, 600);
+            return;
+          }
+        } catch (e) {
+          console.warn('Blob window creation failed:', e);
+        }
+      }
+
+      // Method C: Robust hidden iframe with onload handler
+      try {
+        let iframe = document.getElementById('nh-report-print-frame');
+        if (iframe) {
+          try { iframe.remove(); } catch (_) {}
+        }
         iframe = document.createElement('iframe');
         iframe.id = 'nh-report-print-frame';
         iframe.style.position = 'fixed';
         iframe.style.right = '0';
         iframe.style.bottom = '0';
-        iframe.style.width = '1px';
-        iframe.style.height = '1px';
+        iframe.style.width = '10px';
+        iframe.style.height = '10px';
         iframe.style.opacity = '0.01';
         iframe.style.border = '0';
         iframe.style.pointerEvents = 'none';
         iframe.title = 'Noor Hospital Report Print Frame';
         document.body.appendChild(iframe);
-      }
 
-      try {
         const frameDoc = iframe.contentWindow.document;
         frameDoc.open();
         frameDoc.write(html);
         frameDoc.close();
 
-        setTimeout(() => {
+        const triggerPrint = () => {
+          if (printSuccess) return;
+          printSuccess = true;
           try {
             iframe.contentWindow.focus();
             iframe.contentWindow.print();
           } catch (err) {
-            console.warn('Iframe print failed, falling back:', err);
-            const pWin = window.open('', '_blank');
-            if (pWin) {
-              pWin.document.write(html);
-              pWin.document.close();
-              pWin.focus();
-              setTimeout(() => { pWin.print(); pWin.close(); }, 350);
-            } else {
+            console.warn('Iframe print call failed, falling back to window.open:', err);
+            try {
+              const pWin = window.open('', '_blank');
+              if (pWin) {
+                pWin.document.write(html);
+                pWin.document.close();
+                pWin.focus();
+                setTimeout(() => { pWin.print(); }, 400);
+              } else {
+                window.print();
+              }
+            } catch (_) {
               window.print();
             }
           }
-        }, 400);
+        };
+
+        iframe.onload = () => {
+          setTimeout(triggerPrint, 300);
+        };
+
+        // Safety fallback timer
+        setTimeout(triggerPrint, 600);
       } catch (err) {
-        console.warn('Iframe write error, using window fallback:', err);
+        console.warn('Iframe print error, falling back to window.print():', err);
         window.print();
       }
     },
@@ -6134,6 +6269,7 @@ const app = {
             </div>
             <div class="mobile-card-meta">
               <span class="mobile-card-date">${app.ui.formatDate(slip.date)}</span>
+              ${slip.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${slip.tokenNumber}</span>` : ''}
               <span class="source-tag">${typeLabel}</span>
               <span class="status-pill ${statusClass}">${slip.status}</span>
               ${attachmentHtml}
@@ -6174,7 +6310,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        container.innerHTML+=`<div class="mobile-record-card" style="border-left:3px solid var(--tertiary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem"><span class="source-tag">${app.ui.escapeHTML(bill.category)}</span><span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Category</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.category)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        container.innerHTML+=`<div class="mobile-record-card" style="border-left:3px solid var(--tertiary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${app.ui.escapeHTML(bill.category)}</span><span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Category</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.category)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       });
     },
     renderBillsCards() {
@@ -6201,7 +6337,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        container.innerHTML+=`<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem"><span class="source-tag">${app.ui.escapeHTML(bill.category)}</span><span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Category</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.category)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        container.innerHTML+=`<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${app.ui.escapeHTML(bill.category)}</span><span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Category</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.category)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       });
     },
 

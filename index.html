@@ -753,6 +753,7 @@
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Token No</th>
                   <th>Vendor / Person</th>
                   <th>Amount</th>
                   <th>Expense Type</th>
@@ -856,6 +857,7 @@
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Token No</th>
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Amount</th>
@@ -906,6 +908,7 @@
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Token No</th>
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Amount</th>
@@ -974,29 +977,24 @@
 
         <!-- 7. BALANCE SHEET PANEL -->
         <section class="panel" id="panel-balance-sheet">
-          <div class="balance-sheet-container">
-            <!-- Balance Sheet Actions & Date Filter Bar -->
-            <div class="card" style="padding: 14px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-              <div>
-                <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-main); margin-bottom: 2px;">Cash Balance Sheet Statement</h3>
-                <span class="text-muted text-xs" id="balance-sheet-date-display">Date: Jun 8, 2026</span>
-              </div>
-              <div class="flex gap-2 flex-wrap">
-                <button class="btn btn-secondary btn-sm" onclick="app.reports.printBalanceSheetStatement()">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-                  <span>Print PDF</span>
-                </button>
-                <button class="btn btn-secondary btn-sm" onclick="app.reports.downloadBalanceSheetFile()">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                  <span>Save File</span>
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="app.reports.exportBalanceSheetExcel()">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h8"/></svg>
-                  <span>Export Excel</span>
-                </button>
-              </div>
-            </div>
+          <!-- Balance Sheet Top Action & Filter Bar -->
+          <div class="ledger-filter-bar">
+            <span class="ledger-total-badge" id="balance-sheet-date-display">Date: Jun 8, 2026</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.printBalanceSheetStatement()" title="Print / Save PDF">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+              <span>Print PDF</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportBalanceSheetExcel()" title="Export to Excel spreadsheet">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h8"/></svg>
+              <span>Export Excel</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.downloadBalanceSheetFile()" title="Save standalone HTML file">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              <span>Save File</span>
+            </button>
+          </div>
 
+          <div class="balance-sheet-container">
             <div class="card balance-card">
               <div class="balance-sheet-header">
                 <h2>Treasury Position Summary</h2>
@@ -1364,6 +1362,7 @@ CREATE TABLE IF NOT EXISTS temporary_slips (
   vendor TEXT,
   amount NUMERIC DEFAULT 0,
   "expenseType" TEXT,
+  "tokenNumber" TEXT,
   remarks TEXT,
   status TEXT DEFAULT 'pending',
   "attachmentUrl" TEXT,
@@ -1384,6 +1383,7 @@ CREATE TABLE IF NOT EXISTS bills (
   vendor TEXT,
   amount NUMERIC DEFAULT 0,
   "expenseType" TEXT,
+  "tokenNumber" TEXT,
   category TEXT,
   remarks TEXT,
   "slipId" BIGINT,
@@ -1399,6 +1399,10 @@ CREATE TABLE IF NOT EXISTS bills (
   updated_at TIMESTAMPTZ DEFAULT now(),
   device_id TEXT
 );
+
+-- Quick Upgrade for existing Supabase projects:
+-- ALTER TABLE temporary_slips ADD COLUMN IF NOT EXISTS "tokenNumber" TEXT;
+-- ALTER TABLE bills ADD COLUMN IF NOT EXISTS "tokenNumber" TEXT;
 
 CREATE TABLE IF NOT EXISTS transfers (
   id BIGSERIAL PRIMARY KEY,
@@ -1665,6 +1669,10 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       <input type="hidden" id="edit-slip-id">
       <div class="modal-body">
         <div class="form-group">
+          <label class="form-label" for="slip-token">Token Number</label>
+          <input type="text" id="slip-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
+        </div>
+        <div class="form-group">
           <label class="form-label" for="slip-date">Date</label>
           <input type="date" id="slip-date" class="form-input" required>
         </div>
@@ -1864,6 +1872,11 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     <form id="form-bill-add">
       <input type="hidden" id="edit-bill-id">
       <div class="modal-body bill-easy">
+        <!-- Token Number auto-generated -->
+        <div class="form-group" style="margin-bottom:0.7rem">
+          <label class="form-label" for="bill-token">Token Number</label>
+          <input type="text" id="bill-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
+        </div>
         <!-- 1. Amount hero -->
         <div class="amt-hero">
           <label class="form-label" for="bill-amount">Amount</label>
