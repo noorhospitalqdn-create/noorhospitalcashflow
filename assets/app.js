@@ -1087,15 +1087,6 @@ const app = {
         .filter(t => t.type === 'amanat')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Total Bills Summed by Type
-      const allAdvanceBillsAmount = app.state.bills
-        .filter(b => b.expenseType === 'advance')
-        .reduce((sum, b) => sum + b.amount, 0);
-
-      const allHospitalBillsAmount = app.state.bills
-        .filter(b => b.expenseType === 'hospital')
-        .reduce((sum, b) => sum + b.amount, 0);
-
       // Pending Bills = Total Bills - Total Transferred
       app.state.advanceBillsPending = allAdvanceBillsAmount - imprestTransfersAmount;
       app.state.hospitalBillsPending = allHospitalBillsAmount - amanatTransfersAmount;
@@ -2078,6 +2069,8 @@ const app = {
       // Load specific view layouts
       if (panelId === 'reports') {
         app.reports.renderReportView();
+      } else if (panelId === 'balance-sheet') {
+        app.ui.renderBalanceSheet();
       }
 
       // Scroll to top on mobile (panel-container is the scroller, not window)
@@ -3041,25 +3034,37 @@ const app = {
 
     renderBalanceSheet() {
       // Set date display
-      const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      document.getElementById('balance-sheet-date-display').innerText = `As on: ${app.ui.formatDate(new Date().toISOString().split('T')[0])}`;
+      const bsDateEl = document.getElementById('balance-sheet-date-display');
+      if (bsDateEl) {
+        bsDateEl.innerText = `As on: ${app.ui.formatDate(new Date().toISOString().split('T')[0])}`;
+      }
       
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = app.ui.formatCurrency(val);
+      };
+
       // Update values
-      document.getElementById('bs-advance-cash').innerText = app.ui.formatCurrency(app.state.advanceCashAvailable);
-      document.getElementById('bs-hospital-cash').innerText = app.ui.formatCurrency(app.state.hospitalCashAvailable);
-      document.getElementById('bs-total-cash').innerText = app.ui.formatCurrency(app.state.totalCashWithMe);
+      setVal('bs-advance-cash', app.state.advanceCashAvailable);
+      setVal('bs-hospital-cash', app.state.hospitalCashAvailable);
+      setVal('bs-total-cash', app.state.totalCashWithMe);
 
-      document.getElementById('bs-advance-bills').innerText = app.ui.formatCurrency(app.state.advanceBillsPending);
-      document.getElementById('bs-hospital-bills').innerText = app.ui.formatCurrency(app.state.hospitalBillsPending);
-      document.getElementById('bs-total-pending').innerText = app.ui.formatCurrency(app.state.totalPendingBills);
+      setVal('bs-advance-bills', app.state.advanceBillsPending);
+      setVal('bs-hospital-bills', app.state.hospitalBillsPending);
+      setVal('bs-total-pending', app.state.totalPendingBills);
 
-      document.getElementById('bs-amanat').innerText = app.ui.formatCurrency(app.state.amanatReceived);
-      document.getElementById('bs-imprest').innerText = app.ui.formatCurrency(app.state.imprestReceived);
-      document.getElementById('bs-total-transferred').innerText = app.ui.formatCurrency(app.state.totalTransferred);
+      setVal('bs-amanat', app.state.amanatReceived);
+      setVal('bs-imprest', app.state.imprestReceived);
+      setVal('bs-total-transferred', app.state.totalTransferred);
 
-      document.getElementById('bs-summary-cash').innerText = app.ui.formatCurrency(app.state.totalCashWithMe);
-      document.getElementById('bs-summary-pending').innerText = app.ui.formatCurrency(app.state.totalPendingBills);
-      document.getElementById('bs-summary-transferred').innerText = app.ui.formatCurrency(app.state.totalTransferred);
+      setVal('bs-summary-cash', app.state.totalCashWithMe);
+      setVal('bs-summary-pending', app.state.totalPendingBills);
+      setVal('bs-summary-transferred', app.state.totalTransferred);
+
+      // Render comprehensive detailed statement table
+      if (app.reports && app.reports.renderBalanceSheetStatementTable) {
+        app.reports.renderBalanceSheetStatementTable();
+      }
     },
 
     /**
@@ -3405,6 +3410,399 @@ const app = {
   // REPORTS CENTRE & PRINT/EXPORT PIPELINES
   // ==========================================
   reports: {
+    /**
+     * Generates itemized accounting rows for the Comprehensive Statement of Cash Flows & Reconciled Balances.
+     * Itemizes all inflows (collections, float additions) and outflows (hospital bills, muhasib bills,
+     * active temporary slips, deposits, accounts transfers) and calculates the net closing balance.
+     */
+    generateBalanceSheetTableRows(options = {}) {
+      const filterStart = options.startDate || '';
+      const filterEnd = options.endDate || '';
+      const inRange = (d) => {
+        if (!d) return true;
+        if (filterStart && d < filterStart) return false;
+        if (filterEnd && d > filterEnd) return false;
+        return true;
+      };
+
+      let html = '';
+
+      // ----------------------------------------------------
+      // PART I: CASH INFLOWS & RECEIPTS (Dr)
+      // ----------------------------------------------------
+      html += `
+        <tr class="bs-part-header" style="background:var(--bg-secondary); font-weight:800; border-top:2px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+          <td colspan="2" style="color:var(--primary); padding:9px 12px; font-size:0.84rem; letter-spacing:0.04em;">
+            <span style="display:inline-block; width:8px; height:8px; background:var(--primary); border-radius:50%; margin-right:6px;"></span>
+            PART I: CASH INFLOWS & RECEIPTS (Dr)
+          </td>
+          <td class="text-right" style="color:var(--primary); font-weight:800; padding:9px 12px;">Inflow Dr (+)</td>
+          <td class="text-right" style="color:var(--text-muted); font-weight:800; padding:9px 12px;">-</td>
+        </tr>
+      `;
+
+      // 1. Opening Cash Floats
+      html += `
+        <tr style="background:var(--bg-app);">
+          <td style="padding-left:18px;"><strong>Opening Muhasib Float</strong> (Initial Imprest Float)</td>
+          <td><span class="source-tag">Opening Float</span></td>
+          <td class="num-val text-right text-success">+${app.ui.formatCurrency(app.state.openingAdvanceCash)}</td>
+          <td class="num-val text-right text-muted">-</td>
+        </tr>
+        <tr style="background:var(--bg-app);">
+          <td style="padding-left:18px;"><strong>Opening Hospital Cash</strong> (Initial Till Float)</td>
+          <td><span class="source-tag">Opening Float</span></td>
+          <td class="num-val text-right text-success">+${app.ui.formatCurrency(app.state.openingHospitalCash)}</td>
+          <td class="num-val text-right text-muted">-</td>
+        </tr>
+      `;
+
+      // 2. Hospital Collections (Itemized)
+      const hospEntries = (app.state.hospitalCashEntries || [])
+        .filter(e => inRange(e.date))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      let subtotalHospColl = hospEntries.reduce((s,e) => s + (e.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(16,185,129,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Hospital Cash Collections (${hospEntries.length} entries)</td>
+        </tr>
+      `;
+      if (hospEntries.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No hospital collections recorded in period.</td></tr>`;
+      } else {
+        hospEntries.forEach(e => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(e.date)}</span>
+                Hospital Collection: ${e.remarks || 'Daily collections'}
+              </td>
+              <td><span class="source-tag">${e.source || 'Hospital'}</span></td>
+              <td class="num-val text-right text-success">+${app.ui.formatCurrency(e.amount)}</td>
+              <td class="num-val text-right text-muted">-</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Hospital Collections</td>
+          <td class="num-val text-right text-success">+${app.ui.formatCurrency(subtotalHospColl)}</td>
+          <td class="num-val text-right text-muted">-</td>
+        </tr>
+      `;
+
+      // 3. Muhasib Float Additions (Itemized)
+      const advEntries = (app.state.advanceCashEntries || [])
+        .filter(e => inRange(e.date))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      let subtotalAdvAdd = advEntries.reduce((s,e) => s + (e.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(99,102,241,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Muhasib Cash Float Additions (${advEntries.length} entries)</td>
+        </tr>
+      `;
+      if (advEntries.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No additional float additions recorded in period.</td></tr>`;
+      } else {
+        advEntries.forEach(e => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(e.date)}</span>
+                Float Received: ${e.remarks || 'Muhasib top-up'}
+              </td>
+              <td><span class="source-tag">Muhasib Float</span></td>
+              <td class="num-val text-right text-success">+${app.ui.formatCurrency(e.amount)}</td>
+              <td class="num-val text-right text-muted">-</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Muhasib Float Additions</td>
+          <td class="num-val text-right text-success">+${app.ui.formatCurrency(subtotalAdvAdd)}</td>
+          <td class="num-val text-right text-muted">-</td>
+        </tr>
+      `;
+
+      const grossInflows = (app.state.openingAdvanceCash || 0) + (app.state.openingHospitalCash || 0) + subtotalHospColl + subtotalAdvAdd;
+      html += `
+        <tr class="bs-grandtotal-row" style="background:var(--bg-secondary); font-weight:800; border-top:2px solid var(--border-color); border-bottom:2px solid var(--border-color);">
+          <td colspan="2" style="font-size:0.86rem; color:var(--text-main);">TOTAL GROSS CASH INFLOWS (PART I)</td>
+          <td class="num-val text-right text-success" style="font-size:0.92rem;">+${app.ui.formatCurrency(grossInflows)}</td>
+          <td class="num-val text-right text-muted">-</td>
+        </tr>
+      `;
+
+      // ----------------------------------------------------
+      // PART II: DISBURSEMENTS & CASH OUTFLOWS (Cr)
+      // ----------------------------------------------------
+      html += `
+        <tr class="bs-part-header" style="background:var(--bg-secondary); font-weight:800; border-top:2px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+          <td colspan="2" style="color:var(--error); padding:9px 12px; font-size:0.84rem; letter-spacing:0.04em;">
+            <span style="display:inline-block; width:8px; height:8px; background:var(--error); border-radius:50%; margin-right:6px;"></span>
+            PART II: CASH OUTFLOWS & DISBURSEMENTS (Cr)
+          </td>
+          <td class="text-right" style="color:var(--text-muted); font-weight:800; padding:9px 12px;">-</td>
+          <td class="text-right" style="color:var(--error); font-weight:800; padding:9px 12px;">Outflow Cr (-)</td>
+        </tr>
+      `;
+
+      // 1. Hospital Direct Bills
+      const hospBills = (app.state.bills || [])
+        .filter(b => b.expenseType === 'hospital' && inRange(b.date))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      let subtotalHospBills = hospBills.reduce((s,b) => s + (b.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(239,68,68,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Hospital Purchase Bills Paid (${hospBills.length} bills)</td>
+        </tr>
+      `;
+      if (hospBills.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No hospital bills recorded in period.</td></tr>`;
+      } else {
+        hospBills.forEach(b => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(b.date)}</span>
+                Bill #${b.billNumber || '-'}: ${b.vendor || '-'} ${b.remarks ? '('+b.remarks+')' : ''}
+              </td>
+              <td><span class="source-tag">${b.category || 'Hospital'}</span></td>
+              <td class="num-val text-right text-muted">-</td>
+              <td class="num-val text-right text-error">-${app.ui.formatCurrency(b.amount)}</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Hospital Bills</td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-error">-${app.ui.formatCurrency(subtotalHospBills)}</td>
+        </tr>
+      `;
+
+      // 2. Muhasib Bills
+      const advBills = (app.state.bills || [])
+        .filter(b => b.expenseType === 'advance' && inRange(b.date))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      let subtotalAdvBills = advBills.reduce((s,b) => s + (b.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(245,158,11,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Muhasib Advance Bills Paid (${advBills.length} bills)</td>
+        </tr>
+      `;
+      if (advBills.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No Muhasib bills recorded in period.</td></tr>`;
+      } else {
+        advBills.forEach(b => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(b.date)}</span>
+                Bill #${b.billNumber || '-'}: ${b.vendor || '-'} ${b.remarks ? '('+b.remarks+')' : ''}
+              </td>
+              <td><span class="source-tag">${b.category || 'Advance'}</span></td>
+              <td class="num-val text-right text-muted">-</td>
+              <td class="num-val text-right text-error">-${app.ui.formatCurrency(b.amount)}</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Muhasib Bills</td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-error">-${app.ui.formatCurrency(subtotalAdvBills)}</td>
+        </tr>
+      `;
+
+      // 3. Active Temporary Slips (Float Committed/In Circulation)
+      const activeSlips = (app.state.temporarySlips || [])
+        .filter(s => (s.status === 'pending' || !s.status || s.status === 'active') && inRange(s.date))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      let subtotalActiveSlips = activeSlips.reduce((s,sItem) => s + (sItem.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(217,119,6,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Active Temporary Slips (Float Committed) (${activeSlips.length} slips)</td>
+        </tr>
+      `;
+      if (activeSlips.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No pending temporary slips currently outstanding.</td></tr>`;
+      } else {
+        activeSlips.forEach(s => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(s.date)}</span>
+                Slip #${s.slipNumber || '-'}: ${s.vendor || '-'} ${s.remarks ? '('+s.remarks+')' : ''}
+              </td>
+              <td><span class="source-tag">${s.expenseType === 'advance' ? 'Adv Slip' : 'Hosp Slip'}</span></td>
+              <td class="num-val text-right text-muted">-</td>
+              <td class="num-val text-right text-error">-${app.ui.formatCurrency(s.amount)}</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Active Temporary Slips</td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-error">-${app.ui.formatCurrency(subtotalActiveSlips)}</td>
+        </tr>
+      `;
+
+      // 4. Hospital Cash Deposits to Muhasib
+      const deps = (app.state.hospitalDeposits || [])
+        .filter(d => inRange(d.date))
+        .sort((a,b) => new Date(a.date) - new Date(b.date));
+      let subtotalDeps = deps.reduce((s,d) => s + (d.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(99,102,241,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Hospital Cash Deposits to Muhasib (${deps.length} deposits)</td>
+        </tr>
+      `;
+      if (deps.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No hospital deposits recorded in period.</td></tr>`;
+      } else {
+        deps.forEach(d => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(d.date)}</span>
+                Deposit: Rcpt #${d.receiptNumber || '-'} ${d.remarks ? '('+d.remarks+')' : ''}
+              </td>
+              <td><span class="source-tag">Muhasib Remittance</span></td>
+              <td class="num-val text-right text-muted">-</td>
+              <td class="num-val text-right text-error">-${app.ui.formatCurrency(d.amount)}</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Deposits Remitted</td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-error">-${app.ui.formatCurrency(subtotalDeps)}</td>
+        </tr>
+      `;
+
+      // 5. Sent to Accounts Department
+      const accHospital = (app.state.accountsRegister || [])
+        .filter(a => a.billType === 'hospital' && inRange(a.dateSent || a.date))
+        .sort((a,b) => new Date(a.dateSent || a.date) - new Date(b.dateSent || b.date));
+      let subtotalAcc = accHospital.reduce((s,a) => s + (a.amount || 0), 0);
+
+      html += `
+        <tr class="bs-section-subhead" style="font-weight:700; color:var(--text-muted); font-size:0.75rem; text-transform:uppercase; background:rgba(14,165,233,0.06);">
+          <td colspan="4" style="padding:6px 12px 6px 18px;">Transferred to Accounts Department (${accHospital.length} entries)</td>
+        </tr>
+      `;
+      if (accHospital.length === 0) {
+        html += `<tr><td colspan="4" style="padding-left:26px; color:var(--text-muted); font-size:0.75rem;">No records sent to Accounts Department in period.</td></tr>`;
+      } else {
+        accHospital.forEach(a => {
+          html += `
+            <tr>
+              <td style="padding-left:26px;">
+                <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(a.dateSent || a.date)}</span>
+                Accounts Reg: Ref #${a.referenceNo || '-'} ${a.remarks ? '('+a.remarks+')' : ''}
+              </td>
+              <td><span class="source-tag">Accounts Reg</span></td>
+              <td class="num-val text-right text-muted">-</td>
+              <td class="num-val text-right text-error">-${app.ui.formatCurrency(a.amount)}</td>
+            </tr>
+          `;
+        });
+      }
+      html += `
+        <tr class="bs-subtotal-row" style="background:var(--bg-card); font-weight:700; border-top:1px dashed var(--border-color);">
+          <td colspan="2" style="padding-left:18px; color:var(--text-muted);">Subtotal: Sent to Accounts Dept</td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-error">-${app.ui.formatCurrency(subtotalAcc)}</td>
+        </tr>
+      `;
+
+      const grossOutflows = subtotalHospBills + subtotalAdvBills + subtotalActiveSlips + subtotalDeps + subtotalAcc;
+      html += `
+        <tr class="bs-grandtotal-row" style="background:var(--bg-secondary); font-weight:800; border-top:2px solid var(--border-color); border-bottom:2px solid var(--border-color);">
+          <td colspan="2" style="font-size:0.86rem; color:var(--text-main);">TOTAL GROSS CASH OUTFLOWS (PART II)</td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(grossOutflows)}</td>
+        </tr>
+      `;
+
+      // ----------------------------------------------------
+      // PART III: NET RECONCILED CASH CLOSING & AUDIT POSITION
+      // ----------------------------------------------------
+      html += `
+        <tr class="bs-part-header" style="background:var(--bg-secondary); font-weight:800; border-top:2px solid var(--border-color); border-bottom:1px solid var(--border-color);">
+          <td colspan="2" style="color:var(--secondary); padding:9px 12px; font-size:0.84rem; letter-spacing:0.04em;">
+            <span style="display:inline-block; width:8px; height:8px; background:var(--secondary); border-radius:50%; margin-right:6px;"></span>
+            PART III: NET CLOSING & RECONCILED AUDIT POSITION
+          </td>
+          <td class="text-right" style="color:var(--text-muted); font-weight:800; padding:9px 12px;">-</td>
+          <td class="text-right" style="color:var(--secondary); font-weight:800; padding:9px 12px;">Net Balance</td>
+        </tr>
+      `;
+
+      html += `
+        <tr style="background:var(--bg-app); font-weight:700;">
+          <td style="padding-left:18px;">Muhasib Cash Float in Hand Available</td>
+          <td><span class="source-tag">Cash In Hand</span></td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right">${app.ui.formatCurrency(app.state.advanceCashAvailable)}</td>
+        </tr>
+        <tr style="background:var(--bg-app); font-weight:700;">
+          <td style="padding-left:18px;">Hospital Cash Collections in Hand Available</td>
+          <td><span class="source-tag">Cash In Hand</span></td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right">${app.ui.formatCurrency(app.state.hospitalCashAvailable)}</td>
+        </tr>
+        <tr class="bs-grandtotal-row" style="background:rgba(16,185,129,0.12); font-weight:900; border-top:2px solid var(--border-color); border-bottom:2px solid var(--border-color);">
+          <td colspan="2" style="font-size:0.92rem; color:var(--text-main);">
+            NET RECONCILED CASH WITH ME (IN HAND) [PART I - PART II]
+          </td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-success" style="font-size:1.05rem;">
+            ${app.ui.formatCurrency(app.state.totalCashWithMe)}
+          </td>
+        </tr>
+        <tr style="background:var(--bg-app);">
+          <td style="padding-left:18px; color:var(--text-muted);">Total Outstanding Bills Pending Settlement (Advance + Hospital)</td>
+          <td><span class="status-pill pending">Pending Settlement</span></td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-warning">${app.ui.formatCurrency(app.state.totalPendingBills)}</td>
+        </tr>
+        <tr style="background:var(--bg-app);">
+          <td style="padding-left:18px; color:var(--text-muted);">Total Settled via Verification Transfers (Amanat + Imprest)</td>
+          <td><span class="status-pill verified">Settled</span></td>
+          <td class="num-val text-right text-muted">-</td>
+          <td class="num-val text-right text-success">${app.ui.formatCurrency(app.state.totalTransferred)}</td>
+        </tr>
+      `;
+
+      return html;
+    },
+
+    /**
+     * Renders statement table into the specified tbody element.
+     */
+    renderBalanceSheetStatementTable(targetTbodyId = 'bs-statement-tbody') {
+      const tbody = document.getElementById(targetTbodyId);
+      if (!tbody) return;
+      tbody.innerHTML = app.reports.generateBalanceSheetTableRows();
+    },
+
     /**
      * Renders filtered datasets inside the Reports Centre viewport.
      */
@@ -3940,58 +4338,86 @@ const app = {
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
         
+        const statementRows = app.reports.generateBalanceSheetTableRows({
+          startDate: startVal,
+          endDate: endVal
+        });
+
         bsPlaceholder.innerHTML = `
-          <div class="balance-sheet-container" style="padding: 1.5rem 0;">
-            <div style="width: 100%; max-width: 600px;">
-              <div class="balance-grid">
-                
-                <div class="balance-section">
-                  <h3 class="balance-section-title">Cash Position</h3>
-                  <div class="balance-item">
-                    <span>Muhasib Cash Available</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.advanceCashAvailable)}</span>
-                  </div>
-                  <div class="balance-item border-bottom-subtle">
-                    <span>Hospital Cash Available</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.hospitalCashAvailable)}</span>
-                  </div>
-                  <div class="balance-item total-item">
-                    <span>Total Cash With Me</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.totalCashWithMe)}</span>
-                  </div>
+          <div class="balance-sheet-container" style="padding: 1rem 0; width: 100%;">
+            <div class="balance-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 1.25rem;">
+              
+              <div class="card" style="padding: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+                <h3 style="font-size: 0.9rem; font-weight: 800; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 8px;">Cash Position</h3>
+                <div class="balance-item" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem;">
+                  <span>Muhasib Cash Available</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.advanceCashAvailable)}</span>
                 </div>
+                <div class="balance-item border-bottom-subtle" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem; border-bottom:1px dashed var(--border-color);">
+                  <span>Hospital Cash Available</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.hospitalCashAvailable)}</span>
+                </div>
+                <div class="balance-item total-item" style="display:flex; justify-content:space-between; padding:7px 0 2px; font-size:0.95rem; font-weight:800; color:var(--primary);">
+                  <span>Total Cash With Me</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.totalCashWithMe)}</span>
+                </div>
+              </div>
 
-                <div class="balance-section">
-                  <h3 class="balance-section-title">Bills Position</h3>
-                  <div class="balance-item">
-                    <span>Advance Bills Pending</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span>
-                  </div>
-                  <div class="balance-item border-bottom-subtle">
-                    <span>Hospital Bills Pending</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.hospitalBillsPending)}</span>
-                  </div>
-                  <div class="balance-item total-item">
-                    <span>Total Pending Bills</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.totalPendingBills)}</span>
-                  </div>
+              <div class="card" style="padding: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+                <h3 style="font-size: 0.9rem; font-weight: 800; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 8px;">Bills Position</h3>
+                <div class="balance-item" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem;">
+                  <span>Advance Bills Pending</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span>
                 </div>
+                <div class="balance-item border-bottom-subtle" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem; border-bottom:1px dashed var(--border-color);">
+                  <span>Hospital Bills Pending</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.hospitalBillsPending)}</span>
+                </div>
+                <div class="balance-item total-item" style="display:flex; justify-content:space-between; padding:7px 0 2px; font-size:0.95rem; font-weight:800; color:var(--warning);">
+                  <span>Total Pending Bills</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.totalPendingBills)}</span>
+                </div>
+              </div>
 
-                <div class="balance-section">
-                  <h3 class="balance-section-title">Transfer Position</h3>
-                  <div class="balance-item">
-                    <span>Amanat Received</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.amanatReceived)}</span>
-                  </div>
-                  <div class="balance-item border-bottom-subtle">
-                    <span>Imprest Received</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.imprestReceived)}</span>
-                  </div>
-                  <div class="balance-item total-item">
-                    <span>Total Transferred</span>
-                    <span class="num-val">${app.ui.formatCurrency(app.state.totalTransferred)}</span>
-                  </div>
+              <div class="card" style="padding: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
+                <h3 style="font-size: 0.9rem; font-weight: 800; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 8px;">Transfer Position</h3>
+                <div class="balance-item" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem;">
+                  <span>Amanat Received</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.amanatReceived)}</span>
                 </div>
+                <div class="balance-item border-bottom-subtle" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem; border-bottom:1px dashed var(--border-color);">
+                  <span>Imprest Received</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.imprestReceived)}</span>
+                </div>
+                <div class="balance-item total-item" style="display:flex; justify-content:space-between; padding:7px 0 2px; font-size:0.95rem; font-weight:800; color:var(--secondary);">
+                  <span>Total Transferred</span>
+                  <span class="num-val">${app.ui.formatCurrency(app.state.totalTransferred)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border-color); border-radius:var(--radius-md);">
+              <div style="padding:12px 16px; border-bottom:1px solid var(--border-color); background:var(--bg-card); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <h4 style="font-size:0.92rem; font-weight:800; color:var(--text-main);">Comprehensive Statement of Cash Flows & Reconciled Balances</h4>
+                  <p style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">Itemized audit of all collections, float additions, expenses, slips, deposits, and reconciled closing cash.</p>
+                </div>
+                <span class="status-pill verified">Audit Reconciled</span>
+              </div>
+              <div style="overflow-x:auto; -webkit-overflow-scrolling:touch;">
+                <table class="data-table" style="min-width:600px; width:100%;">
+                  <thead>
+                    <tr>
+                      <th style="width:44%;">Accounting Particulars</th>
+                      <th style="width:18%;">Category / Store</th>
+                      <th class="text-right" style="width:19%;">Inflow Dr (+)</th>
+                      <th class="text-right" style="width:19%;">Outflow Cr (-)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${statementRows}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -4360,7 +4786,62 @@ const app = {
     },
 
     _previewHtml: '',
-    printCurrentReport() {
+
+    /**
+     * Prints an HTML document using a hidden iframe.
+     * Bypasses mobile popup blockers (iOS Safari, Android Chrome) and directly triggers
+     * the system native print sheet / Save as PDF.
+     */
+    _printHtmlViaIframe(html) {
+      let iframe = document.getElementById('nh-report-print-frame');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'nh-report-print-frame';
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        iframe.style.opacity = '0.01';
+        iframe.style.border = '0';
+        iframe.style.pointerEvents = 'none';
+        iframe.title = 'Noor Hospital Report Print Frame';
+        document.body.appendChild(iframe);
+      }
+
+      try {
+        const frameDoc = iframe.contentWindow.document;
+        frameDoc.open();
+        frameDoc.write(html);
+        frameDoc.close();
+
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+          } catch (err) {
+            console.warn('Iframe print failed, falling back:', err);
+            const pWin = window.open('', '_blank');
+            if (pWin) {
+              pWin.document.write(html);
+              pWin.document.close();
+              pWin.focus();
+              setTimeout(() => { pWin.print(); pWin.close(); }, 350);
+            } else {
+              window.print();
+            }
+          }
+        }, 400);
+      } catch (err) {
+        console.warn('Iframe write error, using window fallback:', err);
+        window.print();
+      }
+    },
+
+    /**
+     * Generates a complete standalone printable/saveable HTML document for current report.
+     */
+    generateCurrentReportHtml() {
       const titleEl = document.getElementById('report-title-display');
       const metaEl = document.getElementById('report-meta-display');
       const container = document.getElementById('report-display-container');
@@ -4373,35 +4854,40 @@ const app = {
       const reportRef = 'NH-AUD-' + Date.now().toString().slice(-6);
 
       const styleBlock = `
-        @page { size: A4 portrait; margin: 12mm 12mm 15mm 12mm; }
+        @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #fff; font-size: 11px; line-height: 1.4; padding: 16px; }
-        .hospital-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; }
-        .brand-left { display: flex; gap: 12px; align-items: center; }
-        .hospital-emblem { width: 44px; height: 44px; border-radius: 8px; background: #0f172a; color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; border: 1px solid #1e293b; }
-        .brand-info h1 { font-size: 18px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 2px; text-transform: uppercase; }
-        .brand-info .sub-dept { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; color: #0284c7; text-transform: uppercase; }
-        .brand-info .address { font-size: 9px; color: #64748b; margin-top: 2px; }
-        .brand-right { text-align: right; font-size: 9px; color: #475569; }
-        .voucher-pill { display: inline-block; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; color: #0f172a; margin-bottom: 4px; }
-        .statement-meta-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #fff; font-size: 10.5px; line-height: 1.4; padding: 14px; }
+        .hospital-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+        .brand-left { display: flex; gap: 10px; align-items: center; }
+        .hospital-emblem { width: 42px; height: 42px; border-radius: 8px; background: #0f172a; color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border: 1px solid #1e293b; }
+        .brand-info h1 { font-size: 17px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 2px; text-transform: uppercase; }
+        .brand-info .sub-dept { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #0284c7; text-transform: uppercase; }
+        .brand-info .address { font-size: 8.5px; color: #64748b; margin-top: 1px; }
+        .brand-right { text-align: right; font-size: 8.5px; color: #475569; }
+        .voucher-pill { display: inline-block; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; color: #0f172a; margin-bottom: 4px; }
+        .statement-meta-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .meta-item { display: flex; flex-direction: column; gap: 2px; }
-        .meta-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
-        .meta-val { font-size: 11px; font-weight: 700; color: #0f172a; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-        thead th { background: #0f172a !important; color: #ffffff !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 8.5px; padding: 7px 8px; border: 1px solid #0f172a; text-align: left; }
+        .meta-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+        .meta-val { font-size: 10px; font-weight: 700; color: #0f172a; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9.5px; }
+        thead th { background: #0f172a !important; color: #ffffff !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 8px; padding: 6px 8px; border: 1px solid #0f172a; text-align: left; }
         tbody tr:nth-child(even) { background: #f8fafc; }
-        tbody td { border: 1px solid #e2e8f0; padding: 6px 8px; vertical-align: middle; color: #1e293b; }
+        tbody td { border: 1px solid #e2e8f0; padding: 5px 8px; vertical-align: middle; color: #1e293b; }
         .text-right { text-align: right; font-family: 'JetBrains Mono', SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
-        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 700; text-transform: uppercase; border: 1px solid #cbd5e1; }
-        .section-title { font-size: 12px; font-weight: 800; color: #0f172a; padding: 6px 10px; background: #e2e8f0; border-left: 3px solid #0284c7; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
-        .summary-box { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; gap: 12px; margin: 14px 0; font-weight: 700; }
-        .audit-signatures { margin-top: 36px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; page-break-inside: avoid; }
+        .source-tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 7.5px; font-weight: 700; border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; }
+        .status-pill { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5px; font-weight: 700; }
+        .status-pill.verified { background: #ecfdf5; color: #059669; }
+        .status-pill.pending { background: #fffbeb; color: #d97706; }
+        .text-success { color: #059669 !important; }
+        .text-error { color: #dc2626 !important; }
+        .text-warning { color: #d97706 !important; }
+        .text-muted { color: #64748b !important; }
+        .audit-signatures { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-inside: avoid; }
         .sig-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .sig-line { width: 85%; border-bottom: 1.5px solid #0f172a; height: 38px; margin-bottom: 6px; }
-        .sig-title { font-size: 10px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
-        .sig-sub { font-size: 8px; color: #64748b; margin-top: 1px; }
-        .report-footer { margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
+        .sig-line { width: 80%; border-bottom: 1.5px solid #0f172a; height: 32px; margin-bottom: 5px; }
+        .sig-title { font-size: 9px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
+        .sig-sub { font-size: 7.5px; color: #64748b; margin-top: 1px; }
+        .report-footer { margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
         .report-header-preview { display: none !important; }
         .hidden { display: none !important; }
         @media print { body { padding: 0; } }
@@ -4471,27 +4957,333 @@ const app = {
         </div>
       `;
 
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Noor Hospital - ${printTitle}</title><style>${styleBlock}</style></head><body>${documentBody}</body></html>`;
+      return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Noor Hospital - ${printTitle}</title><style>${styleBlock}</style></head><body>${documentBody}</body></html>`;
+    },
+
+    printCurrentReport() {
+      const titleEl = document.getElementById('report-title-display');
+      const printTitle = titleEl ? titleEl.innerText : 'Report';
+      const html = app.reports.generateCurrentReportHtml();
       app.reports._previewHtml = html;
 
       const bodyEl = document.getElementById('report-preview-body');
       const titlePreview = document.getElementById('report-preview-title');
-      if(bodyEl) {
-        bodyEl.innerHTML = `<style>${styleBlock}</style><div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">${documentBody}</div><p style="text-align:center; font-size:11px; color:#64748b; margin-top:12px;">Official Noor Hospital Audit Document Preview — Click <strong>Print</strong> below to open the system print dialog.</p>`;
+      if (bodyEl) {
+        bodyEl.innerHTML = `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">${html}</div><p style="text-align:center; font-size:11px; color:#64748b; margin-top:12px;">Official Noor Hospital Audit Document Preview — Tap <strong>Print / Save PDF</strong> or <strong>Save File</strong> below.</p>`;
       }
-      if(titlePreview) titlePreview.textContent = printTitle + ' — Audit Print Preview';
+      if (titlePreview) titlePreview.textContent = printTitle + ' — Audit Print Preview';
       app.ui.openModal('dialog-report-preview');
-      return;
     },
-    doPrintFromPreview(){
-      const html = app.reports._previewHtml;
-      if(!html) return;
-      const printWin = window.open('', '_blank', 'height=800,width=900');
-      if (!printWin) { window.print(); return; }
-      printWin.document.write(html);
-      printWin.document.close();
-      printWin.focus();
-      setTimeout(()=>{ printWin.print(); printWin.close(); }, 400);
+
+    doPrintFromPreview() {
+      const html = app.reports._previewHtml || app.reports.generateCurrentReportHtml();
+      if (!html) {
+        app.ui.showToast('No report content to print.', 'warning');
+        return;
+      }
+      app.reports._printHtmlViaIframe(html);
+    },
+
+    /**
+     * Direct file download for reports. Saves standalone HTML file that can be opened
+     * in any browser on mobile/desktop and saved to PDF or shared via WhatsApp/email.
+     */
+    downloadReportPdfFile(htmlContent, customName) {
+      let html = htmlContent || app.reports._previewHtml;
+      if (!html) {
+        html = app.reports.generateCurrentReportHtml();
+      }
+      if (!html) {
+        app.ui.showToast('No report content available to save.', 'warning');
+        return;
+      }
+      const titleEl = document.getElementById('report-title-display');
+      const baseName = (customName || (titleEl ? titleEl.innerText : 'Financial_Report')).replace(/[^a-zA-Z0-9_-]/g, '_');
+      const dateStamp = new Date().toISOString().split('T')[0];
+      const fileName = `NoorHospital_${baseName}_${dateStamp}.html`;
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 200);
+      app.ui.showToast(`Report saved as "${fileName}". Open to print or save as PDF!`, 'success');
+    },
+
+    /**
+     * Generates a complete standalone printable/saveable HTML document for Cash Balance Sheet Statement.
+     */
+    generateBalanceSheetPrintHtml() {
+      const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
+      const todayDate = app.ui.formatDate(new Date().toISOString().split('T')[0]);
+      const reportRef = 'NH-BS-' + Date.now().toString().slice(-6);
+      const rowsHtml = app.reports.generateBalanceSheetTableRows();
+
+      const styleBlock = `
+        @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #fff; font-size: 10px; line-height: 1.35; padding: 14px; }
+        .hospital-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+        .brand-left { display: flex; gap: 10px; align-items: center; }
+        .hospital-emblem { width: 42px; height: 42px; border-radius: 8px; background: #0f172a; color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border: 1px solid #1e293b; }
+        .brand-info h1 { font-size: 17px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 2px; text-transform: uppercase; }
+        .brand-info .sub-dept { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #0284c7; text-transform: uppercase; }
+        .brand-info .address { font-size: 8.5px; color: #64748b; margin-top: 1px; }
+        .brand-right { text-align: right; font-size: 8.5px; color: #475569; }
+        .voucher-pill { display: inline-block; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; color: #0f172a; margin-bottom: 4px; }
+        .statement-meta-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .meta-item { display: flex; flex-direction: column; gap: 2px; }
+        .meta-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+        .meta-val { font-size: 10px; font-weight: 700; color: #0f172a; }
+        .bs-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+        .bs-summary-card { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; padding: 8px 10px; }
+        .bs-summary-card h4 { font-size: 9.5px; font-weight: 800; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; text-transform: uppercase; }
+        .bs-summary-card .row { display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 4px; }
+        .bs-summary-card .row.total { font-weight: 800; font-size: 9.5px; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px; color: #0284c7; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9.5px; }
+        thead th { background: #0f172a !important; color: #ffffff !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 8px; padding: 6px 8px; border: 1px solid #0f172a; text-align: left; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody td { border: 1px solid #e2e8f0; padding: 5px 8px; vertical-align: middle; color: #1e293b; }
+        .text-right { text-align: right; font-family: 'JetBrains Mono', SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
+        .source-tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 7.5px; font-weight: 700; border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; }
+        .status-pill { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5px; font-weight: 700; }
+        .status-pill.verified { background: #ecfdf5; color: #059669; }
+        .status-pill.pending { background: #fffbeb; color: #d97706; }
+        .text-success { color: #059669 !important; }
+        .text-error { color: #dc2626 !important; }
+        .text-warning { color: #d97706 !important; }
+        .text-muted { color: #64748b !important; }
+        .audit-signatures { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-inside: avoid; }
+        .sig-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .sig-line { width: 80%; border-bottom: 1.5px solid #0f172a; height: 32px; margin-bottom: 5px; }
+        .sig-title { font-size: 9px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
+        .sig-sub { font-size: 7.5px; color: #64748b; margin-top: 1px; }
+        .report-footer { margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
+        @media print { body { padding: 0; } }
+      `;
+
+      return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Noor Hospital - Cash Balance Sheet Audit Statement</title><style>${styleBlock}</style></head><body>
+        <div class="hospital-header">
+          <div class="brand-left">
+            <div class="hospital-emblem">+</div>
+            <div class="brand-info">
+              <h1>Noor Hospital</h1>
+              <div class="sub-dept">Treasury & Financial Audit Reconciliation Division</div>
+              <div class="address">Qadian, Punjab • Comprehensive Cash Balance Sheet Statement</div>
+            </div>
+          </div>
+          <div class="brand-right">
+            <div class="voucher-pill">Audit Balance Sheet</div>
+            <div><strong>Ref:</strong> ${reportRef}</div>
+            <div><strong>Status:</strong> Reconciled & Verified</div>
+          </div>
+        </div>
+
+        <div class="statement-meta-bar">
+          <div class="meta-item">
+            <span class="meta-label">Document Type</span>
+            <span class="meta-val">Cash Balance Sheet Statement</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">As On Date</span>
+            <span class="meta-val">${todayDate}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Generated Timestamp</span>
+            <span class="meta-val">${now}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Authorized Signatory</span>
+            <span class="meta-val">Treasury Muhasib Incharge</span>
+          </div>
+        </div>
+
+        <div class="bs-summary-grid">
+          <div class="bs-summary-card">
+            <h4>Cash Position</h4>
+            <div class="row"><span>Muhasib Cash Float:</span><span class="num-val">${app.ui.formatCurrency(app.state.advanceCashAvailable)}</span></div>
+            <div class="row"><span>Hospital Cash Collections:</span><span class="num-val">${app.ui.formatCurrency(app.state.hospitalCashAvailable)}</span></div>
+            <div class="row total"><span>Total Cash With Me:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalCashWithMe)}</span></div>
+          </div>
+          <div class="bs-summary-card">
+            <h4>Bills Position</h4>
+            <div class="row"><span>Advance Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span></div>
+            <div class="row"><span>Hospital Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.hospitalBillsPending)}</span></div>
+            <div class="row total"><span>Total Pending Bills:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalPendingBills)}</span></div>
+          </div>
+          <div class="bs-summary-card">
+            <h4>Transfer Position</h4>
+            <div class="row"><span>Amanat Received:</span><span class="num-val">${app.ui.formatCurrency(app.state.amanatReceived)}</span></div>
+            <div class="row"><span>Imprest Received:</span><span class="num-val">${app.ui.formatCurrency(app.state.imprestReceived)}</span></div>
+            <div class="row total"><span>Total Settled:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalTransferred)}</span></div>
+          </div>
+        </div>
+
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:46%;">Accounting Particulars</th>
+              <th style="width:18%;">Category / Store</th>
+              <th class="text-right" style="width:18%;">Inflow Dr (+)</th>
+              <th class="text-right" style="width:18%;">Outflow Cr (-)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="audit-signatures">
+          <div class="sig-col">
+            <div class="sig-line"></div>
+            <div class="sig-title">Prepared By</div>
+            <div class="sig-sub">Cashier / Muhasib Incharge</div>
+          </div>
+          <div class="sig-col">
+            <div class="sig-line"></div>
+            <div class="sig-title">Verified By</div>
+            <div class="sig-sub">Internal Accounts Officer</div>
+          </div>
+          <div class="sig-col">
+            <div class="sig-line"></div>
+            <div class="sig-title">Approved By</div>
+            <div class="sig-sub">Medical Superintendent / Director</div>
+          </div>
+        </div>
+
+        <div class="report-footer">
+          <span>Official Treasury Statement • Confidential Noor Hospital Financial Record</span>
+          <span>NH-CMS v2.4 • System Reconciled</span>
+        </div>
+      </body></html>`;
+    },
+
+    printBalanceSheetStatement() {
+      const html = app.reports.generateBalanceSheetPrintHtml();
+      app.reports._previewHtml = html;
+      const bodyEl = document.getElementById('report-preview-body');
+      const titlePreview = document.getElementById('report-preview-title');
+      if (bodyEl) {
+        bodyEl.innerHTML = `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">${html}</div><p style="text-align:center; font-size:11px; color:#64748b; margin-top:12px;">Official Noor Hospital Balance Sheet Audit Document Preview</p>`;
+      }
+      if (titlePreview) titlePreview.textContent = 'Cash Balance Sheet Statement — Audit Preview';
+      app.ui.openModal('dialog-report-preview');
+    },
+
+    downloadBalanceSheetFile() {
+      const html = app.reports.generateBalanceSheetPrintHtml();
+      app.reports.downloadReportPdfFile(html, 'Cash_Balance_Sheet_Audit_Statement');
+    },
+
+    exportBalanceSheetExcel() {
+      if (typeof XLSX === 'undefined') {
+        app.ui.showToast('Excel exporter library loading...', 'error');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+      const dateStr = app.ui.formatDate(new Date().toISOString().split('T')[0]);
+      const nowStr = new Date().toLocaleString('en-IN');
+
+      const rows = [
+        ['Noor Hospital - Comprehensive Cash Balance Sheet Statement'],
+        ['As on Date', dateStr],
+        ['Generated On', nowStr],
+        [],
+        ['1. TREASURY SUMMARY POSITION'],
+        ['Category', 'Metric', 'Amount (₹)'],
+        ['Cash Position', 'Muhasib Cash Available in Hand', app.state.advanceCashAvailable || 0],
+        ['Cash Position', 'Hospital Cash Collections in Hand', app.state.hospitalCashAvailable || 0],
+        ['Cash Position', 'Total Cash With Me', app.state.totalCashWithMe || 0],
+        ['Bills Position', 'Advance Bills Pending Settlement', app.state.advanceBillsPending || 0],
+        ['Bills Position', 'Hospital Bills Pending Settlement', app.state.hospitalBillsPending || 0],
+        ['Bills Position', 'Total Pending Bills', app.state.totalPendingBills || 0],
+        ['Settlement Position', 'Amanat Received (Hospital)', app.state.amanatReceived || 0],
+        ['Settlement Position', 'Imprest Received (Advance)', app.state.imprestReceived || 0],
+        ['Settlement Position', 'Total Settled by Transfers', app.state.totalTransferred || 0],
+        [],
+        ['2. DETAILED STATEMENT OF CASH FLOWS & RECONCILIATION'],
+        ['Section', 'Accounting Particulars', 'Category / Store', 'Inflow Dr (+) (₹)', 'Outflow Cr (-) (₹)', 'Net Balance (₹)']
+      ];
+
+      // Part I Inflows
+      rows.push(['PART I: INFLOWS', 'Opening Muhasib Cash Float', 'Opening Float', app.state.openingAdvanceCash || 0, '', '']);
+      rows.push(['PART I: INFLOWS', 'Opening Hospital Cash Float', 'Opening Float', app.state.openingHospitalCash || 0, '', '']);
+      
+      (app.state.hospitalCashEntries || []).forEach(e => {
+        rows.push(['PART I: INFLOWS', `Hospital Collection: ${e.remarks || 'Daily collections'}`, e.source || 'Hospital', e.amount || 0, '', '']);
+      });
+      const subtotalHosp = (app.state.hospitalCashEntries || []).reduce((s,e) => s + (e.amount || 0), 0);
+      rows.push(['PART I: INFLOWS', 'Subtotal: Hospital Collections', '', subtotalHosp, '', '']);
+
+      (app.state.advanceCashEntries || []).forEach(e => {
+        rows.push(['PART I: INFLOWS', `Muhasib Float Addition: ${e.remarks || 'Cash Float'}`, 'Muhasib Float', e.amount || 0, '', '']);
+      });
+      const subtotalAdv = (app.state.advanceCashEntries || []).reduce((s,e) => s + (e.amount || 0), 0);
+      rows.push(['PART I: INFLOWS', 'Subtotal: Muhasib Float Additions', '', subtotalAdv, '', '']);
+
+      const totalInflows = (app.state.openingAdvanceCash || 0) + (app.state.openingHospitalCash || 0) + subtotalHosp + subtotalAdv;
+      rows.push(['PART I: INFLOWS', 'TOTAL GROSS CASH INFLOWS (A)', '', totalInflows, '', '']);
+      rows.push([]);
+
+      // Part II Outflows
+      const hospBills = (app.state.bills || []).filter(b => b.expenseType === 'hospital');
+      hospBills.forEach(b => {
+        rows.push(['PART II: OUTFLOWS', `Hospital Bill #${b.billNumber || '-'}: ${b.vendor || '-'}`, b.category || 'Hospital', '', b.amount || 0, '']);
+      });
+      const subtotalHospBills = hospBills.reduce((s,b) => s + (b.amount || 0), 0);
+      rows.push(['PART II: OUTFLOWS', 'Subtotal: Hospital Bills Paid', '', '', subtotalHospBills, '']);
+
+      const advBills = (app.state.bills || []).filter(b => b.expenseType === 'advance');
+      advBills.forEach(b => {
+        rows.push(['PART II: OUTFLOWS', `Muhasib Bill #${b.billNumber || '-'}: ${b.vendor || '-'}`, b.category || 'Advance', '', b.amount || 0, '']);
+      });
+      const subtotalAdvBills = advBills.reduce((s,b) => s + (b.amount || 0), 0);
+      rows.push(['PART II: OUTFLOWS', 'Subtotal: Muhasib Bills Paid', '', '', subtotalAdvBills, '']);
+
+      const activeSlips = (app.state.temporarySlips || []).filter(s => s.status === 'pending' || !s.status || s.status === 'active');
+      activeSlips.forEach(s => {
+        rows.push(['PART II: OUTFLOWS', `Active Temp Slip #${s.slipNumber || '-'}: ${s.vendor || '-'}`, s.expenseType === 'advance' ? 'Adv Slip' : 'Hosp Slip', '', s.amount || 0, '']);
+      });
+      const subtotalSlips = activeSlips.reduce((s,sItem) => s + (sItem.amount || 0), 0);
+      rows.push(['PART II: OUTFLOWS', 'Subtotal: Active Temporary Slips', '', '', subtotalSlips, '']);
+
+      (app.state.hospitalDeposits || []).forEach(d => {
+        rows.push(['PART II: OUTFLOWS', `Deposit to Muhasib: Rcpt #${d.receiptNumber || '-'}`, 'Muhasib Remittance', '', d.amount || 0, '']);
+      });
+      const subtotalDeps = (app.state.hospitalDeposits || []).reduce((s,d) => s + (d.amount || 0), 0);
+      rows.push(['PART II: OUTFLOWS', 'Subtotal: Deposits to Muhasib', '', '', subtotalDeps, '']);
+
+      const accHospital = (app.state.accountsRegister || []).filter(a => a.billType === 'hospital');
+      accHospital.forEach(a => {
+        rows.push(['PART II: OUTFLOWS', `Transferred to Accounts: Ref #${a.referenceNo || '-'}`, 'Accounts Reg', '', a.amount || 0, '']);
+      });
+      const subtotalAcc = accHospital.reduce((s,a) => s + (a.amount || 0), 0);
+      rows.push(['PART II: OUTFLOWS', 'Subtotal: Sent to Accounts Dept', '', '', subtotalAcc, '']);
+
+      const totalOutflows = subtotalHospBills + subtotalAdvBills + subtotalSlips + subtotalDeps + subtotalAcc;
+      rows.push(['PART II: OUTFLOWS', 'TOTAL GROSS CASH OUTFLOWS (B)', '', '', totalOutflows, '']);
+      rows.push([]);
+
+      // Part III Reconciliation
+      rows.push(['PART III: NET POSITION', 'Muhasib Cash Float in Hand Available', 'Cash in Hand', '', '', app.state.advanceCashAvailable || 0]);
+      rows.push(['PART III: NET POSITION', 'Hospital Cash Collections in Hand Available', 'Cash in Hand', '', '', app.state.hospitalCashAvailable || 0]);
+      rows.push(['PART III: NET POSITION', 'NET RECONCILED CASH WITH ME (A - B)', 'Reconciled Cash', '', '', app.state.totalCashWithMe || 0]);
+      rows.push(['PART III: NET POSITION', 'Total Outstanding Pending Bills', 'Pending Bills', '', '', app.state.totalPendingBills || 0]);
+      rows.push(['PART III: NET POSITION', 'Total Settled via Verification Transfers', 'Transfers Settled', '', '', app.state.totalTransferred || 0]);
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [{wch: 22}, {wch: 46}, {wch: 20}, {wch: 18}, {wch: 18}, {wch: 18}];
+      ws['!merges'] = [{s:{r:0,c:0}, e:{r:0,c:5}}];
+      XLSX.utils.book_append_sheet(wb, ws, 'Balance Sheet Statement');
+      XLSX.writeFile(wb, `NoorHospital_BalanceSheet_Statement_${new Date().toISOString().split('T')[0]}.xlsx`);
+      app.ui.showToast('Comprehensive Balance Sheet Statement exported to Excel!', 'success');
     }
   },
 

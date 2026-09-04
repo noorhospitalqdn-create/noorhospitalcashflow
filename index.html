@@ -975,10 +975,32 @@
         <!-- 7. BALANCE SHEET PANEL -->
         <section class="panel" id="panel-balance-sheet">
           <div class="balance-sheet-container">
+            <!-- Balance Sheet Actions & Date Filter Bar -->
+            <div class="card" style="padding: 14px 18px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-main); margin-bottom: 2px;">Cash Balance Sheet Statement</h3>
+                <span class="text-muted text-xs" id="balance-sheet-date-display">Date: Jun 8, 2026</span>
+              </div>
+              <div class="flex gap-2 flex-wrap">
+                <button class="btn btn-secondary btn-sm" onclick="app.reports.printBalanceSheetStatement()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+                  <span>Print PDF</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" onclick="app.reports.downloadBalanceSheetFile()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                  <span>Save File</span>
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="app.reports.exportBalanceSheetExcel()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h8"/></svg>
+                  <span>Export Excel</span>
+                </button>
+              </div>
+            </div>
+
             <div class="card balance-card">
               <div class="balance-sheet-header">
-                <h2>Noor Hospital - Cash Balance Sheet</h2>
-                <span class="balance-sheet-date" id="balance-sheet-date-display">Date: Jun 8, 2026</span>
+                <h2>Treasury Position Summary</h2>
+                <span class="status-pill verified">Audit Reconciled</span>
               </div>
               
               <div class="balance-grid">
@@ -1050,6 +1072,32 @@
                 </div>
               </div>
             </div>
+
+            <!-- Detailed Audit Statement of Cash Flow & Reconciliation Table -->
+            <div class="card" id="bs-detailed-statement-card" style="margin-top: 20px; padding: 0; overflow: hidden;">
+              <div style="padding: 14px 18px; border-bottom: 1px solid var(--border-color); background: var(--bg-card); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <h3 style="font-size: 0.95rem; font-weight: 800; color: var(--text-main);">Comprehensive Statement of Cash Flows & Reconciled Balances</h3>
+                  <p style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">Itemized financial audit of all collections, float additions, expenses, slips, deposits, and closing balance.</p>
+                </div>
+                <span class="status-pill verified">Reconciled</span>
+              </div>
+              <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                <table class="data-table" id="bs-statement-table" style="min-width: 580px;">
+                  <thead>
+                    <tr>
+                      <th style="width: 44%;">Accounting Particulars</th>
+                      <th style="width: 18%;">Category / Store</th>
+                      <th class="text-right" style="width: 19%;">Inflow Dr (+)</th>
+                      <th class="text-right" style="width: 19%;">Outflow Cr (-)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="bs-statement-tbody">
+                    <!-- Populated by app.reports.renderBalanceSheetStatementTable() -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1088,12 +1136,16 @@
                   <input type="date" id="report-date-end" class="form-input">
                 </div>
 
-                <div class="form-group flex justify-end items-end gap-2">
-                  <button class="btn btn-secondary w-full" id="btn-print-report" onclick="app.reports.printCurrentReport()">
+                <div class="form-group flex justify-end items-end gap-2 flex-wrap">
+                  <button class="btn btn-secondary flex-1" id="btn-print-report" onclick="app.reports.printCurrentReport()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
                     <span>Print PDF</span>
                   </button>
-                  <button class="btn btn-primary w-full" id="btn-excel-report" onclick="app.reports.exportToExcel()">
+                  <button class="btn btn-secondary flex-1" id="btn-download-report" onclick="app.reports.downloadReportPdfFile()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span>Save File</span>
+                  </button>
+                  <button class="btn btn-primary flex-1" id="btn-excel-report" onclick="app.reports.exportToExcel()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h8"/></svg>
                     <span>Export Excel</span>
                   </button>
@@ -2139,11 +2191,15 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       </button>
     </div>
     <div class="modal-body" id="report-preview-body" style="max-height:65vh; overflow-y:auto; background:#fff; color:#000; padding:16px;"></div>
-    <div class="modal-footer">
+    <div class="modal-footer" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;">
       <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-report-preview')">Close</button>
+      <button type="button" class="btn btn-secondary" onclick="app.reports.downloadReportPdfFile()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        <span>Save File</span>
+      </button>
       <button type="button" class="btn btn-primary" onclick="app.reports.doPrintFromPreview()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-        <span>Print</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px; height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+        <span>Print / Save PDF</span>
       </button>
     </div>
   </dialog>
