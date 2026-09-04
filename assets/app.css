@@ -24,6 +24,7 @@ html[data-theme="light"] {
   --bg-input: #f1f5f9;
   --bg-input-focus: #ffffff;
   --bg-elevated: #ffffff;
+  --bg-secondary: #f1f5f9;
   --bg-toast: #0f172a;
   
   --text-main: #0f172a;
@@ -82,11 +83,12 @@ html[data-theme="dark"] {
   --bg-input: #172033;
   --bg-input-focus: #1e293b;
   --bg-elevated: #162032;
+  --bg-secondary: #162032;
   --bg-toast: #f8fafc;
   
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --text-subtle: #64748b;
+  --text-main: #ffffff;
+  --text-muted: #cbd5e1;
+  --text-subtle: #94a3b8;
   --text-inverse: #0f172a;
   --border-color: rgba(255, 255, 255, 0.08);
   --border-subtle: rgba(255, 255, 255, 0.04);
@@ -911,7 +913,7 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
 }
 .data-table thead th {
   text-align: left;
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -923,15 +925,48 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
   position: sticky;
   top: 0;
 }
+html[data-theme="dark"] .data-table thead th {
+  color: #cbd5e1;
+  background: #060910;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
 .data-table tbody td {
   padding: 11px 14px;
   border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
+  color: var(--text-main);
+  font-size: 0.82rem;
+}
+html[data-theme="dark"] .data-table tbody td {
+  color: #f8fafc;
 }
 .data-table tbody tr { transition: background 0.12s; }
 .data-table tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.012); }
-html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
-.data-table tbody tr:hover { background: rgba(15, 118, 110, 0.04); }
+html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
+.data-table tbody tr:hover { background: rgba(20, 184, 166, 0.06); }
+.num-val {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+.link-btn {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+.link-btn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
 .text-right { text-align: right; }
 .text-center { text-align: center; }
 .btn-edit-action, .attachment-badge, .detail-badge {

@@ -4522,33 +4522,33 @@ const app = {
         let runningBal = app.state.openingHospitalCash;
         let totalDr = 0;
         let totalCr = 0;
-        let rowsHtml = `<tr style="background:var(--bg-secondary); font-weight:700;"><td class="num-val">-</td><td>Opening Balance (Hospital Cash)</td><td class="num-val text-right"></td><td class="num-val text-right"></td><td class="num-val text-right">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+        let rowsHtml = `<tr style="background:var(--bg-elevated); font-weight:700;"><td class="num-val" style="color:var(--text-muted);">-</td><td style="color:var(--text-main); font-weight:700;">Opening Balance (Hospital Cash)</td><td class="num-val text-right"></td><td class="num-val text-right"></td><td class="num-val text-right" style="color:var(--text-main); font-weight:700;">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         combined.forEach(row => {
           if(row.dr) { totalDr += row.dr; runningBal += row.dr; }
           if(row.cr) { totalCr += row.cr; runningBal -= row.cr; }
           const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
           const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
-          const badge = `<span class="source-tag" style="background:var(--bg-input);color:${row.badgeColor};border-color:${row.badgeColor}">${row.badge}</span>`;
-          rowsHtml += `<tr><td class="num-val">${app.ui.formatDate(row.date)}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
+          const badge = `<span class="source-tag" style="background:var(--bg-input);color:${row.badgeColor};border-color:${row.badgeColor};font-weight:700;">${row.badge}</span>`;
+          rowsHtml += `<tr><td class="num-val" style="color:var(--text-muted); font-weight:600;">${app.ui.formatDate(row.date)}</td><td style="color:var(--text-main); font-weight:600;">${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}" style="${!row.dr?'color:var(--text-muted);':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}" style="${!row.cr?'color:var(--text-muted);':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:700; color:var(--text-main);">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         });
-        if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted">No records in selected date range.</td></tr>`;
+        if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted" style="padding:20px; color:var(--text-muted);">No records in selected date range.</td></tr>`;
         const closingBal = app.state.openingHospitalCash + totalDr - totalCr;
-        rowsHtml += `<tr class="total-row" style="font-weight:800; border-top:2px solid var(--border-color); background:var(--bg-secondary);"><td colspan="2">TOTAL</td><td class="num-val text-right text-success">${app.ui.formatCurrency(totalDr)}</td><td class="num-val text-right text-error">${app.ui.formatCurrency(totalCr)}</td><td class="num-val text-right">${app.ui.formatCurrency(closingBal)}</td></tr>`;
+        rowsHtml += `<tr class="total-row" style="font-weight:800; border-top:2px solid var(--border-color); background:var(--bg-elevated); color:var(--text-main);"><td colspan="2" style="color:var(--text-main); font-weight:800;">TOTAL</td><td class="num-val text-right text-success" style="font-weight:800;">${app.ui.formatCurrency(totalDr)}</td><td class="num-val text-right text-error" style="font-weight:800;">${app.ui.formatCurrency(totalCr)}</td><td class="num-val text-right" style="color:var(--primary); font-weight:800;">${app.ui.formatCurrency(closingBal)}</td></tr>`;
         bsPlaceholder.innerHTML = `
           <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
-            <div class="card" style="padding:0; overflow:hidden;">
-              <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                <span>Hospital Cash Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits / Accounts &nbsp;|&nbsp; Balance = Running</span>
+            <div class="card" style="padding:0; overflow:hidden; border:1px solid var(--border-color);">
+              <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-elevated); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; color:var(--text-main);">
+                <span style="color:var(--text-main); font-size:14px;">Hospital Cash Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted);">Dr = Collections &nbsp;|&nbsp; Cr = Bills / Slips / Deposits / Accounts &nbsp;|&nbsp; Balance = Running</span>
               </div>
               <div style="overflow-x:auto;">
-                <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Collection)</th><th class="text-right">Cr (Expense/Deposit)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+                <table class="data-table"><thead><tr><th style="color:var(--text-muted);">Date</th><th style="color:var(--text-muted);">Particulars</th><th class="text-right" style="color:var(--text-muted);">Dr (Collection)</th><th class="text-right" style="color:var(--text-muted);">Cr (Expense/Deposit)</th><th class="text-right" style="color:var(--text-muted);">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
               </div>
             </div>
-            <div class="card" style="padding:1rem 1.1rem; background:var(--bg-secondary); display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:space-between; font-weight:700; font-size:13px;">
-              <span>Opening: ${app.ui.formatCurrency(app.state.openingHospitalCash)}</span>
-              <span>Total Dr: <span class="text-success">${app.ui.formatCurrency(totalDr)}</span></span>
-              <span>Total Cr: <span class="text-error">${app.ui.formatCurrency(totalCr)}</span></span>
-              <span>Closing Balance: ${app.ui.formatCurrency(closingBal)}</span>
+            <div class="card" style="padding:1rem 1.1rem; background:var(--bg-card); border:1px solid var(--border-color); display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:space-between; font-weight:700; font-size:13px; color:var(--text-main);">
+              <span>Opening: <strong style="color:var(--text-main);">${app.ui.formatCurrency(app.state.openingHospitalCash)}</strong></span>
+              <span>Total Dr: <strong class="text-success">${app.ui.formatCurrency(totalDr)}</strong></span>
+              <span>Total Cr: <strong class="text-error">${app.ui.formatCurrency(totalCr)}</strong></span>
+              <span>Closing Balance: <strong style="color:var(--primary);">${app.ui.formatCurrency(closingBal)}</strong></span>
             </div>
           </div>
         `;
@@ -5260,64 +5260,60 @@ const app = {
 
     /**
      * Generates a complete standalone printable/saveable HTML document for Cash Balance Sheet Statement.
+     * Strictly matches what is shown on screen in the Cash Position Balance Sheet (nothing extra).
      */
     generateBalanceSheetPrintHtml() {
       const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
       const todayDate = app.ui.formatDate(new Date().toISOString().split('T')[0]);
       const reportRef = 'NH-BS-' + Date.now().toString().slice(-6);
-      const rowsHtml = app.reports.generateBalanceSheetTableRows();
 
       const styleBlock = `
-        @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
+        @page { size: A4 portrait; margin: 12mm 14mm 12mm 14mm; }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #fff; font-size: 10px; line-height: 1.35; padding: 14px; }
-        .hospital-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px; }
+        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #fff; font-size: 11px; line-height: 1.4; padding: 12px; }
+        .hospital-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 14px; }
         .brand-left { display: flex; gap: 10px; align-items: center; }
-        .hospital-emblem { width: 42px; height: 42px; border-radius: 8px; background: #0f172a; color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; border: 1px solid #1e293b; }
-        .brand-info h1 { font-size: 17px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 2px; text-transform: uppercase; }
-        .brand-info .sub-dept { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: #0284c7; text-transform: uppercase; }
-        .brand-info .address { font-size: 8.5px; color: #64748b; margin-top: 1px; }
-        .brand-right { text-align: right; font-size: 8.5px; color: #475569; }
-        .voucher-pill { display: inline-block; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; color: #0f172a; margin-bottom: 4px; }
+        .hospital-emblem { width: 44px; height: 44px; border-radius: 8px; background: #0f172a; color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; border: 1px solid #1e293b; }
+        .brand-info h1 { font-size: 18px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 2px; text-transform: uppercase; }
+        .brand-info .sub-dept { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; color: #0284c7; text-transform: uppercase; }
+        .brand-info .address { font-size: 9px; color: #64748b; margin-top: 1px; }
+        .brand-right { text-align: right; font-size: 9px; color: #475569; }
+        .voucher-pill { display: inline-block; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; color: #0f172a; margin-bottom: 4px; }
         .statement-meta-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .meta-item { display: flex; flex-direction: column; gap: 2px; }
-        .meta-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
-        .meta-val { font-size: 10px; font-weight: 700; color: #0f172a; }
-        .bs-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
-        .bs-summary-card { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; padding: 8px 10px; }
-        .bs-summary-card h4 { font-size: 9.5px; font-weight: 800; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 6px; text-transform: uppercase; }
-        .bs-summary-card .row { display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 4px; }
-        .bs-summary-card .row.total { font-weight: 800; font-size: 9.5px; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px; color: #0284c7; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9.5px; }
-        thead th { background: #0f172a !important; color: #ffffff !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 8px; padding: 6px 8px; border: 1px solid #0f172a; text-align: left; }
+        .meta-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+        .meta-val { font-size: 11px; font-weight: 700; color: #0f172a; }
+        .bs-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .bs-summary-card { border: 1.5px solid #cbd5e1; background: #f8fafc; border-radius: 8px; padding: 10px 12px; }
+        .bs-summary-card h4 { font-size: 11px; font-weight: 800; color: #0f172a; border-bottom: 1.5px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 8px; text-transform: uppercase; }
+        .bs-summary-card .row { display: flex; justify-content: space-between; font-size: 9.5px; margin-bottom: 5px; color: #334155; }
+        .bs-summary-card .row .num-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+        .bs-summary-card .row.total { font-weight: 800; font-size: 11px; border-top: 1.5px dashed #cbd5e1; padding-top: 6px; margin-top: 6px; color: #0284c7; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 10px; }
+        thead th { background: #0f172a !important; color: #ffffff !important; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; padding: 8px 10px; border: 1px solid #0f172a; text-align: left; }
         tbody tr:nth-child(even) { background: #f8fafc; }
-        tbody td { border: 1px solid #e2e8f0; padding: 5px 8px; vertical-align: middle; color: #1e293b; }
+        tbody td { border: 1px solid #e2e8f0; padding: 7px 10px; vertical-align: middle; color: #1e293b; }
         .text-right { text-align: right; font-family: 'JetBrains Mono', SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
-        .source-tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 7.5px; font-weight: 700; border: 1px solid #cbd5e1; background: #f1f5f9; color: #334155; }
-        .status-pill { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 7.5px; font-weight: 700; }
-        .status-pill.verified { background: #ecfdf5; color: #059669; }
-        .status-pill.pending { background: #fffbeb; color: #d97706; }
-        .text-success { color: #059669 !important; }
-        .text-error { color: #dc2626 !important; }
-        .text-warning { color: #d97706 !important; }
-        .text-muted { color: #64748b !important; }
-        .audit-signatures { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-inside: avoid; }
+        .text-success { color: #059669 !important; font-weight: 700; }
+        .text-error { color: #dc2626 !important; font-weight: 700; }
+        .text-warning { color: #d97706 !important; font-weight: 700; }
+        .audit-signatures { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-inside: avoid; }
         .sig-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .sig-line { width: 80%; border-bottom: 1.5px solid #0f172a; height: 32px; margin-bottom: 5px; }
-        .sig-title { font-size: 9px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
-        .sig-sub { font-size: 7.5px; color: #64748b; margin-top: 1px; }
-        .report-footer { margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
+        .sig-line { width: 80%; border-bottom: 1.5px solid #0f172a; height: 36px; margin-bottom: 6px; }
+        .sig-title { font-size: 9.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
+        .sig-sub { font-size: 8px; color: #64748b; margin-top: 2px; }
+        .report-footer { margin-top: 22px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
         @media print { body { padding: 0; } }
       `;
 
-      return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Noor Hospital - Cash Balance Sheet Audit Statement</title><style>${styleBlock}</style></head><body>
+      return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Noor Hospital - Cash Balance Sheet Statement</title><style>${styleBlock}</style></head><body>
         <div class="hospital-header">
           <div class="brand-left">
             <div class="hospital-emblem">+</div>
             <div class="brand-info">
               <h1>Noor Hospital</h1>
               <div class="sub-dept">Treasury & Financial Audit Reconciliation Division</div>
-              <div class="address">Qadian, Punjab • Comprehensive Cash Balance Sheet Statement</div>
+              <div class="address">Qadian, Punjab • Cash Position Balance Sheet Statement</div>
             </div>
           </div>
           <div class="brand-right">
@@ -5330,7 +5326,7 @@ const app = {
         <div class="statement-meta-bar">
           <div class="meta-item">
             <span class="meta-label">Document Type</span>
-            <span class="meta-val">Cash Balance Sheet Statement</span>
+            <span class="meta-val">Cash Position Balance Sheet</span>
           </div>
           <div class="meta-item">
             <span class="meta-label">As On Date</span>
@@ -5357,27 +5353,81 @@ const app = {
             <h4>Bills Position</h4>
             <div class="row"><span>Advance Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span></div>
             <div class="row"><span>Hospital Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.hospitalBillsPending)}</span></div>
-            <div class="row total"><span>Total Pending Bills:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalPendingBills)}</span></div>
+            <div class="row total" style="color:#d97706;"><span>Total Pending Bills:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalPendingBills)}</span></div>
           </div>
           <div class="bs-summary-card">
             <h4>Transfer Position</h4>
             <div class="row"><span>Amanat Received:</span><span class="num-val">${app.ui.formatCurrency(app.state.amanatReceived)}</span></div>
             <div class="row"><span>Imprest Received:</span><span class="num-val">${app.ui.formatCurrency(app.state.imprestReceived)}</span></div>
-            <div class="row total"><span>Total Settled:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalTransferred)}</span></div>
+            <div class="row total" style="color:#4f46e5;"><span>Total Settled:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalTransferred)}</span></div>
           </div>
         </div>
 
-        <table class="data-table">
+        <table class="data-table" style="margin-top:10px;">
           <thead>
             <tr>
-              <th style="width:46%;">Accounting Particulars</th>
-              <th style="width:18%;">Category / Store</th>
-              <th class="text-right" style="width:18%;">Inflow Dr (+)</th>
-              <th class="text-right" style="width:18%;">Outflow Cr (-)</th>
+              <th style="width:32%;">Position Category</th>
+              <th style="width:42%;">Treasury Metric / Register Breakdown</th>
+              <th class="text-right" style="width:26%;">Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
-            ${rowsHtml}
+            <!-- 1. Cash Position -->
+            <tr style="background:#f8fafc; font-weight:800;">
+              <td rowspan="3" style="vertical-align:middle; font-weight:800; border-right:1.5px solid #cbd5e1; background:#f8fafc; color:#0284c7; font-size:10.5px;">
+                1. CASH IN HAND<br><span style="font-size:8px; font-weight:600; color:#64748b;">Physical Cash Float & Collections</span>
+              </td>
+              <td style="color:#334155; font-weight:600;">Muhasib Cash Float (Available in Hand)</td>
+              <td class="text-right" style="font-weight:700;">${app.ui.formatCurrency(app.state.advanceCashAvailable)}</td>
+            </tr>
+            <tr style="background:#fff;">
+              <td style="color:#334155; font-weight:600;">Hospital Cash Collections (Counter Cash in Hand)</td>
+              <td class="text-right" style="font-weight:700;">${app.ui.formatCurrency(app.state.hospitalCashAvailable)}</td>
+            </tr>
+            <tr style="background:#f0fdfa; font-weight:800; border-top:1px dashed #cbd5e1;">
+              <td style="color:#0f766e;">TOTAL CASH WITH ME</td>
+              <td class="text-right text-success" style="font-size:11px; font-weight:800;">${app.ui.formatCurrency(app.state.totalCashWithMe)}</td>
+            </tr>
+
+            <!-- 2. Bills Position -->
+            <tr style="background:#f8fafc; font-weight:800;">
+              <td rowspan="3" style="vertical-align:middle; font-weight:800; border-right:1.5px solid #cbd5e1; background:#f8fafc; color:#d97706; font-size:10.5px;">
+                2. BILLS POSITION<br><span style="font-size:8px; font-weight:600; color:#64748b;">Pending Verification & Settlement</span>
+              </td>
+              <td style="color:#334155; font-weight:600;">Advance / Muhasib Bills Pending</td>
+              <td class="text-right" style="font-weight:700;">${app.ui.formatCurrency(app.state.advanceBillsPending)}</td>
+            </tr>
+            <tr style="background:#fff;">
+              <td style="color:#334155; font-weight:600;">Hospital Purchase Bills Pending</td>
+              <td class="text-right" style="font-weight:700;">${app.ui.formatCurrency(app.state.hospitalBillsPending)}</td>
+            </tr>
+            <tr style="background:#fffbeb; font-weight:800; border-top:1px dashed #cbd5e1;">
+              <td style="color:#b45309;">TOTAL PENDING BILLS</td>
+              <td class="text-right text-warning" style="font-size:11px; font-weight:800;">${app.ui.formatCurrency(app.state.totalPendingBills)}</td>
+            </tr>
+
+            <!-- 3. Transfer Position -->
+            <tr style="background:#f8fafc; font-weight:800;">
+              <td rowspan="3" style="vertical-align:middle; font-weight:800; border-right:1.5px solid #cbd5e1; background:#f8fafc; color:#4f46e5; font-size:10.5px;">
+                3. SETTLEMENT POSITION<br><span style="font-size:8px; font-weight:600; color:#64748b;">Verified Internal Transfers</span>
+              </td>
+              <td style="color:#334155; font-weight:600;">Amanat Received (Hospital Collections Settled)</td>
+              <td class="text-right" style="font-weight:700;">${app.ui.formatCurrency(app.state.amanatReceived)}</td>
+            </tr>
+            <tr style="background:#fff;">
+              <td style="color:#334155; font-weight:600;">Imprest Received (Advance Float Recouped)</td>
+              <td class="text-right" style="font-weight:700;">${app.ui.formatCurrency(app.state.imprestReceived)}</td>
+            </tr>
+            <tr style="background:#eef2ff; font-weight:800; border-top:1px dashed #cbd5e1;">
+              <td style="color:#4338ca;">TOTAL SETTLED BY TRANSFERS</td>
+              <td class="text-right" style="color:#4338ca; font-size:11px; font-weight:800;">${app.ui.formatCurrency(app.state.totalTransferred)}</td>
+            </tr>
+
+            <!-- Summary Footprint -->
+            <tr style="background:#0f172a; color:#ffffff; font-weight:800; font-size:11px;">
+              <td colspan="2" style="color:#ffffff; padding:10px 12px;">NET CASH BALANCE (Total Cash With Me - Pending Bills)</td>
+              <td class="text-right" style="color:#38bdf8; font-size:13px; font-weight:800; padding:10px 12px;">${app.ui.formatCurrency(app.state.totalCashWithMe - app.state.totalPendingBills)}</td>
+            </tr>
           </tbody>
         </table>
 
@@ -5406,13 +5456,50 @@ const app = {
       </body></html>`;
     },
 
+    printCurrentReport() {
+      const titleEl = document.getElementById('report-title-display');
+      const printTitle = titleEl ? titleEl.innerText : 'Report';
+      const html = app.reports.generateCurrentReportHtml();
+      app.reports._previewHtml = html;
+
+      const bodyEl = document.getElementById('report-preview-body');
+      const titlePreview = document.getElementById('report-preview-title');
+      if (bodyEl) {
+        bodyEl.innerHTML = `<iframe id="report-preview-frame" style="width:100%; height:62vh; min-height:460px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;"></iframe><p style="text-align:center; font-size:11px; color:#64748b; margin-top:10px;">Official Noor Hospital Audit Document Preview — Tap <strong>Print / Save PDF</strong> or <strong>Save File</strong> below.</p>`;
+        setTimeout(() => {
+          const frame = document.getElementById('report-preview-frame');
+          if (frame) {
+            try {
+              const doc = frame.contentDocument || frame.contentWindow.document;
+              doc.open();
+              doc.write(html);
+              doc.close();
+            } catch (e) { frame.srcdoc = html; }
+          }
+        }, 30);
+      }
+      if (titlePreview) titlePreview.textContent = printTitle + ' — Audit Print Preview';
+      app.ui.openModal('dialog-report-preview');
+    },
+
     printBalanceSheetStatement() {
       const html = app.reports.generateBalanceSheetPrintHtml();
       app.reports._previewHtml = html;
       const bodyEl = document.getElementById('report-preview-body');
       const titlePreview = document.getElementById('report-preview-title');
       if (bodyEl) {
-        bodyEl.innerHTML = `<div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">${html}</div><p style="text-align:center; font-size:11px; color:#64748b; margin-top:12px;">Official Noor Hospital Balance Sheet Audit Document Preview</p>`;
+        bodyEl.innerHTML = `<iframe id="report-preview-frame" style="width:100%; height:62vh; min-height:460px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff;"></iframe><p style="text-align:center; font-size:11px; color:#64748b; margin-top:10px;">Official Noor Hospital Balance Sheet Audit Document Preview</p>`;
+        setTimeout(() => {
+          const frame = document.getElementById('report-preview-frame');
+          if (frame) {
+            try {
+              const doc = frame.contentDocument || frame.contentWindow.document;
+              doc.open();
+              doc.write(html);
+              doc.close();
+            } catch (e) { frame.srcdoc = html; }
+          }
+        }, 30);
       }
       if (titlePreview) titlePreview.textContent = 'Cash Balance Sheet Statement — Audit Preview';
       app.ui.openModal('dialog-report-preview');
