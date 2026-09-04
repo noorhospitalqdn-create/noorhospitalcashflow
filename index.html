@@ -66,6 +66,9 @@
   </div>
 
   <div class="app-layout">
+    <!-- Mobile Sidebar Drawer Backdrop -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
     <!-- Navigation Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
@@ -171,40 +174,47 @@
       
       <!-- Top Status Header Bar -->
       <header class="top-bar">
-        <div class="top-bar-left">
-          <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        <div class="top-bar-row">
+          <div class="top-bar-left">
+            <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+            </button>
+            <div class="top-bar-title-wrap">
+              <h1 class="panel-heading" id="main-panel-title">Overview Dashboard</h1>
+              <div class="page-sub" id="main-panel-sub">Noor Hospital • Live cash position • Offline-first</div>
+            </div>
+          </div>
+          <div class="sync-status-indicator" id="sync-status-indicator">
+            <span class="sync-status-dot" id="sync-status-dot"></span>
+            <span class="sync-status-text" id="sync-status-text">Checking...</span>
+          </div>
+          <div class="top-bar-right">
+            <!-- Mobile Theme Toggle Button -->
+            <button class="mobile-theme-btn" id="mobile-theme-btn" aria-label="Toggle theme">
+              <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+              <svg class="theme-icon-moon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+            <!-- Logged-in User Display -->
+            <div class="user-profile-badge" id="user-profile-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; color: var(--primary);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span id="user-display-name">MUBASHAR</span>
+            </div>
+          </div>
+        </div>
+        <!-- Quick Action Buttons Row -->
+        <div class="quick-actions-bar">
+          <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-slip-add')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
+            <span>Slip</span>
           </button>
-          <div>
-            <h1 class="panel-heading" id="main-panel-title">Overview Dashboard</h1>
-            <div class="page-sub" id="main-panel-sub">Noor Hospital • Live cash position • Offline-first</div>
-          </div>
-        </div>
-        <div class="sync-status-indicator" id="sync-status-indicator">
-          <span class="sync-status-dot" id="sync-status-dot"></span>
-          <span class="sync-status-text" id="sync-status-text">Checking...</span>
-        </div>
-        <div class="top-bar-right">
-          <!-- Logged-in User Display -->
-          <div class="user-profile-badge" id="user-profile-badge">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; color: var(--primary);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span id="user-display-name">MUBASHAR</span>
-          </div>
-          <!-- Quick Action Buttons -->
-          <div class="quick-actions-bar">
-            <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-slip-add')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
-              <span>Slip</span>
-            </button>
-            <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-bill-add')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
-              <span>Bill</span>
-            </button>
-            <button class="btn btn-primary btn-sm" onclick="app.ui.openModal('dialog-transfer-add')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
-              <span>Verify & Transfer</span>
-            </button>
-          </div>
+          <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-bill-add')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
+            <span>Bill</span>
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="app.ui.openModal('dialog-transfer-add')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
+            <span>Verify & Transfer</span>
+          </button>
         </div>
       </header>
 
@@ -213,18 +223,28 @@
 
         <!-- 1. OVERVIEW DASHBOARD PANEL -->
         <section class="panel active" id="panel-dashboard">
-          <!-- Premium Hero Banner -->
-          <div class="dash-hero">
-            <div class="dash-hero-inner">
-              <div>
-                <div class="dash-hero-eyebrow"><span class="live-dot"></span> Live • Offline-first • Secure</div>
-                <h2>Noor Hospital Cash Control</h2>
-                <p>Muhasib float, hospital collections, slips, bills & transfers — reconciled in one professional command centre.</p>
+          <!-- Executive Cash Command Bar -->
+          <div class="exec-command-bar">
+            <div class="exec-bar-left">
+              <div class="exec-badge">
+                <span class="live-pulse"></span>
+                <span>Audit Verified • Treasury Active</span>
               </div>
-              <div class="dash-hero-stats">
-                <div class="hero-stat"><span>Muhasib Cash</span><strong id="hero-adv-cash">—</strong></div>
-                <div class="hero-stat"><span>Hospital Cash</span><strong id="hero-hosp-cash">—</strong></div>
-                <div class="hero-stat"><span>Pending Bills</span><strong id="hero-pending">—</strong></div>
+              <h2 class="exec-title">Noor Hospital Cash Control System</h2>
+              <p class="exec-desc">Muhasib advance float, daily hospital collections, expense slips, and verified ledger transfers.</p>
+            </div>
+            <div class="exec-bar-stats">
+              <div class="exec-stat-card">
+                <span class="exec-stat-label">Muhasib Float</span>
+                <strong class="exec-stat-val" id="hero-adv-cash">—</strong>
+              </div>
+              <div class="exec-stat-card">
+                <span class="exec-stat-label">Hospital Cash</span>
+                <strong class="exec-stat-val" id="hero-hosp-cash">—</strong>
+              </div>
+              <div class="exec-stat-card">
+                <span class="exec-stat-label">Pending Slips</span>
+                <strong class="exec-stat-val" id="hero-pending">—</strong>
               </div>
             </div>
           </div>

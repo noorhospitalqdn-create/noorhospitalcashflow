@@ -1199,17 +1199,35 @@ const app = {
         });
       });
 
-      // Mobile Menu Trigger Buttons
+      // Mobile Menu Trigger Buttons & Backdrop
       const mobileMenuBtn = document.getElementById('mobile-menu-btn');
       const mobileCloseBtn = document.getElementById('mobile-close-btn');
       const sidebar = document.getElementById('sidebar');
+      const sidebarBackdrop = document.getElementById('sidebar-backdrop');
 
-      mobileMenuBtn.addEventListener('click', () => {
+      function openSidebar() {
         sidebar.classList.add('mobile-open');
-      });
-      mobileCloseBtn.addEventListener('click', () => {
+        if (sidebarBackdrop) sidebarBackdrop.classList.add('active');
+      }
+
+      function closeSidebar() {
         sidebar.classList.remove('mobile-open');
-      });
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('active');
+      }
+
+      if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openSidebar);
+      if (mobileCloseBtn) mobileCloseBtn.addEventListener('click', closeSidebar);
+      if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
+
+      // Mobile Theme Button Listener
+      const mobileThemeBtn = document.getElementById('mobile-theme-btn');
+      if (mobileThemeBtn) {
+        mobileThemeBtn.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-theme') || 'light';
+          const next = current === 'dark' ? 'light' : 'dark';
+          app.ui.setTheme(next, true);
+        });
+      }
 
       // Form Modals Declarative Click Fallbacks for outside clicks (light dismiss polyfill)
       const dialogs = document.querySelectorAll('dialog');
@@ -2002,6 +2020,8 @@ const app = {
 
       // Close mobile drawer if open
       document.getElementById('sidebar').classList.remove('mobile-open');
+      const sbBackdrop = document.getElementById('sidebar-backdrop');
+      if (sbBackdrop) sbBackdrop.classList.remove('active');
 
       // Close mobile submenus if open
       const ledgerSub = document.getElementById('mobile-ledger-submenu');
@@ -2345,13 +2365,26 @@ const app = {
 
       const lightBtn = document.getElementById('theme-light-btn');
       const darkBtn = document.getElementById('theme-dark-btn');
+      const mobThemeBtn = document.getElementById('mobile-theme-btn');
 
       if (themeName === 'light') {
-        lightBtn.classList.add('active');
-        darkBtn.classList.remove('active');
+        if (lightBtn) lightBtn.classList.add('active');
+        if (darkBtn) darkBtn.classList.remove('active');
+        if (mobThemeBtn) {
+          const sun = mobThemeBtn.querySelector('.theme-icon-sun');
+          const moon = mobThemeBtn.querySelector('.theme-icon-moon');
+          if (sun) sun.style.display = 'none';
+          if (moon) moon.style.display = 'block';
+        }
       } else {
-        lightBtn.classList.remove('active');
-        darkBtn.classList.add('active');
+        if (lightBtn) lightBtn.classList.remove('active');
+        if (darkBtn) darkBtn.classList.add('active');
+        if (mobThemeBtn) {
+          const sun = mobThemeBtn.querySelector('.theme-icon-sun');
+          const moon = mobThemeBtn.querySelector('.theme-icon-moon');
+          if (sun) sun.style.display = 'block';
+          if (moon) moon.style.display = 'none';
+        }
       }
 
       // Redraw charts to update text/border colors dynamically
@@ -4322,35 +4355,118 @@ const app = {
       const printTitle = title === 'Muhasib Cash + Advance Bills Report (Against Muhasib Cash)' ? 'Muhasib Adv Report' : title;
       const meta = metaEl ? metaEl.innerText : '';
       const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
-      const content = container.innerHTML;
+      const content = container ? container.innerHTML : '';
       const printContent = printTitle !== title ? content.split(title).join(printTitle) : content;
-      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${printTitle}</title><style>
-        *{box-sizing:border-box;font-family:Plus Jakarta Sans,Arial,sans-serif}
-        body{margin:0;padding:24px;color:#000;background:#fff}
-        h1{font-size:18px;margin:0 0 4px}
-        .meta{font-size:12px;color:#555;margin-bottom:16px}
-        .header{border-bottom:3px double #000;padding-bottom:10px;margin-bottom:16px;text-align:center}
-        .header h2{margin:0;font-size:20px}
-        .header p{margin:4px 0 0;font-size:11px;color:#444}
-        table{width:100%;border-collapse:collapse;margin:12px 0 20px;font-size:11px}
-        th{background:#f1f5f9!important;border:1px solid #000;padding:7px 6px;text-align:left;font-weight:700;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-        td{border:1px solid #000;padding:6px;font-size:11px;vertical-align:top}
-        .text-right{text-align:right}.text-success{color:#000!important}.text-error{color:#000!important}
-        .section-title{font-size:14px;font-weight:800;margin:18px 0 8px;padding:8px 10px;background:#f1f5f9!important;border:1px solid #000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-        .summary-box{border:2px solid #000;padding:10px 12px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;font-size:12px;font-weight:700;margin-top:12px}
-        .card{border:1px solid #000!important;padding:0!important;margin-bottom:16px}
-        .hidden{display:none!important}
-        @media print{body{padding:12px}}
-      </style></head><body>
-        <div class="header"><h2>Noor Hospital - Cash Management System</h2><h1>${printTitle}</h1><p>${meta} &nbsp;|&nbsp; Generated: ${now}</p></div>
-        ${printContent}
-        <p style="text-align:center;font-size:10px;color:#666;margin-top:24px;border-top:1px solid #999;padding-top:8px">System generated report - Noor Hospital Cash Management</p>
-      </body></html>`;
+      const reportRef = 'NH-AUD-' + Date.now().toString().slice(-6);
+
+      const styleBlock = `
+        @page { size: A4 portrait; margin: 12mm 12mm 15mm 12mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; background: #fff; font-size: 11px; line-height: 1.4; padding: 16px; }
+        .hospital-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; }
+        .brand-left { display: flex; gap: 12px; align-items: center; }
+        .hospital-emblem { width: 44px; height: 44px; border-radius: 8px; background: #0f172a; color: #38bdf8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; border: 1px solid #1e293b; }
+        .brand-info h1 { font-size: 18px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em; margin-bottom: 2px; text-transform: uppercase; }
+        .brand-info .sub-dept { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; color: #0284c7; text-transform: uppercase; }
+        .brand-info .address { font-size: 9px; color: #64748b; margin-top: 2px; }
+        .brand-right { text-align: right; font-size: 9px; color: #475569; }
+        .voucher-pill { display: inline-block; padding: 3px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; background: #f8fafc; color: #0f172a; margin-bottom: 4px; }
+        .statement-meta-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .meta-item { display: flex; flex-direction: column; gap: 2px; }
+        .meta-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+        .meta-val { font-size: 11px; font-weight: 700; color: #0f172a; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+        thead th { background: #0f172a !important; color: #ffffff !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 8.5px; padding: 7px 8px; border: 1px solid #0f172a; text-align: left; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+        tbody td { border: 1px solid #e2e8f0; padding: 6px 8px; vertical-align: middle; color: #1e293b; }
+        .text-right { text-align: right; font-family: 'JetBrains Mono', SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 700; text-transform: uppercase; border: 1px solid #cbd5e1; }
+        .section-title { font-size: 12px; font-weight: 800; color: #0f172a; padding: 6px 10px; background: #e2e8f0; border-left: 3px solid #0284c7; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .summary-box { border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 6px; padding: 10px 14px; display: flex; justify-content: space-between; gap: 12px; margin: 14px 0; font-weight: 700; }
+        .audit-signatures { margin-top: 36px; padding-top: 14px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; page-break-inside: avoid; }
+        .sig-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .sig-line { width: 85%; border-bottom: 1.5px solid #0f172a; height: 38px; margin-bottom: 6px; }
+        .sig-title { font-size: 10px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
+        .sig-sub { font-size: 8px; color: #64748b; margin-top: 1px; }
+        .report-footer { margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
+        .report-header-preview { display: none !important; }
+        .hidden { display: none !important; }
+        @media print { body { padding: 0; } }
+      `;
+
+      const documentBody = `
+        <div class="hospital-header">
+          <div class="brand-left">
+            <div class="hospital-emblem">+</div>
+            <div class="brand-info">
+              <h1>Noor Hospital</h1>
+              <div class="sub-dept">Treasury & Accounts Reconciliation Division</div>
+              <div class="address">Qadian, Punjab • Internal Financial Control & Audit</div>
+            </div>
+          </div>
+          <div class="brand-right">
+            <div class="voucher-pill">Official Ledger Voucher</div>
+            <div><strong>Ref:</strong> ${reportRef}</div>
+            <div><strong>Status:</strong> System Verified</div>
+          </div>
+        </div>
+
+        <div class="statement-meta-bar">
+          <div class="meta-item">
+            <span class="meta-label">Document Title</span>
+            <span class="meta-val">${printTitle}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Period / Filter</span>
+            <span class="meta-val">${meta || 'Complete Ledger Records'}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Generated Timestamp</span>
+            <span class="meta-val">${now}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Reporting Incharge</span>
+            <span class="meta-val">Treasury Muhasib</span>
+          </div>
+        </div>
+
+        <div class="report-content-body">
+          ${printContent}
+        </div>
+
+        <div class="audit-signatures">
+          <div class="sig-col">
+            <div class="sig-line"></div>
+            <div class="sig-title">Prepared By</div>
+            <div class="sig-sub">Cashier / Muhasib Incharge</div>
+          </div>
+          <div class="sig-col">
+            <div class="sig-line"></div>
+            <div class="sig-title">Verified By</div>
+            <div class="sig-sub">Internal Accounts Officer</div>
+          </div>
+          <div class="sig-col">
+            <div class="sig-line"></div>
+            <div class="sig-title">Approved By</div>
+            <div class="sig-sub">Medical Superintendent / Director</div>
+          </div>
+        </div>
+
+        <div class="report-footer">
+          <span>Confidential — Internal Noor Hospital Financial Record. Unauthorized duplication is strictly prohibited.</span>
+          <span>NH-CMS v2.4 • Offline Reconciled</span>
+        </div>
+      `;
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Noor Hospital - ${printTitle}</title><style>${styleBlock}</style></head><body>${documentBody}</body></html>`;
       app.reports._previewHtml = html;
+
       const bodyEl = document.getElementById('report-preview-body');
       const titlePreview = document.getElementById('report-preview-title');
-      if(bodyEl) bodyEl.innerHTML = `<div style="border:1px solid #ddd; background:#fff;">${printContent}</div><p style="text-align:center; font-size:11px; color:#888; margin-top:12px;">Preview — click Print to open print dialog</p>`;
-      if(titlePreview) titlePreview.textContent = printTitle + ' — Preview';
+      if(bodyEl) {
+        bodyEl.innerHTML = `<style>${styleBlock}</style><div style="background:#fff; border:1px solid #e2e8f0; border-radius:6px; padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">${documentBody}</div><p style="text-align:center; font-size:11px; color:#64748b; margin-top:12px;">Official Noor Hospital Audit Document Preview — Click <strong>Print</strong> below to open the system print dialog.</p>`;
+      }
+      if(titlePreview) titlePreview.textContent = printTitle + ' — Audit Print Preview';
       app.ui.openModal('dialog-report-preview');
       return;
     },
