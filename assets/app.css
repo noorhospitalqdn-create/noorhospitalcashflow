@@ -1145,85 +1145,343 @@ dialog::backdrop {
   flex-shrink: 0;
 }
 
-/* Bill Hero Amount Field */
-.amt-hero {
-  background: var(--primary-light);
-  border: 1px solid var(--primary-border);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 14px;
+/* Modal Header and Title Wrap */
+.modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.amt-hero .form-label { color: var(--primary-ink); }
-.amt-input-wrap { position: relative; display: flex; align-items: center; }
+.token-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  letter-spacing: 0.04em;
+  user-select: all;
+}
+
+/* Bill Hero Amount Field - Clean Fintech Card */
+.amt-hero {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.amt-hero:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.amt-hero .form-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.amt-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .amt-cur {
   position: absolute;
-  left: 14px;
+  left: 12px;
   font-weight: 800;
   color: var(--primary);
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-family: var(--font-mono);
+  pointer-events: none;
+  user-select: none;
 }
 .amt-input {
   font-family: var(--font-mono) !important;
-  font-size: 1.85rem !important;
+  font-size: 1.75rem !important;
   font-weight: 800 !important;
-  padding: 0.55rem 0.9rem 0.55rem 2.8rem !important;
-  border-radius: var(--radius-sm) !important;
-  border: 2px solid var(--primary-border) !important;
+  padding: 0.45rem 0.8rem 0.45rem 2.6rem !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border-color) !important;
   background: var(--bg-card) !important;
+  color: var(--text-main) !important;
+  width: 100% !important;
+  letter-spacing: -0.02em !important;
 }
-.amt-input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15) !important; }
+.amt-input:focus {
+  border-color: var(--primary) !important;
+  outline: none !important;
+}
 
-/* Quick Amount Chips */
-.quick-chips, .cat-chips, .remark-chips { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.qchip, .cat-chips button, .remark-chips button {
-  border: 1px solid var(--border-color);
+/* Quick Amount Chips - Tactical Micro Buttons */
+.quick-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.qchip {
+  flex: 1 1 auto;
+  min-width: 52px;
+  padding: 6px 10px;
   background: var(--bg-card);
-  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.76rem;
   font-weight: 700;
-  font-size: 0.74rem;
-  border-radius: 99px;
-  padding: 4px 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.14s;
+  transition: all 0.15s ease;
+  text-align: center;
+  user-select: none;
 }
-.qchip:hover, .cat-chips button:hover, .remark-chips button:hover {
+.qchip:hover {
+  background: var(--bg-input);
+  color: var(--text-main);
   border-color: var(--primary);
-  color: var(--primary);
+}
+.qchip:active {
+  transform: scale(0.95);
   background: var(--primary-light);
+  color: var(--primary);
 }
-.cat-chips button.active {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
+.qchip.qchip-clear {
+  flex: 0 0 auto;
+  color: var(--error);
+}
+.qchip.qchip-clear:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+  border-color: var(--error);
 }
 
-/* Segmented Toggle Control */
+/* Segmented Control - Sleek Tabbed Switch */
 .seg-control {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 4px;
+  border-radius: 8px;
+  padding: 3px;
 }
 .seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
   border: none;
   background: transparent;
-  border-radius: 5px;
-  padding: 8px;
-  font-weight: 800;
-  font-size: 0.78rem;
   color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.16s ease;
   font-family: var(--font-sans);
+}
+.seg-btn:hover {
+  color: var(--text-main);
 }
 .seg-btn.active {
   background: var(--bg-card);
+  color: var(--text-main);
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.seg-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.advance-dot { background: #8b5cf6; }
+.hospital-dot { background: #06b6d4; }
+
+/* Category Chips Grid */
+.cat-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+@media (max-width: 480px) {
+  .cat-chips {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.cat-chips button, .cat-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.cat-chips button:hover, .cat-chip:hover {
+  background: var(--bg-elevated);
+  color: var(--text-main);
+  border-color: var(--border-color-focus);
+}
+.cat-chips button.active, .cat-chip.active {
+  background: rgba(37, 99, 235, 0.14) !important;
+  color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+/* Hidden Select for accessible form state */
+.hidden-select {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Form Label Row with Auto button */
+.form-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.form-label-row .form-label {
+  margin-bottom: 0;
+}
+.link-btn {
+  background: transparent;
+  border: none;
   color: var(--primary);
-  box-shadow: var(--shadow-sm);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Recent Vendors Pills */
+.recent-vendors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.recent-vendors button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+.recent-vendors button:hover {
+  color: var(--text-main);
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* Collapsible Details Section */
+.easy-details {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  margin-top: 10px;
+  transition: all 0.2s ease;
+}
+.easy-details summary {
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  list-style: none;
+}
+.easy-details summary::-webkit-details-marker {
+  display: none;
+}
+.easy-details summary:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.02);
+}
+.summary-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.summary-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.easy-details .details-content {
+  padding: 14px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+.remark-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.remark-chips button {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+.remark-chips button:hover {
+  color: var(--text-main);
+  border-color: var(--primary);
+}
+
+.kbd-hint {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  margin-left: 6px;
 }
 
 /* Upload Dropzone */

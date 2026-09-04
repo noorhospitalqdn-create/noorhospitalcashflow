@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260905_07">
+  <link rel="stylesheet" href="assets/app.css?v=20260905_09">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260905_07" defer></script>
+  <script src="assets/app.js?v=20260905_09" defer></script>
 </head>
 <body>
 
@@ -1670,87 +1670,127 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
   <!-- MODAL: Add Temporary Slip -->
   <dialog id="dialog-slip-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
-      <h3 id="dialog-slip-title">Add Temporary Slip</h3>
+      <div class="modal-title-wrap">
+        <h3 id="dialog-slip-title">Add Temporary Slip</h3>
+        <span class="token-badge" id="slip-token-badge">AUTO</span>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-slip-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
     </div>
     <form id="form-slip-add">
       <input type="hidden" id="edit-slip-id">
+      <input type="hidden" id="slip-token">
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label" for="slip-token">Token Number (Auto-Generated)</label>
-          <input type="text" id="slip-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
+        <!-- 1. Amount Hero Keypad Field -->
+        <div class="amt-hero">
+          <label class="form-label" for="slip-amount">Amount (₹)</label>
+          <div class="amt-input-wrap">
+            <span class="amt-cur">₹</span>
+            <input type="number" step="0.01" min="0.01" id="slip-amount" class="form-input amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+          </div>
+          <div class="quick-chips">
+            <button type="button" class="qchip" data-target="slip-amount" data-add="100">+100</button>
+            <button type="button" class="qchip" data-target="slip-amount" data-add="500">+500</button>
+            <button type="button" class="qchip" data-target="slip-amount" data-add="1000">+1,000</button>
+            <button type="button" class="qchip" data-target="slip-amount" data-add="5000">+5,000</button>
+            <button type="button" class="qchip qchip-clear" data-target="slip-amount" data-clear="1">✕ Clear</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="slip-date">Date</label>
-          <input type="date" id="slip-date" class="form-input" required>
-        </div>
+
+        <!-- 2. Vendor / Person Name -->
         <div class="form-group">
           <label class="form-label" for="slip-vendor">Vendor / Person Name</label>
-          <input type="text" id="slip-vendor" class="form-input" placeholder="e.g. John Doe, Vendor Agency" required>
+          <input type="text" id="slip-vendor" class="form-input" placeholder="e.g. John Doe, Vendor Agency" required autocomplete="off">
         </div>
-        <div class="form-group">
-          <label class="form-label" for="slip-amount">Amount (₹)</label>
-          <input type="number" step="0.01" min="0.01" id="slip-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="slip-exp-type">Expense Type</label>
-          <select id="slip-exp-type" class="form-select" required>
-            <option value="advance">Muhasib Cash Expense</option>
-            <option value="hospital">Hospital Cash Expense</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="slip-remarks">Remarks</label>
-          <textarea id="slip-remarks" class="form-textarea" placeholder="Purpose of payment..." rows="3"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Bill Attachment (Photo / PDF)</label>
-          <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
-            <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="slip-source-supabase" onclick="app.attachments.setUploadSource('slip', 'supabase')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-              <span>Supabase</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm flex-1" id="slip-source-gdrive" onclick="app.attachments.setUploadSource('slip', 'gdrive')">
-              <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
-              <span>Google Drive</span>
-            </button>
-          </div>
 
-          <div class="upload-dropzone" id="slip-upload-zone">
-            <input type="file" id="slip-attachment-input" accept="image/*,application/pdf" class="hidden">
-            <input type="file" id="slip-camera-input" accept="image/*" capture="environment" class="hidden">
-            <div class="upload-prompt">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-              <p class="upload-text">Drag & drop your bill here, or <span class="upload-link" id="slip-file-trigger">browse file</span></p>
-              <p class="upload-subtext">JPG, PNG, WEBP, or PDF (Auto-compressed WebP)</p>
+        <!-- 3. Paid From & Date (2-column layout) -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="slip-exp-type">Paid From (Expense Source)</label>
+            <div class="seg-control" id="slip-seg">
+              <button type="button" data-val="advance" id="slip-seg-advance" class="seg-btn active">
+                <span class="seg-dot advance-dot"></span>
+                <span>Muhasib Cash</span>
+              </button>
+              <button type="button" data-val="hospital" id="slip-seg-hospital" class="seg-btn">
+                <span class="seg-dot hospital-dot"></span>
+                <span>Hospital Cash</span>
+              </button>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm" id="slip-camera-trigger" style="margin-top: 0.5rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              <span>Take Camera Photo</span>
-            </button>
+            <select id="slip-exp-type" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
+              <option value="advance">Muhasib Cash Expense</option>
+              <option value="hospital">Hospital Cash Expense</option>
+            </select>
           </div>
-
-          <div class="gdrive-input-zone hidden" id="slip-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-              <span class="text-sm font-medium text-muted">Paste Google Drive Link</span>
-              <a id="slip-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px; height:10px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
-                <span>Open Folder</span>
-              </a>
-            </div>
-            <input type="url" id="slip-gdrive-url" class="form-input" placeholder="https://docs.google.com/file/d/...">
-          </div>
-
-          <div class="upload-preview hidden" id="slip-upload-preview">
-            <!-- Rendered via JS -->
+          <div class="form-group">
+            <label class="form-label" for="slip-date">Date</label>
+            <input type="date" id="slip-date" class="form-input" required>
           </div>
         </div>
+
+        <!-- 4. Collapsible Remarks & Attachment -->
+        <details class="easy-details">
+          <summary>
+            <span class="summary-left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>Receipt Photo & Remarks</span>
+            </span>
+            <span class="summary-badge">Optional</span>
+          </summary>
+          <div class="details-content">
+            <div class="form-group">
+              <label class="form-label" for="slip-remarks">Remarks / Purpose of Advance</label>
+              <textarea id="slip-remarks" class="form-textarea" placeholder="Purpose of payment or advance..." rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Attach Bill / Slip Receipt</label>
+              <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.6rem;">
+                <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="slip-source-supabase" onclick="app.attachments.setUploadSource('slip', 'supabase')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <span>Upload Photo</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm flex-1" id="slip-source-gdrive" onclick="app.attachments.setUploadSource('slip', 'gdrive')">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+                  <span>Google Drive</span>
+                </button>
+              </div>
+
+              <div class="upload-dropzone" id="slip-upload-zone">
+                <input type="file" id="slip-attachment-input" accept="image/*,application/pdf" class="hidden">
+                <input type="file" id="slip-camera-input" accept="image/*" capture="environment" class="hidden">
+                <div class="upload-prompt">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <p class="upload-text">Tap <span class="upload-link" id="slip-file-trigger">browse</span> or drop bill here</p>
+                  <p class="upload-subtext">JPG, PNG, WEBP, or PDF</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="slip-camera-trigger" style="margin-top: 0.4rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Camera Photo</span>
+                </button>
+              </div>
+
+              <div class="gdrive-input-zone hidden" id="slip-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.8rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                  <span class="text-xs font-semibold text-muted">Paste Google Drive Link</span>
+                  <a id="slip-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
+                    <span>Open Folder ↗</span>
+                  </a>
+                </div>
+                <input type="url" id="slip-gdrive-url" class="form-input" placeholder="https://drive.google.com/...">
+              </div>
+
+              <div class="upload-preview hidden" id="slip-upload-preview"></div>
+            </div>
+          </div>
+        </details>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-slip-add')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Slip</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-slip">
+          <span>Save Slip</span>
+          <kbd class="kbd-hint">↵</kbd>
+        </button>
       </div>
     </form>
   </dialog>
@@ -1873,12 +1913,12 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
   </dialog>
 
 
-  <!-- MODAL: Add Bill Directly — Easy Entry v2 -->
+  <!-- MODAL: Add Bill Directly — Clean Fintech Pro -->
   <dialog id="dialog-bill-add" closedby="any" class="modal-dialog modal-dialog-bill">
-    <div class="modal-header bill-easy-head">
-      <div>
+    <div class="modal-header">
+      <div class="modal-title-wrap">
         <h3 id="dialog-bill-title">New Bill</h3>
-        <div class="bill-easy-sub">Amount first • Vendor autocomplete • Ctrl+Enter to save</div>
+        <span class="token-badge" id="bill-token-badge">AUTO</span>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-bill-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -1886,69 +1926,87 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     </div>
     <form id="form-bill-add">
       <input type="hidden" id="edit-bill-id">
-      <div class="modal-body bill-easy">
-        <!-- Token Number auto-generated -->
-        <div class="form-group" style="margin-bottom:0.7rem">
-          <label class="form-label" for="bill-token">Token Number (Auto-Generated)</label>
-          <input type="text" id="bill-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
-        </div>
-        <!-- 1. Amount hero -->
+      <input type="hidden" id="bill-token">
+      <div class="modal-body">
+        <!-- 1. Amount Hero Keypad Field -->
         <div class="amt-hero">
-          <label class="form-label" for="bill-amount">Amount</label>
+          <label class="form-label" for="bill-amount">Amount (₹)</label>
           <div class="amt-input-wrap">
-            <span class="amt-cur">Rs</span>
+            <span class="amt-cur">₹</span>
             <input type="number" step="0.01" min="0.01" id="bill-amount" class="form-input amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
           </div>
           <div class="quick-chips">
-            <button type="button" class="qchip" data-add="100">+100</button>
-            <button type="button" class="qchip" data-add="500">+500</button>
-            <button type="button" class="qchip" data-add="1000">+1k</button>
-            <button type="button" class="qchip" data-add="5000">+5k</button>
-            <button type="button" class="qchip qchip-clear" data-clear="1">Clear</button>
+            <button type="button" class="qchip" data-target="bill-amount" data-add="100">+100</button>
+            <button type="button" class="qchip" data-target="bill-amount" data-add="500">+500</button>
+            <button type="button" class="qchip" data-target="bill-amount" data-add="1000">+1,000</button>
+            <button type="button" class="qchip" data-target="bill-amount" data-add="5000">+5,000</button>
+            <button type="button" class="qchip qchip-clear" data-target="bill-amount" data-clear="1">✕ Clear</button>
           </div>
         </div>
-        <!-- 2. Vendor with autocomplete -->
-        <div class="form-group" style="margin-bottom:.7rem">
-          <label class="form-label" for="bill-vendor">Vendor Name</label>
-          <input type="text" id="bill-vendor" class="form-input" placeholder="Start typing — suggestions appear" required autocomplete="off" list="bill-vendor-list">
+
+        <!-- 2. Vendor with autocomplete & Recents -->
+        <div class="form-group" style="margin-bottom:.75rem">
+          <div class="form-label-row">
+            <label class="form-label" for="bill-vendor">Vendor Name</label>
+            <span class="text-xs text-muted">Suggestions enabled</span>
+          </div>
+          <input type="text" id="bill-vendor" class="form-input" placeholder="Start typing vendor name..." required autocomplete="off" list="bill-vendor-list">
           <datalist id="bill-vendor-list"></datalist>
           <div class="recent-vendors" id="recent-vendors"></div>
         </div>
-        <!-- 3. Bill no + Date -->
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label" for="bill-number">Vendor Bill / Invoice Number <button type="button" class="link-btn" id="bill-next-btn" title="Auto next number">Auto</button></label>
-            <input type="text" id="bill-number" class="form-input" placeholder="INV-1002" required autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="bill-date">Date</label>
-            <input type="date" id="bill-date" class="form-input" required>
-          </div>
-        </div>
-        <!-- 4. Expense type segmented -->
-        <div class="form-group" style="margin-bottom:.7rem">
-          <label class="form-label">Paid From</label>
+
+        <!-- 3. Paid From Segmented Switch -->
+        <div class="form-group" style="margin-bottom:.75rem">
+          <label class="form-label">Paid From (Expense Source)</label>
           <div class="seg-control" id="bill-seg">
-            <button type="button" data-val="advance" id="bill-seg-advance" class="seg-btn active">Muhasib Cash</button>
-            <button type="button" data-val="hospital" id="bill-seg-hospital" class="seg-btn">Hospital Cash</button>
+            <button type="button" data-val="advance" id="bill-seg-advance" class="seg-btn active">
+              <span class="seg-dot advance-dot"></span>
+              <span>Muhasib Cash</span>
+            </button>
+            <button type="button" data-val="hospital" id="bill-seg-hospital" class="seg-btn">
+              <span class="seg-dot hospital-dot"></span>
+              <span>Hospital Cash</span>
+            </button>
           </div>
-          <select id="bill-exp-type" class="form-select" required tabindex="-1" aria-hidden="true" style="position:absolute;opacity:0;pointer-events:none;height:0;width:0;border:none;padding:0">
+          <select id="bill-exp-type" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
             <option value="advance">Muhasib Cash Expense</option>
             <option value="hospital">Hospital Cash Expense</option>
           </select>
         </div>
-        <!-- 5. Category chips + select -->
-        <div class="form-group" style="margin-bottom:.7rem">
-          <label class="form-label" for="bill-category">Category</label>
-          <div class="cat-chips" id="bill-cat-chips">
-            <button type="button" data-cat="Medicine">Medicine</button>
-            <button type="button" data-cat="Transport">Transport</button>
-            <button type="button" data-cat="Repair & Maintenance">Repair</button>
-            <button type="button" data-cat="Stationery">Stationery</button>
-            <button type="button" data-cat="Utilities">Utilities</button>
-            <button type="button" data-cat="Other">Other</button>
+
+        <!-- 4. Category Grid (Tactile Chips) -->
+        <div class="form-group" style="margin-bottom:.75rem">
+          <div class="form-label-row">
+            <label class="form-label">Expense Category</label>
+            <span class="text-xs text-muted" id="bill-cat-current">Selected: Medicine</span>
           </div>
-          <select id="bill-category" class="form-select" required style="margin-top:.5rem">
+          <div class="cat-chips" id="bill-cat-chips">
+            <button type="button" class="cat-chip active" data-cat="Medicine">
+              <span class="cat-icon">💊</span>
+              <span>Medicine</span>
+            </button>
+            <button type="button" class="cat-chip" data-cat="Transport">
+              <span class="cat-icon">🚗</span>
+              <span>Transport</span>
+            </button>
+            <button type="button" class="cat-chip" data-cat="Repair & Maintenance">
+              <span class="cat-icon">🔧</span>
+              <span>Repair</span>
+            </button>
+            <button type="button" class="cat-chip" data-cat="Stationery">
+              <span class="cat-icon">📄</span>
+              <span>Stationery</span>
+            </button>
+            <button type="button" class="cat-chip" data-cat="Utilities">
+              <span class="cat-icon">⚡</span>
+              <span>Utilities</span>
+            </button>
+            <button type="button" class="cat-chip" data-cat="Other">
+              <span class="cat-icon">📦</span>
+              <span>Other</span>
+            </button>
+          </div>
+          <select id="bill-category" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
             <option value="Medicine">Medicine</option>
             <option value="Transport">Transport</option>
             <option value="Repair & Maintenance">Repair & Maintenance</option>
@@ -1957,52 +2015,88 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
             <option value="Other">Other</option>
           </select>
         </div>
-        <details class="easy-details">
-          <summary>Remarks & attachment <span class="opt">optional</span></summary>
-          <div class="form-group" style="margin-top:.6rem">
-            <textarea id="bill-remarks" class="form-textarea" placeholder="e.g. Monthly medicine stock..." rows="1"></textarea>
-            <div class="remark-chips">
-              <button type="button" data-remark="Paid in full">Paid in full</button>
-              <button type="button" data-remark="Monthly stock">Monthly stock</button>
-              <button type="button" data-remark="Urgent purchase">Urgent</button>
+
+        <!-- 5. Bill no + Date (2-column layout) -->
+        <div class="grid-2">
+          <div class="form-group">
+            <div class="form-label-row">
+              <label class="form-label" for="bill-number">Bill / Invoice #</label>
+              <button type="button" class="link-btn" id="bill-next-btn" title="Auto-generate next invoice number">⚡ Auto</button>
             </div>
+            <input type="text" id="bill-number" class="form-input font-mono" placeholder="INV-1002" required autocomplete="off">
           </div>
           <div class="form-group">
-            <label class="form-label">Bill Attachment (Photo / PDF)</label>
-            <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.6rem;">
-              <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="bill-source-supabase" onclick="app.attachments.setUploadSource('bill', 'supabase')">
-                <span>Upload Photo</span>
-              </button>
-              <button type="button" class="btn btn-secondary btn-sm flex-1" id="bill-source-gdrive" onclick="app.attachments.setUploadSource('bill', 'gdrive')">
-                <span>Drive Link</span>
-              </button>
-            </div>
-            <div class="upload-dropzone" id="bill-upload-zone">
-              <input type="file" id="bill-attachment-input" accept="image/*,application/pdf" class="hidden">
-              <input type="file" id="bill-camera-input" accept="image/*" capture="environment" class="hidden">
-              <div class="upload-prompt">
-                <p class="upload-text">Tap <span class="upload-link" id="bill-file-trigger">browse</span> or drop photo here</p>
-                <p class="upload-subtext">JPG, PNG, WEBP, PDF</p>
+            <label class="form-label" for="bill-date">Bill Date</label>
+            <input type="date" id="bill-date" class="form-input" required>
+          </div>
+        </div>
+
+        <!-- 6. Collapsible Remarks & Attachments -->
+        <details class="easy-details">
+          <summary>
+            <span class="summary-left">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>Receipt Photo, PDF & Remarks</span>
+            </span>
+            <span class="summary-badge">Optional</span>
+          </summary>
+          <div class="details-content">
+            <div class="form-group">
+              <label class="form-label" for="bill-remarks">Remarks / Note</label>
+              <textarea id="bill-remarks" class="form-textarea" placeholder="e.g. Monthly medicine stock, urgent purchase..." rows="2"></textarea>
+              <div class="remark-chips">
+                <button type="button" class="rchip" data-remark="Paid in full">✓ Paid in full</button>
+                <button type="button" class="rchip" data-remark="Monthly stock">📦 Monthly stock</button>
+                <button type="button" class="rchip" data-remark="Urgent purchase">⚡ Urgent</button>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" id="bill-camera-trigger" style="margin-top: 0.5rem;">
-                <span>Take Camera Photo</span>
-              </button>
             </div>
-            <div class="gdrive-input-zone hidden" id="bill-gdrive-zone" style="border:1px solid var(--border-color);border-radius:12px;padding:.8rem;display:flex;flex-direction:column;gap:.6rem;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
-                <span class="text-sm font-medium text-muted">Paste Drive Link</span>
-                <a id="bill-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap:.25rem;"><span>Open Folder</span></a>
+            <div class="form-group">
+              <label class="form-label">Attach Bill / Invoice</label>
+              <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.6rem;">
+                <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="bill-source-supabase" onclick="app.attachments.setUploadSource('bill', 'supabase')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <span>Upload Photo</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm flex-1" id="bill-source-gdrive" onclick="app.attachments.setUploadSource('bill', 'gdrive')">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+                  <span>Google Drive</span>
+                </button>
               </div>
-              <input type="url" id="bill-gdrive-url" class="form-input" placeholder="https://drive.google.com/...">
+
+              <div class="upload-dropzone" id="bill-upload-zone">
+                <input type="file" id="bill-attachment-input" accept="image/*,application/pdf" class="hidden">
+                <input type="file" id="bill-camera-input" accept="image/*" capture="environment" class="hidden">
+                <div class="upload-prompt">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <p class="upload-text">Tap <span class="upload-link" id="bill-file-trigger">browse</span> or drop photo here</p>
+                  <p class="upload-subtext">JPG, PNG, WEBP, or PDF</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="bill-camera-trigger" style="margin-top: 0.4rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Camera Photo</span>
+                </button>
+              </div>
+
+              <div class="gdrive-input-zone hidden" id="bill-gdrive-zone" style="background: var(--bg-elevated); border:1px solid var(--border-color); border-radius: var(--radius); padding: 0.8rem; display:flex; flex-direction:column; gap:0.6rem;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+                  <span class="text-xs font-semibold text-muted">Paste Google Drive Link</span>
+                  <a id="bill-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap:0.25rem;"><span>Open Folder ↗</span></a>
+                </div>
+                <input type="url" id="bill-gdrive-url" class="form-input" placeholder="https://drive.google.com/...">
+              </div>
+
+              <div class="upload-preview hidden" id="bill-upload-preview"></div>
             </div>
-            <div class="upload-preview hidden" id="bill-upload-preview"></div>
           </div>
         </details>
       </div>
-      <div class="modal-footer bill-easy-foot">
+      <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-bill-add')">Cancel</button>
-        <button type="button" class="btn btn-secondary" id="bill-save-new-btn" title="Save and enter next bill">Save &amp; New</button>
-        <button type="submit" class="btn btn-primary" id="bill-save-btn">Save Bill <kbd>Ctrl+Enter</kbd></button>
+        <button type="button" class="btn btn-secondary" id="bill-save-new-btn" title="Save this bill and open empty form for next">Save &amp; Next</button>
+        <button type="submit" class="btn btn-primary" id="bill-save-btn">
+          <span>Save Bill</span>
+          <kbd class="kbd-hint">↵</kbd>
+        </button>
       </div>
     </form>
   </dialog>
@@ -2291,93 +2385,197 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
 (function(){
   function $(id){return document.getElementById(id);}
   function ready(fn){if(document.readyState!=="loading")fn();else document.addEventListener("DOMContentLoaded",fn);}
+
+  // 1. Instant Global Event Delegation for Chips (works reliably on mobile tap & desktop click)
+  document.addEventListener("click", function(e) {
+    // Amount Quick Chips (+100, +500, +1k, +5k, Clear)
+    var qchip = e.target.closest(".qchip");
+    if (qchip) {
+      e.preventDefault();
+      var targetId = qchip.dataset.target || (qchip.closest("#dialog-slip-add") ? "slip-amount" : "bill-amount");
+      var amtInput = $(targetId);
+      if (amtInput) {
+        var curVal = parseFloat(amtInput.value) || 0;
+        if (qchip.dataset.clear) {
+          amtInput.value = "";
+        } else {
+          var addVal = parseFloat(qchip.dataset.add) || 0;
+          amtInput.value = (curVal + addVal).toFixed(2).replace(/\.00$/, '');
+        }
+        amtInput.dispatchEvent(new Event("input", { bubbles: true }));
+        amtInput.dispatchEvent(new Event("change", { bubbles: true }));
+        amtInput.focus();
+      }
+      return;
+    }
+
+    // Category Suggestion Chips (Medicine, Transport, Repair, etc.)
+    var catChip = e.target.closest("#bill-cat-chips button, #bill-cat-chips .cat-chip");
+    if (catChip) {
+      e.preventDefault();
+      var catSelect = $("bill-category");
+      if (catSelect && catChip.dataset.cat) {
+        catSelect.value = catChip.dataset.cat;
+        catSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        document.querySelectorAll("#bill-cat-chips button, #bill-cat-chips .cat-chip").forEach(function(b) {
+          b.classList.toggle("active", b.dataset.cat === catSelect.value);
+        });
+        var curLbl = $("bill-cat-current");
+        if (curLbl) curLbl.textContent = "Selected: " + catSelect.value;
+        try { localStorage.setItem("nh_last_bill_cat", catSelect.value); } catch(err) {}
+        var amtInput = $("bill-amount");
+        if (amtInput) amtInput.focus();
+      }
+      return;
+    }
+
+    // Segmented Buttons (slip-seg, bill-seg)
+    var segBtn = e.target.closest(".seg-control .seg-btn");
+    if (segBtn) {
+      e.preventDefault();
+      var parentSeg = segBtn.closest(".seg-control");
+      var val = segBtn.dataset.val;
+      if (parentSeg && val) {
+        parentSeg.querySelectorAll(".seg-btn").forEach(function(b) {
+          b.classList.toggle("active", b === segBtn || b.dataset.val === val);
+        });
+        if (parentSeg.id === "slip-seg") {
+          var sSel = $("slip-exp-type");
+          if (sSel && sSel.value !== val) {
+            sSel.value = val;
+            sSel.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        } else if (parentSeg.id === "bill-seg") {
+          var bSel = $("bill-exp-type");
+          if (bSel && bSel.value !== val) {
+            bSel.value = val;
+            bSel.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        }
+      }
+      return;
+    }
+
+    // Remark Chips (Paid in full, Monthly stock, Urgent)
+    var remarkChip = e.target.closest(".remark-chips button, [data-remark]");
+    if (remarkChip) {
+      e.preventDefault();
+      var remArea = remarkChip.closest("#dialog-slip-add") ? $("slip-remarks") : $("bill-remarks");
+      if (remArea && remarkChip.dataset.remark) {
+        var rText = remarkChip.dataset.remark;
+        remArea.value = remArea.value ? remArea.value.replace(/\s+$/, '') + " | " + rText : rText;
+        remArea.dispatchEvent(new Event("input", { bubbles: true }));
+        remArea.focus();
+      }
+      return;
+    }
+  });
+
   ready(function(){
     var tries=0;
     var timer=setInterval(function(){
       tries++;
-      if(window.app&&window.app.ui&&$("form-bill-add")){clearInterval(timer);init();}
-      else if(tries>100){clearInterval(timer);}
-    },100);
+      var theApp = window.app || (typeof app !== "undefined" ? app : null);
+      if(theApp && theApp.ui && $("form-bill-add")){
+        clearInterval(timer);
+        if(!window.app) window.app = theApp;
+        init();
+      }
+      else if(tries>60){
+        clearInterval(timer);
+        init();
+      }
+    },50);
   });
   function init(){
     var sel=$("bill-exp-type"),cat=$("bill-category"),amt=$("bill-amount"),vendor=$("bill-vendor"),
         bno=$("bill-number"),remarks=$("bill-remarks"),dlg=$("dialog-bill-add"),form=$("form-bill-add");
+    var theApp = window.app || (typeof app !== "undefined" ? app : null);
+
     function syncBillTokenUI(){
-      var btok=$("bill-token"), isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
-      if(btok && !isEdit && window.app && window.app.generateToken){
+      var btok=$("bill-token"), badge=$("bill-token-badge"), isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
+      if(btok && !isEdit && theApp && theApp.generateToken){
         var curType = (sel && sel.value === "advance") ? "advance_bill" : "hospital_bill";
-        btok.value = window.app.generateToken(curType);
+        btok.value = theApp.generateToken(curType);
       }
+      if(badge && btok) badge.textContent = btok.value || 'AUTO';
     }
     function paintSeg(){
+      if(!sel) return;
       var v=sel.value||"advance";
       document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.classList.toggle("active",b.dataset.val===v);});
       syncBillTokenUI();
     }
-    document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.addEventListener("click",function(){sel.value=b.dataset.val;sel.dispatchEvent(new Event("change"));paintSeg();try{localStorage.setItem("nh_last_bill_type",sel.value);}catch(e){}});});
-    sel.addEventListener("change",paintSeg);paintSeg();
-    function paintCat(){document.querySelectorAll("#bill-cat-chips button").forEach(function(b){b.classList.toggle("active",b.dataset.cat===cat.value);});}
-    document.querySelectorAll("#bill-cat-chips button").forEach(function(b){b.addEventListener("click",function(){cat.value=b.dataset.cat;paintCat();try{localStorage.setItem("nh_last_bill_cat",cat.value);}catch(e){}amt.focus();});});
-    cat.addEventListener("change",paintCat);paintCat();
-    document.querySelectorAll(".qchip").forEach(function(c){c.addEventListener("click",function(){
-      var cur=parseFloat(amt.value)||0;
-      if(c.dataset.clear){amt.value="";}else{amt.value=cur+parseFloat(c.dataset.add);}
-      amt.focus();
-    });});
-    document.querySelectorAll("[data-remark]").forEach(function(c){c.addEventListener("click",function(){remarks.value=remarks.value?remarks.value.replace(/\s+$/,"")+" | "+c.dataset.remark:c.dataset.remark;remarks.focus();});});
+    document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.addEventListener("click",function(){if(sel){sel.value=b.dataset.val;sel.dispatchEvent(new Event("change"));paintSeg();try{localStorage.setItem("nh_last_bill_type",sel.value);}catch(e){}}});});
+    if(sel){sel.addEventListener("change",paintSeg);paintSeg();}
+    function paintCat(){
+      if(!cat) return;
+      document.querySelectorAll("#bill-cat-chips button, #bill-cat-chips .cat-chip").forEach(function(b){b.classList.toggle("active",b.dataset.cat===cat.value);});
+      var curLbl = $("bill-cat-current");
+      if(curLbl) curLbl.textContent = "Selected: " + (cat.value || "None");
+    }
+    if(cat){cat.addEventListener("change",paintCat);paintCat();}
     function refreshVendors(){
       try{
-        var bills=(window.app&&window.app.state&&window.app.state.bills)||[];
+        var appObj = window.app || (typeof app !== "undefined" ? app : null);
+        var bills=(appObj&&appObj.state&&appObj.state.bills)||[];
         var seen={},order=[];
         bills.slice().reverse().forEach(function(b){var v=(b.vendor||"").trim();if(v&&!seen[v]){seen[v]=1;order.push(v);}});
         var dl=$("bill-vendor-list");if(dl){dl.innerHTML=order.slice(0,30).map(function(v){return '<option value="'+v.replace(/"/g,"&quot;")+'">';}).join("");}
         var rv=$("recent-vendors");if(rv){rv.innerHTML=order.slice(0,4).map(function(v){return '<button type="button">'+v.replace(/</g,"&lt;")+'</button>';}).join("");
-          Array.prototype.forEach.call(rv.querySelectorAll("button"),function(btn,idx){btn.addEventListener("click",function(){vendor.value=order[idx];amt.focus();});});}
+          Array.prototype.forEach.call(rv.querySelectorAll("button"),function(btn,idx){btn.addEventListener("click",function(){if(vendor)vendor.value=order[idx];if(amt)amt.focus();});});}
       }catch(e){}
     }
     function nextBillNo(){
       try{
-        var bills=(window.app&&window.app.state&&window.app.state.bills)||[];
+        var appObj = window.app || (typeof app !== "undefined" ? app : null);
+        var bills=(appObj&&appObj.state&&appObj.state.bills)||[];
         var max=1000,prefix="INV-";
         bills.forEach(function(b){var m=String(b.billNumber||"").match(/(\d+)\s*$/);if(m){var n=parseInt(m[1],10);if(n>max)max=n;}});
         return prefix+(max+1);
       }catch(e){return "INV-1001";}
     }
-    var nextBtn=$("bill-next-btn");if(nextBtn)nextBtn.addEventListener("click",function(){bno.value=nextBillNo();bno.focus();});
-    var origBillModal=window.app.ui.openBillModal.bind(window.app.ui); window.app.ui.openBillModal=function(type){window._billExplicitType=type||null; return origBillModal(type);}; var origOpen=window.app.ui.openModal.bind(window.app.ui);
-    window.app.ui.openModal=function(id){
-      origOpen(id);
-      if(id==="dialog-bill-add"){
-        refreshVendors();
-        var isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
-        if(!isEdit){
-          try{
-            var ex=window._billExplicitType; if(ex){sel.value=ex; sel.dispatchEvent(new Event("change")); window._billExplicitType=null;} else {var lt=localStorage.getItem("nh_last_bill_type");if(lt){sel.value=lt;sel.dispatchEvent(new Event("change"));}}
-            var lc=localStorage.getItem("nh_last_bill_cat");if(lc){cat.value=lc;}
-          }catch(e){}
-          paintSeg();paintCat();syncBillTokenUI();
-          if(!bno.value)bno.placeholder="e.g. INV-1002 or Invoice #";
+    var nextBtn=$("bill-next-btn");if(nextBtn)nextBtn.addEventListener("click",function(){if(bno){bno.value=nextBillNo();bno.focus();}});
+    if(theApp && theApp.ui && theApp.ui.openBillModal && theApp.ui.openModal){
+      var origBillModal=theApp.ui.openBillModal.bind(theApp.ui);
+      theApp.ui.openBillModal=function(type){window._billExplicitType=type||null; return origBillModal(type);};
+      var origOpen=theApp.ui.openModal.bind(theApp.ui);
+      theApp.ui.openModal=function(id){
+        origOpen(id);
+        if(id==="dialog-bill-add"){
+          refreshVendors();
+          var isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
+          if(!isEdit){
+            try{
+              var ex=window._billExplicitType; if(ex && sel){sel.value=ex; sel.dispatchEvent(new Event("change")); window._billExplicitType=null;} else if(sel) {var lt=localStorage.getItem("nh_last_bill_type");if(lt){sel.value=lt;sel.dispatchEvent(new Event("change"));}}
+              var lc=localStorage.getItem("nh_last_bill_cat");if(lc && cat){cat.value=lc;}
+            }catch(e){}
+            paintSeg();paintCat();syncBillTokenUI();
+            if(bno && !bno.value)bno.placeholder="e.g. INV-1002 or Invoice #";
+          }
+          setTimeout(function(){try{if(amt&&vendor)(amt.value?vendor:amt).focus();}catch(e){}},120);
         }
-        setTimeout(function(){try{(amt.value?vendor:amt).focus();}catch(e){}},120);
-      }
-    };
-    dlg.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();form.requestSubmit();}});
-    amt.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){e.preventDefault();vendor.focus();}});
+      };
+    }
+    if(dlg){
+      dlg.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();if(form)form.requestSubmit();}});
+      dlg.addEventListener("close",function(){
+        if(window._billSaveNew){
+          window._billSaveNew=false;
+          var keepType=sel?sel.value:"advance",keepCat=cat?cat.value:"Medicine",keepDate=$("bill-date")?$("bill-date").value:"";
+          setTimeout(function(){
+            var f=$("form-bill-add");if(f)f.reset();
+            if($("edit-bill-id"))$("edit-bill-id").value="";var tt=$("dialog-bill-title");if(tt)tt.innerText="New Bill";
+            if(sel)sel.value=keepType;if(cat)cat.value=keepCat;if($("bill-date"))$("bill-date").value=keepDate;
+            paintSeg();paintCat();refreshVendors();
+            try{theApp.ui.openModal("dialog-bill-add");}catch(e){dlg.showModal();}
+          },80);
+        }
+      });
+    }
+    if(amt){amt.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){e.preventDefault();if(vendor)vendor.focus();}});}
     var saveNew=$("bill-save-new-btn");
-    if(saveNew)saveNew.addEventListener("click",function(){window._billSaveNew=true;form.requestSubmit();});
-    dlg.addEventListener("close",function(){
-      if(window._billSaveNew){
-        window._billSaveNew=false;
-        var keepType=sel.value,keepCat=cat.value,keepDate=$("bill-date").value;
-        setTimeout(function(){
-          var f=$("form-bill-add");if(f)f.reset();
-          $("edit-bill-id").value="";var tt=$("dialog-bill-title");if(tt)tt.innerText="New Bill";
-          sel.value=keepType;cat.value=keepCat;if($("bill-date"))$("bill-date").value=keepDate;
-          paintSeg();paintCat();refreshVendors();
-          try{window.app.ui.openModal("dialog-bill-add");}catch(e){dlg.showModal();}
-        },80);
-      }
-    });
+    if(saveNew)saveNew.addEventListener("click",function(){window._billSaveNew=true;if(form)form.requestSubmit();});
     refreshVendors();
   }
 })();

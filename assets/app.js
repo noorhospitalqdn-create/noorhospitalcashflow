@@ -1433,6 +1433,8 @@ const app = {
         const billTokenEl = document.getElementById('bill-token');
         if (billTokenEl && !document.getElementById('edit-bill-id')?.value) {
           billTokenEl.value = app.generateToken(val === 'advance' ? 'advance_bill' : 'hospital_bill');
+          const billBadge = document.getElementById('bill-token-badge');
+          if (billBadge) billBadge.textContent = billTokenEl.value;
         }
         if (app.attachments.activeSources['bill'] === 'gdrive') {
           app.attachments.setUploadSource('bill', 'gdrive');
@@ -1446,6 +1448,8 @@ const app = {
           const slipTokenEl = document.getElementById('slip-token');
           if (slipTokenEl && !document.getElementById('edit-slip-id')?.value) {
             slipTokenEl.value = app.generateToken(slipExpEl.value === 'hospital' ? 'hospital_slip' : 'advance_slip');
+            const slipBadge = document.getElementById('slip-token-badge');
+            if (slipBadge) slipBadge.textContent = slipTokenEl.value;
           }
         });
       }
@@ -2302,17 +2306,27 @@ const app = {
           app.attachments.clearStagedFile('slip');
           // Auto-generate token for new slips
           const slipTokenEl = document.getElementById('slip-token');
+          const slipBadge = document.getElementById('slip-token-badge');
           if (slipTokenEl && !document.getElementById('edit-slip-id').value) {
-            slipTokenEl.value = app.generateToken('slip');
+            const tok = app.generateToken('slip');
+            slipTokenEl.value = tok;
+            if (slipBadge) slipBadge.innerText = tok;
+          } else if (slipBadge && slipTokenEl) {
+            slipBadge.innerText = slipTokenEl.value || 'AUTO';
           }
         } else if (dialogId === 'dialog-bill-add') {
           app.attachments.clearStagedFile('bill');
           if (window.syncBillSegUI) setTimeout(() => window.syncBillSegUI(document.getElementById('bill-exp-type')?.value || 'advance'), 0);
           // Auto-generate token for new bills
           const billTokenEl = document.getElementById('bill-token');
+          const billBadge = document.getElementById('bill-token-badge');
           if (billTokenEl && !document.getElementById('edit-bill-id').value) {
             const billExpType = document.getElementById('bill-exp-type')?.value || 'advance';
-            billTokenEl.value = app.generateToken(billExpType === 'advance' ? 'advance_bill' : 'hospital_bill');
+            const tok = app.generateToken(billExpType === 'advance' ? 'advance_bill' : 'hospital_bill');
+            billTokenEl.value = tok;
+            if (billBadge) billBadge.innerText = tok;
+          } else if (billBadge && billTokenEl) {
+            billBadge.innerText = billTokenEl.value || 'AUTO';
           }
         } else if (dialogId === 'dialog-deposit-add') {
           app.attachments.clearStagedFile('deposit');
@@ -2362,6 +2376,8 @@ const app = {
           app.attachments.clearStagedFile('slip');
           const slipTokenEl = document.getElementById('slip-token');
           if (slipTokenEl) slipTokenEl.value = '';
+          const slipBadge = document.getElementById('slip-token-badge');
+          if (slipBadge) slipBadge.innerText = 'AUTO';
         } else if (dialogId === 'dialog-bill-add') {
           document.getElementById('edit-bill-id').value = '';
           document.getElementById('dialog-bill-title').innerText = 'Add Direct Bill';
@@ -2369,6 +2385,8 @@ const app = {
           if (window.syncBillSegUI) window.syncBillSegUI('advance');
           const billTokenEl = document.getElementById('bill-token');
           if (billTokenEl) billTokenEl.value = '';
+          const billBadge = document.getElementById('bill-token-badge');
+          if (billBadge) billBadge.innerText = 'AUTO';
         } else if (dialogId === 'dialog-transfer-add') {
           document.getElementById('edit-transfer-id').value = '';
           document.getElementById('dialog-transfer-title').innerText = 'Record Verification Transfer';
@@ -2432,6 +2450,8 @@ const app = {
           document.getElementById('slip-remarks').value = record.remarks || '';
           const slipTokenEl = document.getElementById('slip-token');
           if (slipTokenEl) slipTokenEl.value = record.tokenNumber || '';
+          const slipBadge = document.getElementById('slip-token-badge');
+          if (slipBadge) slipBadge.innerText = record.tokenNumber || 'AUTO';
           
           app.ui.setupEditAttachment('slip', record);
           app.ui.openModal('dialog-slip-add');
@@ -2449,6 +2469,8 @@ const app = {
           document.getElementById('bill-remarks').value = record.remarks || '';
           const billTokenEl = document.getElementById('bill-token');
           if (billTokenEl) billTokenEl.value = record.tokenNumber || '';
+          const billBadge = document.getElementById('bill-token-badge');
+          if (billBadge) billBadge.innerText = record.tokenNumber || 'AUTO';
           
           app.ui.setupEditAttachment('bill', record);
           app.ui.openModal('dialog-bill-add');
@@ -6870,7 +6892,12 @@ const app = {
   }
 };
 
+// Expose app on global window object
+window.app = app;
+
 // Start application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+  window.app = app;
   app.init();
 });
+
