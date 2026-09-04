@@ -4143,6 +4143,7 @@ const app = {
         thead.innerHTML = `
           <tr>
             <th>Date</th>
+            <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
             <th>Expense Type</th>
@@ -4164,6 +4165,7 @@ const app = {
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(slip.date)}</td>
+              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
               <td><span class="source-tag">${typeLabel}</span></td>
@@ -4175,7 +4177,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'muhasib_bills') {
@@ -4183,6 +4185,7 @@ const app = {
         thead.innerHTML = `
           <tr>
             <th>Date</th>
+            <th>Token No</th>
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
@@ -4200,6 +4203,7 @@ const app = {
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(bill.date)}</td>
+              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
@@ -4211,13 +4215,14 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
         }
       } else if (type === 'hospital_bills') {
         titleDisplay.innerText = 'Hospital Bill Report';
         thead.innerHTML = `
           <tr>
             <th>Date</th>
+            <th>Token No</th>
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
@@ -4235,6 +4240,7 @@ const app = {
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(bill.date)}</td>
+              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
@@ -4246,13 +4252,14 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
         }
       } else if (type === 'bills') {
         titleDisplay.innerText = 'All Bills Report';
         thead.innerHTML = `
           <tr>
             <th>Date</th>
+            <th>Token No</th>
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
@@ -4275,6 +4282,7 @@ const app = {
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(bill.date)}</td>
+              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
@@ -4287,7 +4295,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'accounts_register') {
@@ -4728,11 +4736,11 @@ const app = {
         const filterBills = isMu ? app.state.bills.filter(b=>b.expenseType==='advance'&&inRange(b.date)) : isHosp ? app.state.bills.filter(b=>b.expenseType==='hospital'&&inRange(b.date)) : app.state.bills.filter(b=>inRange(b.date));
         const title = isMu ? 'Muhasib Bill Report' : isHosp ? 'Hospital Bill Report' : 'All Bills Report';
         const wbS=XLSX.utils.book_new();
-        const rows=[ [title], ['Date Range', sVal||'Start','to',eVal||'End'], ['Generated On', new Date().toLocaleString('en-IN')], [], ['Date','Bill Number','Vendor','Amount','Category','Expense Type','Remarks'] ];
-        filterBills.forEach(b=> rows.push([app.ui.formatDate(b.date), b.billNumber, b.vendor, b.amount, b.category, b.expenseType==='advance'?'Muhasib':'Hospital', b.remarks||'-']));
-        if(!filterBills.length) rows.push(['No records in selected range','','','','','','']);
-        rows.push([]); rows.push(['Total Bills', filterBills.length, '', filterBills.reduce((s,b)=>s+b.amount,0)]);
-        const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:13},{wch:16},{wch:20},{wch:14},{wch:16},{wch:14},{wch:30}]; ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:6}}]; ws['A1'].s={font:{bold:true,sz:13,color:{rgb:"1F4E79"}},alignment:{horizontal:"center"}};
+        const rows=[ [title], ['Date Range', sVal||'Start','to',eVal||'End'], ['Generated On', new Date().toLocaleString('en-IN')], [], ['Date','Token No','Bill Number','Vendor','Amount','Category','Expense Type','Remarks'] ];
+        filterBills.forEach(b=> rows.push([app.ui.formatDate(b.date), b.tokenNumber||'-', b.billNumber, b.vendor, b.amount, b.category, b.expenseType==='advance'?'Muhasib':'Hospital', b.remarks||'-']));
+        if(!filterBills.length) rows.push(['No records in selected range','','','','','','','']);
+        rows.push([]); rows.push(['Total Bills', filterBills.length, '', '', filterBills.reduce((s,b)=>s+b.amount,0)]);
+        const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:13},{wch:14},{wch:16},{wch:20},{wch:14},{wch:16},{wch:14},{wch:30}]; ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}}]; ws['A1'].s={font:{bold:true,sz:13,color:{rgb:"1F4E79"}},alignment:{horizontal:"center"}};
         XLSX.utils.book_append_sheet(wbS, ws, title.substring(0,31));
         XLSX.writeFile(wbS, `NoorHospital_${selType}_${sVal||'all'}_to_${eVal||'all'}.xlsx`);
         app.ui.showToast(title+' exported!');
