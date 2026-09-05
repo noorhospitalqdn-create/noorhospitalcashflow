@@ -1256,8 +1256,12 @@ const app = {
       app.state.totalTransferred = app.state.amanatReceived + app.state.imprestReceived;
 
       // Temporary Slips Pending Indicators
+      app.state.advanceSlipsPending = activeSlipsList.filter(s => s.expenseType === 'advance').length;
+      app.state.advanceSlipsPendingAmount = allAdvanceSlipsAmount;
+      app.state.hospitalSlipsPending = activeSlipsList.filter(s => s.expenseType === 'hospital').length;
+      app.state.hospitalSlipsPendingAmount = allHospitalSlipsAmount;
       app.state.temporarySlipsPending = activeSlipsList.length;
-      app.state.temporarySlipsPendingAmount = activeSlipsList.reduce((sum, s) => sum + s.amount, 0);
+      app.state.temporarySlipsPendingAmount = allAdvanceSlipsAmount + allHospitalSlipsAmount;
 
       // Trigger Render and Refresh Viewports
       app.ui.renderAll();
@@ -1279,6 +1283,7 @@ const app = {
       hospital:{search:'',from:'',to:'',sort:'date_desc'},
       deposits:{search:'',from:'',to:'',sort:'date_desc'},
       slips:{search:'',from:'',to:'',sort:'date_desc'},
+      'advance-slips':{search:'',from:'',to:'',sort:'date_desc'},
       bills:{search:'',from:'',to:'',sort:'date_desc'},
       'advance-bills':{search:'',from:'',to:'',sort:'date_desc'},
       accounts:{search:'',from:'',to:'',sort:'date_desc'},
@@ -1286,9 +1291,9 @@ const app = {
     },
     applyFilter(page, patch){
       Object.assign(app.ui.filters[page], patch);
-      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable',bills:'renderBillsTable','advance-bills':'renderAdvanceBillsTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
+      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable','advance-slips':'renderAdvanceSlipsTable',bills:'renderBillsTable','advance-bills':'renderAdvanceBillsTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
       if(map[page]) app.ui[map[page]]();
-      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards',bills:'renderBillsCards','advance-bills':'renderAdvanceBillsCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
+      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards','advance-slips':'renderAdvanceSlipsCards',bills:'renderBillsCards','advance-bills':'renderAdvanceBillsCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
       if(app.mobile.isMobile() && app.mobile[mmap[page]]) app.mobile[mmap[page]]();
     },
     clearFilters(page){
@@ -1313,7 +1318,7 @@ const app = {
         if(bt) out=out.filter(b=>b.expenseType===bt);
       }
       const sort=f.sort||'date_desc';
-      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor',bills:'vendor','advance-bills':'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
+      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor','advance-slips':'vendor',bills:'vendor','advance-bills':'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
       const dateKey= page==='accounts' ? 'dateSent' : 'date';
       out.sort((a,b)=>{
         if(sort==='date_asc') return new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
@@ -1403,7 +1408,7 @@ const app = {
         const so=document.getElementById('sort-'+page);
         if(so) so.addEventListener('change', e=> app.ui.applyFilter(page,{sort:e.target.value}));
       };
-      ['advance','hospital','deposits','slips','bills','advance-bills','accounts','transfers'].forEach(bindPage);
+      ['advance','hospital','deposits','slips','bills','advance-bills','advance-slips','accounts','transfers'].forEach(bindPage);
 
       // Paid From segmented control <-> hidden select sync (fixes mode not changing)
       const syncBillSegUI = (val) => {
@@ -1441,10 +1446,32 @@ const app = {
         }
       });
 
+      // Paid From segmented control for Slips <-> hidden select sync
+      const syncSlipSegUI = (val) => {
+        const v = val || document.getElementById('slip-exp-type')?.value || 'advance';
+        document.querySelectorAll('#slip-seg .seg-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.val === v);
+        });
+        const sel = document.getElementById('slip-exp-type');
+        if (sel && sel.value !== v) sel.value = v;
+      };
+      window.syncSlipSegUI = syncSlipSegUI;
+      document.querySelectorAll('#slip-seg .seg-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const sel = document.getElementById('slip-exp-type');
+          if (sel) {
+            sel.value = btn.dataset.val;
+            sel.dispatchEvent(new Event('change'));
+          }
+          syncSlipSegUI(btn.dataset.val);
+        });
+      });
+
       // Dynamic token when slip expense type changes
       const slipExpEl = document.getElementById('slip-exp-type');
       if (slipExpEl) {
         slipExpEl.addEventListener('change', () => {
+          syncSlipSegUI(slipExpEl.value);
           const slipTokenEl = document.getElementById('slip-token');
           if (slipTokenEl && !document.getElementById('edit-slip-id')?.value) {
             slipTokenEl.value = app.generateToken(slipExpEl.value === 'hospital' ? 'hospital_slip' : 'advance_slip');
@@ -2232,6 +2259,7 @@ const app = {
         'hospital-cash': 'ledgers',
         'hospital-deposits': 'ledgers',
         'temp-slips': 'ledgers',
+        'advance-slips': 'ledgers',
         'advance-bills': 'bills',
         'accounts': 'ledgers',
         'transfers': 'ledgers',
@@ -2256,7 +2284,8 @@ const app = {
         'advance-cash': 'Muhasib Cash Ledger',
         'hospital-cash': 'Hospital Cash Collection Ledger',
         'hospital-deposits': 'Hospital Cash Deposits Ledger',
-        'temp-slips': 'Temporary Expense Slips Register',
+        'advance-slips': 'Muhasib Temporary Slips Register',
+        'temp-slips': 'Hospital Temporary Slips Register',
         'advance-bills': 'Muhasib Bills Register',
         'bills': 'Hospital Bills Register',
         'accounts': 'Accounts Department Register',
@@ -2304,11 +2333,27 @@ const app = {
         // Initialize display values for specific dialogs
         if (dialogId === 'dialog-slip-add') {
           app.attachments.clearStagedFile('slip');
+          const isEdit = !!document.getElementById('edit-slip-id').value;
+          let defaultExp = (arguments.length > 1 && arguments[1]) ? arguments[1] : null;
+          if (!defaultExp && !isEdit) {
+            const activePanel = document.querySelector('.panel.active');
+            if (activePanel && activePanel.id === 'panel-advance-slips') defaultExp = 'advance';
+            else defaultExp = 'hospital';
+          }
+          if (!isEdit && defaultExp) {
+            const expEl = document.getElementById('slip-exp-type');
+            if (expEl) expEl.value = defaultExp;
+            const titleEl = document.getElementById('dialog-slip-title');
+            if (titleEl) {
+              titleEl.innerText = defaultExp === 'advance' ? 'Add Muhasib Temp Slip' : 'Add Hospital Temp Slip';
+            }
+          }
           // Auto-generate token for new slips
           const slipTokenEl = document.getElementById('slip-token');
           const slipBadge = document.getElementById('slip-token-badge');
-          if (slipTokenEl && !document.getElementById('edit-slip-id').value) {
-            const tok = app.generateToken('slip');
+          if (slipTokenEl && !isEdit) {
+            const expVal = document.getElementById('slip-exp-type')?.value || 'hospital';
+            const tok = app.generateToken(expVal === 'hospital' ? 'hospital_slip' : 'advance_slip');
             slipTokenEl.value = tok;
             if (slipBadge) slipBadge.innerText = tok;
           } else if (slipBadge && slipTokenEl) {
@@ -2374,6 +2419,7 @@ const app = {
           document.getElementById('edit-slip-id').value = '';
           document.getElementById('dialog-slip-title').innerText = 'Add Temporary Slip';
           app.attachments.clearStagedFile('slip');
+          if (window.syncSlipSegUI) window.syncSlipSegUI('advance');
           const slipTokenEl = document.getElementById('slip-token');
           if (slipTokenEl) slipTokenEl.value = '';
           const slipBadge = document.getElementById('slip-token-badge');
@@ -2442,11 +2488,12 @@ const app = {
 
         } else if (storeName === 'temporary_slips') {
           document.getElementById('edit-slip-id').value = id;
-          document.getElementById('dialog-slip-title').innerText = 'Edit Temporary Slip';
+          document.getElementById('dialog-slip-title').innerText = record.expenseType === 'advance' ? 'Edit Muhasib Temp Slip' : 'Edit Hospital Temp Slip';
           document.getElementById('slip-date').value = record.date;
           document.getElementById('slip-vendor').value = record.vendor;
           document.getElementById('slip-amount').value = record.amount;
           document.getElementById('slip-exp-type').value = record.expenseType;
+          if (window.syncSlipSegUI) window.syncSlipSegUI(record.expenseType);
           document.getElementById('slip-remarks').value = record.remarks || '';
           const slipTokenEl = document.getElementById('slip-token');
           if (slipTokenEl) slipTokenEl.value = record.tokenNumber || '';
@@ -2733,12 +2780,25 @@ const app = {
      */
     initiateSlipConversion(id, vendor, amount, expenseType) {
       document.getElementById('convert-slip-id').value = id;
-      const targetExp = 'hospital'; // Converted slips go to Hospital Bills by default
+      const targetExp = (expenseType === 'advance' || expenseType === 'hospital') ? expenseType : 'hospital';
       if (document.getElementById('convert-slip-exptype')) {
         document.getElementById('convert-slip-exptype').value = targetExp;
       }
-      if (document.getElementById('convert-bill-exptype')) {
-        document.getElementById('convert-bill-exptype').value = targetExp;
+      const convertExpEl = document.getElementById('convert-bill-exptype');
+      if (convertExpEl) {
+        if (targetExp === 'advance') {
+          convertExpEl.innerHTML = '<option value="advance" selected>Muhasib Bills (Against Muhasib Advance Float)</option>';
+        } else {
+          convertExpEl.innerHTML = '<option value="hospital" selected>Hospital Bills (Against Hospital Cash Collection)</option>';
+        }
+        convertExpEl.value = targetExp;
+        convertExpEl.style.pointerEvents = 'none';
+        convertExpEl.style.background = 'var(--bg-elevated)';
+        convertExpEl.style.cursor = 'not-allowed';
+      }
+      const titleEl = document.getElementById('dialog-convert-title');
+      if (titleEl) {
+        titleEl.innerText = targetExp === 'advance' ? 'Convert to Muhasib Final Bill' : 'Convert to Hospital Final Bill';
       }
       const convertTokenEl = document.getElementById('convert-bill-token');
       if (convertTokenEl) {
@@ -2839,7 +2899,8 @@ const app = {
       const slipBadgeVal = `${app.state.temporarySlipsPending} slip${app.state.temporarySlipsPending !== 1 ? 's' : ''}`;
       setSafeText('dash-temp-slips-badge', slipBadgeVal);
 
-      setSafeText('sidebar-temp-slips-badge', app.state.temporarySlipsPending);
+      setSafeText('sidebar-temp-slips-badge', app.state.hospitalSlipsPending !== undefined ? app.state.hospitalSlipsPending : app.state.temporarySlipsPending);
+      setSafeText('sidebar-advance-slips-badge', app.state.advanceSlipsPending || 0);
       setSafeText('sidebar-bills-badge', app.state.bills.filter(b => b.expenseType==='hospital').length);
       setSafeText('sidebar-advance-bills-badge', app.state.bills.filter(b => b.expenseType==='advance').length);
       const bb=document.getElementById('bottom-nav-bills-badge'); if(bb) bb.textContent=app.state.bills.filter(b=>b.expenseType==='hospital').length;
@@ -2877,6 +2938,7 @@ const app = {
       app.ui.renderHospitalTable();
       app.ui.renderDepositsTable();
       app.ui.renderSlipsTable();
+      app.ui.renderAdvanceSlipsTable();
       app.ui.renderAdvanceBillsTable();
       app.ui.renderBillsTable();
       app.ui.renderAccountsTable();
@@ -3006,19 +3068,19 @@ const app = {
     renderSlipsTable() {
       const list = document.getElementById('list-slips');
       if(!list) return;
-      // Filter out converted slips so they are removed from the temporary slips list
-      const activeSlips = app.getActiveTemporarySlips();
+      // Filter out converted slips and only show hospital temporary slips
+      const activeSlips = app.getActiveTemporarySlips().filter(s => s.expenseType === 'hospital');
       const filtered = app.ui.getFiltered(activeSlips,'slips');
       const total = filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No pending temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
-        const typeLabel = slip.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash';
+        const typeLabel = 'Hospital Cash';
         
         let actionBtn = '';
         if (slip.status === 'pending') {
@@ -3063,6 +3125,75 @@ const app = {
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="source-tag">${typeLabel}</span></td>
+            <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
+            <td>${attachmentHtml}</td>
+            <td>${slip.remarks || '-'}</td>
+            <td class="text-center">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
+    },
+
+    renderAdvanceSlipsTable() {
+      const list = document.getElementById('list-advance-slips');
+      if(!list) return;
+      // Filter out converted slips and only show muhasib temporary slips
+      const activeSlips = app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance');
+      const filtered = app.ui.getFiltered(activeSlips,'advance-slips');
+      const total = filtered.reduce((s,e)=>s+e.amount,0);
+      const totEl=document.getElementById('total-advance-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      if(!filtered.length){
+        const f=app.ui.filters['advance-slips']||{}; const isF=f.search||f.from||f.to;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</td></tr>`;
+        return;
+      }
+      list.innerHTML = filtered.map(slip => {
+        const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
+        const typeLabel = 'Muhasib Cash';
+        
+        let actionBtn = '';
+        if (slip.status === 'pending') {
+          actionBtn = `
+            <div class="flex gap-2 justify-center">
+              <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('temporary_slips', ${slip.id})">
+                Edit
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="app.ui.initiateSlipConversion(${slip.id}, '${slip.vendor.replace(/'/g, "\\'")}', ${slip.amount}, '${slip.expenseType}')">
+                Convert
+              </button>
+              <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('temporary_slips', ${slip.id})">
+                Delete
+              </button>
+            </div>
+          `;
+        } else {
+          actionBtn = `
+            <div class="flex gap-2 justify-center items-center">
+              <span class="text-muted text-sm">Converted</span>
+              <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('temporary_slips', ${slip.id})">
+                Edit
+              </button>
+              <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('temporary_slips', ${slip.id})">
+                Delete
+              </button>
+            </div>
+          `;
+        }
+ 
+        let attachmentHtml = '-';
+        if (slip.attachmentUrl) {
+          const syncClass = slip.pendingUpload ? 'pending-sync' : '';
+          const label = slip.pendingUpload ? '⏳ Syncing' : (slip.fileType === 'application/pdf' ? '📄 PDF Attached' : '📷 Image Attached');
+          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('temporary_slips', ${slip.id})">${label}</span>`;
+        }
+
+        return `
+          <tr>
+            <td class="num-val">${app.ui.formatDate(slip.date)}</td>
+            <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
+            <td class="text-bold">${slip.vendor}</td>
+            <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
+            <td><span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary);">${typeLabel}</span></td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
             <td>${attachmentHtml}</td>
             <td>${slip.remarks || '-'}</td>
@@ -4202,6 +4333,82 @@ const app = {
           tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
         }
 
+      } else if (type === 'muhasib_slips') {
+        titleDisplay.innerText = 'Muhasib Temp Slip Report';
+        thead.innerHTML = `
+          <tr>
+            <th>Date</th>
+            <th>Token No</th>
+            <th>Vendor / Person</th>
+            <th>Amount</th>
+            <th>Expense Type</th>
+            <th>Status</th>
+            <th>Attachment Available</th>
+            <th>Attachment File Name</th>
+            <th>Remarks</th>
+          </tr>
+        `;
+        const filtered = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance'));
+        tbody.innerHTML = '';
+        filtered.forEach(slip => {
+          const attachAvailable = slip.attachmentUrl ? 'Yes' : 'No';
+          const attachName = slip.attachmentUrl ? (slip.fileName || 'document') : '-';
+          tbody.innerHTML += `
+            <tr>
+              <td class="num-val">${app.ui.formatDate(slip.date)}</td>
+              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
+              <td>${slip.vendor}</td>
+              <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
+              <td><span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary)">Muhasib Cash</span></td>
+              <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
+              <td>${attachAvailable}</td>
+              <td class="font-mono text-xs">${attachName}</td>
+              <td>${slip.remarks || '-'}</td>
+            </tr>
+          `;
+        });
+        if (!filtered.length) {
+          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+        }
+
+      } else if (type === 'hospital_slips') {
+        titleDisplay.innerText = 'Hospital Temp Slip Report';
+        thead.innerHTML = `
+          <tr>
+            <th>Date</th>
+            <th>Token No</th>
+            <th>Vendor / Person</th>
+            <th>Amount</th>
+            <th>Expense Type</th>
+            <th>Status</th>
+            <th>Attachment Available</th>
+            <th>Attachment File Name</th>
+            <th>Remarks</th>
+          </tr>
+        `;
+        const filtered = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'hospital'));
+        tbody.innerHTML = '';
+        filtered.forEach(slip => {
+          const attachAvailable = slip.attachmentUrl ? 'Yes' : 'No';
+          const attachName = slip.attachmentUrl ? (slip.fileName || 'document') : '-';
+          tbody.innerHTML += `
+            <tr>
+              <td class="num-val">${app.ui.formatDate(slip.date)}</td>
+              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
+              <td>${slip.vendor}</td>
+              <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
+              <td><span class="source-tag">Hospital Cash</span></td>
+              <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
+              <td>${attachAvailable}</td>
+              <td class="font-mono text-xs">${attachName}</td>
+              <td>${slip.remarks || '-'}</td>
+            </tr>
+          `;
+        });
+        if (!filtered.length) {
+          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+        }
+
       } else if (type === 'muhasib_bills') {
         titleDisplay.innerText = 'Muhasib Bill Report';
         thead.innerHTML = `
@@ -4487,15 +4694,17 @@ const app = {
         }
 
       } else if (type === 'advance_bills') {
-        titleDisplay.innerText = 'Muhasib Cash + Advance Bills Report (Against Muhasib Cash)';
+        titleDisplay.innerText = 'Muhasib Cash + Advance Bills + Temp Slips Report (Against Muhasib Cash)';
         thead.classList.add('hidden');
         tbody.classList.add('hidden');
         bsPlaceholder.classList.remove('hidden');
         const advList = filterByDateRange(app.state.advanceCashEntries);
         const billList = filterByDateRange(app.state.bills.filter(b => b.expenseType === 'advance'));
+        const slipList = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance'));
         const combined = [];
         advList.forEach(e => combined.push({ date: e.date, type: 'cash', remarks: e.remarks || '-', dr: e.amount, cr: 0, sortDate: e.date }));
         billList.forEach(b => combined.push({ date: b.date, type: 'bill', remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, dr: 0, cr: b.amount, sortDate: b.date }));
+        slipList.forEach(s => combined.push({ date: s.date, type: 'slip', remarks: `Temp Slip #${s.tokenNumber || '-'}: ${s.vendor || '-'}${s.remarks ? ' - ' + s.remarks : ''}`, dr: 0, cr: s.amount, sortDate: s.date }));
         combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
         let runningBal = app.state.openingAdvanceCash;
         let totalDr = 0;
@@ -4506,7 +4715,14 @@ const app = {
           if(row.cr) { totalCr += row.cr; runningBal -= row.cr; }
           const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
           const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
-          const badge = row.type==='cash' ? '<span class="source-tag" style="background:var(--success-light);color:var(--success)">Cash Received</span>' : '<span class="source-tag" style="background:var(--error-light);color:var(--error)">Bill Expense</span>';
+          let badge = '';
+          if (row.type === 'cash') {
+            badge = '<span class="source-tag" style="background:var(--success-light);color:var(--success)">Cash Received</span>';
+          } else if (row.type === 'bill') {
+            badge = '<span class="source-tag" style="background:var(--error-light);color:var(--error)">Bill Expense</span>';
+          } else if (row.type === 'slip') {
+            badge = '<span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.3)">Muhasib Temp Slip</span>';
+          }
           rowsHtml += `<tr><td class="num-val">${app.ui.formatDate(row.date)}</td><td>${row.remarks} ${badge}</td><td class="num-val text-right ${row.dr?'text-success':''}">${drTxt}</td><td class="num-val text-right ${row.cr?'text-error':''}">${crTxt}</td><td class="num-val text-right" style="font-weight:600">${app.ui.formatCurrency(runningBal)}</td></tr>`;
         });
         if(!combined.length) rowsHtml += `<tr><td colspan="5" class="text-center text-muted">No records in selected date range.</td></tr>`;
@@ -4516,10 +4732,10 @@ const app = {
           <div style="display:flex; flex-direction:column; gap:1rem; padding:1rem 0;">
             <div class="card" style="padding:0; overflow:hidden;">
               <div style="padding:0.85rem 1.1rem; border-bottom:1px solid var(--border-color); font-weight:800; background:var(--bg-secondary); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                <span>Muhasib Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Cash In &nbsp;|&nbsp; Cr = Bills Against Advance &nbsp;|&nbsp; Balance = Running</span>
+                <span>Muhasib Cash - Dr / Cr Ledger</span><span style="font-size:12px; font-weight:600; color:var(--text-muted)">Dr = Cash In &nbsp;|&nbsp; Cr = Bills & Temp Slips (Less) &nbsp;|&nbsp; Balance = Running</span>
               </div>
               <div style="overflow-x:auto;">
-                <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Cash In)</th><th class="text-right">Cr (Bill Exp)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+                <table class="data-table"><thead><tr><th>Date</th><th>Particulars</th><th class="text-right">Dr (Cash In)</th><th class="text-right">Cr (Bills & Temp Slips)</th><th class="text-right">Balance</th></tr></thead><tbody>${rowsHtml}</tbody></table>
               </div>
             </div>
             <div class="card" style="padding:1rem 1.1rem; background:var(--bg-secondary); display:flex; flex-wrap:wrap; gap:1.25rem; justify-content:space-between; font-weight:700; font-size:13px;">
@@ -4682,12 +4898,13 @@ const app = {
           ['Generated On', new Date().toLocaleString('en-IN')],
           ['Opening Muhasib Cash Balance', app.state.openingAdvanceCash],
           [],
-          ['Date', 'Particulars', 'Voucher Type', 'Dr - Cash In (₹)', 'Cr - Bill Expense (₹)', 'Balance (₹)']
+          ['Date', 'Particulars', 'Voucher Type', 'Dr - Cash In (₹)', 'Cr - Bill Expense / Temp Slip (₹)', 'Balance (₹)']
         ];
         let bal = app.state.openingAdvanceCash;
         const comb = [];
         app.state.advanceCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:e.remarks||'-', vType:'Cash Received', dr:e.amount, cr:0}));
         app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}${b.category?' - '+b.category:''}`, vType:'Advance Bill', dr:0, cr:b.amount}));
+        app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance' && inRange(s.date)).forEach(s=>comb.push({date:s.date, particulars:`Temp Slip #${s.tokenNumber||'-'}: ${s.vendor||'-'}${s.remarks ? ' - ' + s.remarks : ''}`, vType:'Muhasib Temp Slip', dr:0, cr:s.amount}));
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
         comb.forEach(r=>{ if(r.dr) bal+=r.dr; if(r.cr) bal-=r.cr; rows.push([app.ui.formatDate(r.date), r.particulars, r.vType, r.dr||'', r.cr||'', bal]); });
@@ -4697,7 +4914,7 @@ const app = {
         rows.push([]);
         rows.push(['TOTAL', '', '', tDr, tCr, app.state.openingAdvanceCash + tDr - tCr]);
         const wsSingle = XLSX.utils.aoa_to_sheet(rows);
-        wsSingle['!cols'] = [{wch:13},{wch:44},{wch:16},{wch:18},{wch:18},{wch:18}];
+        wsSingle['!cols'] = [{wch:13},{wch:44},{wch:18},{wch:18},{wch:20},{wch:18}];
         wsSingle['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}}];
         wsSingle['!autofilter'] = { ref: `A6:F6` };
         wsSingle['!freeze'] = { xSplit: 0, ySplit: 6, topLeftCell: 'A7', activePane: 'bottomLeft' };
@@ -4989,10 +5206,15 @@ const app = {
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.receiptNumber,e.amount,e.remarks||'-']));
         sheetName='Deposits';
       } else if(page==='slips'){
-        const d=filtered(app.getActiveTemporarySlips(),'slips');
-        rows=[['Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
+        const d=filtered(app.getActiveTemporarySlips(),'slips').filter(s=>s.expenseType==='hospital');
+        rows=[['Hospital Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
-        sheetName='Temp Slips';
+        sheetName='Hospital Temp Slips';
+      } else if(page==='advance-slips'){
+        const d=filtered(app.getActiveTemporarySlips(),'advance-slips').filter(s=>s.expenseType==='advance');
+        rows=[['Muhasib Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
+        sheetName='Muhasib Temp Slips';
       } else if(page==='advance-bills'){
         const d=filtered(app.state.bills,'advance-bills').filter(b=>b.expenseType==='advance');
         rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Category','Remarks']];
@@ -5127,7 +5349,7 @@ const app = {
       const metaEl = document.getElementById('report-meta-display');
       const container = document.getElementById('report-display-container');
       const title = titleEl ? titleEl.innerText : 'Report';
-      const printTitle = title === 'Muhasib Cash + Advance Bills Report (Against Muhasib Cash)' ? 'Muhasib Adv Report' : title;
+      const printTitle = (title.includes('Muhasib Cash + Advance Bills') || title.includes('Muhasib Adv')) ? 'Muhasib Adv Report' : title;
       const meta = metaEl ? metaEl.innerText : '';
       const now = new Date().toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' });
       const content = container ? container.innerHTML : '';
@@ -6304,6 +6526,8 @@ const app = {
           try{ app.mobile.renderDepositsCards(); }catch(e){}
         } else if (activeId === 'panel-temp-slips') {
           try{ app.mobile.renderSlipsCards(); }catch(e){}
+        } else if (activeId === 'panel-advance-slips') {
+          try{ app.mobile.renderAdvanceSlipsCards(); }catch(e){}
         } else if (activeId === 'panel-advance-bills') {
           try{ app.mobile.renderAdvanceBillsCards(); }catch(e){}
         } else if (activeId === 'panel-bills') {
@@ -6318,6 +6542,7 @@ const app = {
         try{ app.mobile.renderHospitalCards(); }catch(e){}
         try{ app.mobile.renderDepositsCards(); }catch(e){}
         try{ app.mobile.renderSlipsCards(); }catch(e){}
+        try{ app.mobile.renderAdvanceSlipsCards(); }catch(e){}
         try{ app.mobile.renderAdvanceBillsCards(); }catch(e){}
         try{ app.mobile.renderBillsCards(); }catch(e){}
         try{ app.mobile.renderAccountsCards(); }catch(e){}
@@ -6345,8 +6570,15 @@ const app = {
       // Slips badge in submenu
       const slipsBadge = document.getElementById('submenu-slips-badge');
       if (slipsBadge) {
-        slipsBadge.textContent = app.state.temporarySlipsPending;
-        slipsBadge.style.display = app.state.temporarySlipsPending > 0 ? 'inline' : 'none';
+        const hSlipsCount = app.state.hospitalSlipsPending !== undefined ? app.state.hospitalSlipsPending : app.state.temporarySlipsPending;
+        slipsBadge.textContent = hSlipsCount;
+        slipsBadge.style.display = hSlipsCount > 0 ? 'inline' : 'none';
+      }
+      const advSlipsBadge = document.getElementById('submenu-advance-slips-badge');
+      if (advSlipsBadge) {
+        const mSlipsCount = app.state.advanceSlipsPending || 0;
+        advSlipsBadge.textContent = mSlipsCount;
+        advSlipsBadge.style.display = mSlipsCount > 0 ? 'inline' : 'none';
       }
       const muhasibCount = app.state.bills.filter(b=>b.expenseType==='advance').length;
       const hospCount = app.state.bills.filter(b=>b.expenseType==='hospital').length;
@@ -6451,18 +6683,18 @@ const app = {
     renderSlipsCards() {
       const container = document.getElementById('mobile-list-slips');
       if (!container) return;
-      // Filter out converted slips so they are removed from the temporary slips mobile list
-      const activeSlips = app.state.temporarySlips.filter(s => s.status !== 'converted');
+      // Filter out converted slips and only show hospital temporary slips
+      const activeSlips = app.state.temporarySlips.filter(s => s.status !== 'converted' && s.expenseType === 'hospital');
       const sorted = app.ui.getFiltered(activeSlips, 'slips');
       if (!sorted.length) {
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No pending temporary slips registered.'}</div>`;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</div>`;
         return;
       }
 
       container.innerHTML = sorted.map(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
-        const typeLabel = slip.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash';
+        const typeLabel = 'Hospital Cash';
         
         let attachmentHtml = '';
         if (slip.attachmentUrl) {
@@ -6506,6 +6738,76 @@ const app = {
               <span class="mobile-card-date">${app.ui.formatDate(slip.date)}</span>
               ${slip.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${slip.tokenNumber}</span>` : ''}
               <span class="source-tag">${typeLabel}</span>
+              <span class="status-pill ${statusClass}">${slip.status}</span>
+              ${attachmentHtml}
+            </div>
+            ${slip.remarks ? `<div class="mobile-card-body">${slip.remarks}</div>` : ''}
+            <div class="mobile-card-footer">
+              ${actionBtns}
+            </div>
+          </div>
+        `;
+      }).join('');
+    },
+
+    renderAdvanceSlipsCards() {
+      const container = document.getElementById('mobile-list-advance-slips');
+      if (!container) return;
+      // Filter out converted slips and only show muhasib temporary slips
+      const activeSlips = app.state.temporarySlips.filter(s => s.status !== 'converted' && s.expenseType === 'advance');
+      const sorted = app.ui.getFiltered(activeSlips, 'advance-slips');
+      if (!sorted.length) {
+        const f=app.ui.filters['advance-slips']||{}; const isF=f.search||f.from||f.to;
+        container.innerHTML = `<div class="mobile-card-empty">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</div>`;
+        return;
+      }
+
+      container.innerHTML = sorted.map(slip => {
+        const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
+        const typeLabel = 'Muhasib Cash';
+        
+        let attachmentHtml = '';
+        if (slip.attachmentUrl) {
+          const syncClass = slip.pendingUpload ? 'pending-sync' : '';
+          const label = slip.pendingUpload ? '⏳ Syncing' : (slip.fileType === 'application/pdf' ? '📄 PDF' : '📷 Image');
+          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('temporary_slips', ${slip.id})" style="cursor:pointer;">${label}</span>`;
+        }
+
+        let actionBtns = '';
+        if (slip.status === 'pending') {
+          actionBtns = `
+            <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('temporary_slips', ${slip.id})">
+              Edit
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.initiateSlipConversion(${slip.id}, '${slip.vendor.replace(/'/g, "\\'")}', ${slip.amount}, '${slip.expenseType}')">
+              Convert to Bill
+            </button>
+            <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('temporary_slips', ${slip.id})">
+              Delete
+            </button>
+          `;
+        } else {
+          actionBtns = `
+            <span class="text-muted" style="font-size:0.78rem; flex:1; text-align:center;">Converted</span>
+            <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('temporary_slips', ${slip.id})">
+              Edit
+            </button>
+            <button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('temporary_slips', ${slip.id})">
+              Delete
+            </button>
+          `;
+        }
+
+        return `
+          <div class="mobile-record-card">
+            <div class="mobile-card-header">
+              <div class="mobile-card-title">${slip.vendor}</div>
+              <div class="mobile-card-amount outflow">-${app.ui.formatCurrency(slip.amount)}</div>
+            </div>
+            <div class="mobile-card-meta">
+              <span class="mobile-card-date">${app.ui.formatDate(slip.date)}</span>
+              ${slip.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${slip.tokenNumber}</span>` : ''}
+              <span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary);">${typeLabel}</span>
               <span class="status-pill ${statusClass}">${slip.status}</span>
               ${attachmentHtml}
             </div>
@@ -6724,9 +7026,9 @@ const app = {
       const hex = (col) => col;
       const light = (col) => col + '1A';
       s.textContent = `
-.nav-item[data-panel="advance-cash"], .nav-item[data-panel="advance-bills"] { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; }
-.nav-item[data-panel="advance-cash"].active, .nav-item[data-panel="advance-bills"].active { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-left: 3px solid ${hex(c.muhasib)} !important; }
-.nav-item[data-panel="advance-cash"] .badge, .nav-item[data-panel="advance-bills"] .badge { background: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; }
+.nav-item[data-panel="advance-cash"], .nav-item[data-panel="advance-bills"], .nav-item[data-panel="advance-slips"] { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; }
+.nav-item[data-panel="advance-cash"].active, .nav-item[data-panel="advance-bills"].active, .nav-item[data-panel="advance-slips"].active { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-left: 3px solid ${hex(c.muhasib)} !important; }
+.nav-item[data-panel="advance-cash"] .badge, .nav-item[data-panel="advance-bills"] .badge, .nav-item[data-panel="advance-slips"] .badge { background: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; }
 .nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"], .nav-item[data-panel="accounts"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
 .nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active, .nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
 .nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge, .nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }

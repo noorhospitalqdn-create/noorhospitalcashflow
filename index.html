@@ -117,6 +117,11 @@
           <span>Muhasib Bills</span>
           <span class="badge" style="background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.2)" id="sidebar-advance-bills-badge">0</span>
         </button>
+        <button class="nav-item" data-panel="advance-slips">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
+          <span>Muhasib Temp Slips</span>
+          <span class="badge" style="background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.2)" id="sidebar-advance-slips-badge">0</span>
+        </button>
         <button class="nav-item" data-panel="hospital-cash">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
           <span>Hospital Cash</span>
@@ -128,7 +133,7 @@
         </button>
         <button class="nav-item" data-panel="temp-slips">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-          <span>Temporary Slips</span>
+          <span>Hospital Temp Slips</span>
           <span class="badge" id="sidebar-temp-slips-badge">0</span>
         </button>
         <button class="nav-item" data-panel="hospital-deposits">
@@ -728,15 +733,15 @@
         </section>
 
 
-        <!-- 4. TEMPORARY SLIPS PANEL -->
+        <!-- 4. TEMPORARY SLIPS PANEL (HOSPITAL) -->
         <section class="panel" id="panel-temp-slips">
           <div class="panel-action-bar">
             <div class="search-box">
-              <input type="text" placeholder="Search temporary slips..." class="search-input" id="search-slips">
+              <input type="text" placeholder="Search hospital temp slips..." class="search-input" id="search-slips">
             </div>
-            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-slip-add')">
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-slip-add', 'hospital')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-              <span>Add Temporary Slip</span>
+              <span>Add Hospital Temp Slip</span>
             </button>
           </div>
           <div class="ledger-filter-bar">
@@ -779,6 +784,59 @@
             </table>
           </div>
           <div class="mobile-card-list" id="mobile-list-slips"></div>
+        </section>
+
+        <!-- 4.1. MUHASIB TEMPORARY SLIPS PANEL -->
+        <section class="panel" id="panel-advance-slips">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search muhasib temp slips..." class="search-input" id="search-advance-slips">
+            </div>
+            <button class="btn btn-primary" onclick="app.ui.openModal('dialog-slip-add', 'advance')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add Muhasib Temp Slip</span>
+            </button>
+          </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-advance-slips-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-advance-slips-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-advance-slips" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Vendor A → Z</option>
+              <option value="alpha_desc">Vendor Z → A</option>
+            </select>
+            <span class="ledger-total-badge" style="background:var(--tertiary-light);color:var(--tertiary);border-color:rgba(168,85,247,0.2)" id="total-advance-slips">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-slips')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('advance-slips')">Clear</button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-advance-slips">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Token No</th>
+                  <th>Vendor / Person</th>
+                  <th>Amount</th>
+                  <th>Expense Type</th>
+                  <th>Status</th>
+                  <th>Attachment</th>
+                  <th>Remarks</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-advance-slips">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-advance-slips"></div>
         </section>
 
 
@@ -1094,12 +1152,14 @@
                   <label class="form-label" for="report-select-type">Select Report Type</label>
                   <select id="report-select-type" class="form-select">
                     <option value="advance">Muhasib Cash Report</option>
-                    <option value="advance_bills">Muhasib Cash + Advance Bills (Against Advance)</option>
+                    <option value="advance_bills">Muhasib Cash + Advance Bills + Temp Slips (Against Advance)</option>
                     <option value="hospital">Hospital Cash Report</option>
                     <option value="hospital_combined">Hospital Cash + Hospital Bills + Temp Slips + Deposits + Accounts (Dr/Cr)</option>
                     <option value="deposit_history">Hospital Deposit History</option>
                     <option value="monthly_deposit_summary">Monthly Deposit Summary</option>
-                    <option value="slips">Temporary Slip Report</option>
+                    <option value="muhasib_slips">Muhasib Temp Slip Report</option>
+                    <option value="hospital_slips">Hospital Temp Slip Report</option>
+                    <option value="slips">All Temp Slips Report</option>
                     <option value="muhasib_bills">Muhasib Bill Report</option>
                     <option value="hospital_bills">Hospital Bill Report</option>
                     <option value="bills">All Bills Report</option>
@@ -1186,7 +1246,7 @@
               <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Apni marzi se har section ka color set karein. Purple, Green, Yellow etc ya custom color picker se.</p>
               <form id="form-sidebar-colors">
                 <div class="form-group">
-                  <label class="form-label" for="color-muhasib">Muhasib Cash &amp; Muhasib Bills</label>
+                  <label class="form-label" for="color-muhasib">Muhasib Cash, Muhasib Bills &amp; Muhasib Temp Slips</label>
                   <div style="display:flex;gap:0.5rem;align-items:center">
                     <select id="color-muhasib" class="form-select" style="flex:1">
                       <option value="#a855f7">Purple</option>
@@ -1205,7 +1265,7 @@
                   </div>
                 </div>
                 <div class="form-group">
-                  <label class="form-label" for="color-hospital">Hospital Cash / Bills / Temp Slips / Deposits / Accounts Dept (linked same color)</label>
+                  <label class="form-label" for="color-hospital">Hospital Cash / Bills / Hospital Temp Slips / Deposits / Accounts Dept (linked same color)</label>
                   <div style="display:flex;gap:0.5rem;align-items:center">
                     <select id="color-hospital" class="form-select" style="flex:1">
                       <option value="#6366f1">Indigo</option>
@@ -1698,30 +1758,14 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
           </div>
         </div>
 
-        <!-- 2. Vendor / Person Name -->
-        <div class="form-group">
-          <label class="form-label" for="slip-vendor">Vendor / Person Name</label>
-          <input type="text" id="slip-vendor" class="form-input" placeholder="e.g. John Doe, Vendor Agency" required autocomplete="off">
-        </div>
+        <!-- Hidden Expense Type (auto-selected by register) -->
+        <input type="hidden" id="slip-exp-type" value="hospital">
 
-        <!-- 3. Paid From & Date (2-column layout) -->
+        <!-- 2. Vendor / Person Name & Date (2-column layout) -->
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label" for="slip-exp-type">Paid From (Expense Source)</label>
-            <div class="seg-control" id="slip-seg">
-              <button type="button" data-val="advance" id="slip-seg-advance" class="seg-btn active">
-                <span class="seg-dot advance-dot"></span>
-                <span>Muhasib Cash</span>
-              </button>
-              <button type="button" data-val="hospital" id="slip-seg-hospital" class="seg-btn">
-                <span class="seg-dot hospital-dot"></span>
-                <span>Hospital Cash</span>
-              </button>
-            </div>
-            <select id="slip-exp-type" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
-              <option value="advance">Muhasib Cash Expense</option>
-              <option value="hospital">Hospital Cash Expense</option>
-            </select>
+            <label class="form-label" for="slip-vendor">Vendor / Person Name</label>
+            <input type="text" id="slip-vendor" class="form-input" placeholder="e.g. John Doe, Vendor Agency" required autocomplete="off">
           </div>
           <div class="form-group">
             <label class="form-label" for="slip-date">Date</label>
@@ -1799,7 +1843,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
   <!-- MODAL: Convert Temporary Slip to Final Bill -->
   <dialog id="dialog-slip-convert" closedby="any" class="modal-dialog">
     <div class="modal-header">
-      <h3>Convert to Final Bill</h3>
+      <h3 id="dialog-convert-title">Convert to Final Bill</h3>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-slip-convert')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -2296,6 +2340,11 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         <span>Muhasib Bills</span>
         <span class="submenu-badge" id="submenu-advance-bills-badge" style="background:var(--tertiary-light);color:var(--tertiary)">0</span>
       </button>
+      <button class="mobile-submenu-item" data-panel="advance-slips">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
+        <span>Muhasib Temp Slips</span>
+        <span class="submenu-badge" id="submenu-advance-slips-badge" style="background:var(--tertiary-light);color:var(--tertiary)">0</span>
+      </button>
       <button class="mobile-submenu-item" data-panel="hospital-cash">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
         <span>Hospital Cash</span>
@@ -2307,7 +2356,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       </button>
       <button class="mobile-submenu-item" data-panel="temp-slips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-        <span>Temporary Slips</span>
+        <span>Hospital Temp Slips</span>
         <span class="submenu-badge" id="submenu-slips-badge">0</span>
       </button>
       <button class="mobile-submenu-item" data-panel="hospital-deposits">
@@ -2367,7 +2416,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
 // Premium hero sync — mirrors dashboard totals into hero banner + panel subtitles (event driven, no lag)
 (function(){
   var map=[["dash-advance-cash","hero-adv-cash"],["dash-hospital-cash","hero-hosp-cash"],["dash-total-pending-bills","hero-pending"]];
-  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "advance-bills":"Muhasib purchase bills • Imprest settlement", "bills":"Hospital purchase bills • Amanat settlement", "transfers":"Verification & settlement transfers", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "settings":"Opening balances, backup & restore"};
+  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "transfers":"Verification & settlement transfers", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "settings":"Opening balances, backup & restore"};
   function sync(){
     map.forEach(function(p){var a=document.getElementById(p[0]),b=document.getElementById(p[1]);if(a&&b&&a.textContent)b.textContent=a.textContent;});
     var t=document.getElementById("main-panel-title"),s=document.getElementById("main-panel-sub");
@@ -2540,8 +2589,8 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       var origBillModal=theApp.ui.openBillModal.bind(theApp.ui);
       theApp.ui.openBillModal=function(type){window._billExplicitType=type||null; return origBillModal(type);};
       var origOpen=theApp.ui.openModal.bind(theApp.ui);
-      theApp.ui.openModal=function(id){
-        origOpen(id);
+      theApp.ui.openModal=function(id, opt){
+        origOpen(id, opt);
         if(id==="dialog-bill-add"){
           refreshVendors();
           var isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
