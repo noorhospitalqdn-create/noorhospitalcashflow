@@ -155,9 +155,34 @@ const app = {
     },
 
     login(username, password) {
-      if (username.toUpperCase().trim() === app.auth.credentials.username && password === app.auth.credentials.password) {
+      const errBanner = document.getElementById('login-error-banner');
+      const errText = document.getElementById('login-error-text');
+      const card = document.getElementById('login-card');
+      const submitBtn = document.getElementById('btn-login-submit');
+
+      const u = (username || '').toUpperCase().trim();
+      const p = (password || '').trim();
+
+      if (!u || !p) {
+        if (errBanner && errText) {
+          errText.textContent = 'Please enter both username and password';
+          errBanner.classList.add('show');
+        }
+        if (card) {
+          card.classList.remove('shake');
+          void card.offsetWidth;
+          card.classList.add('shake');
+        }
+        app.ui.showToast('Please enter username and password!', 'warning');
+        return false;
+      }
+
+      if (u === app.auth.credentials.username && p === app.auth.credentials.password) {
+        if (submitBtn) submitBtn.classList.add('loading');
+        if (errBanner) errBanner.classList.remove('show');
+
         localStorage.setItem('noor_user_logged_in', 'true');
-        localStorage.setItem('noor_username', username.toUpperCase().trim());
+        localStorage.setItem('noor_username', u);
         
         // Populate Supabase credentials in localStorage automatically
         app.auth.embedSupabaseCredentials();
@@ -170,10 +195,26 @@ const app = {
           app.syncState();
         }).catch(err => {
           console.error('Initial pull on login failed:', err);
+        }).finally(() => {
+          if (submitBtn) submitBtn.classList.remove('loading');
         });
         
         return true;
       } else {
+        if (errBanner && errText) {
+          errText.textContent = 'Invalid username or password! Please check credentials.';
+          errBanner.classList.add('show');
+        }
+        if (card) {
+          card.classList.remove('shake');
+          void card.offsetWidth;
+          card.classList.add('shake');
+        }
+        const pwInput = document.getElementById('login-password');
+        if (pwInput) {
+          pwInput.focus();
+          pwInput.select();
+        }
         app.ui.showToast('Invalid username or password!', 'error');
         return false;
       }
@@ -184,14 +225,24 @@ const app = {
       localStorage.removeItem('noor_username');
       app.ui.showToast('Logged out successfully.');
       app.auth.showLogin();
-      setTimeout(() => location.reload(), 500);
+      setTimeout(() => location.reload(), 300);
     },
 
     showApp() {
       const loginScreen = document.getElementById('login-screen');
       const appLayout = document.querySelector('.app-layout');
-      if (loginScreen) loginScreen.style.display = 'none';
-      if (appLayout) appLayout.style.display = 'grid';
+      const submitBtn = document.getElementById('btn-login-submit');
+      const errBanner = document.getElementById('login-error-banner');
+
+      if (submitBtn) submitBtn.classList.remove('loading');
+      if (errBanner) errBanner.classList.remove('show');
+      if (loginScreen) {
+        loginScreen.style.display = 'none';
+        loginScreen.classList.remove('active');
+      }
+      if (appLayout) {
+        appLayout.style.display = ''; // Preserve CSS flex/grid rules across desktop and mobile!
+      }
       
       const userDisplay = document.getElementById('user-display-name');
       if (userDisplay) userDisplay.textContent = app.auth.getUsername();
@@ -200,8 +251,28 @@ const app = {
     showLogin() {
       const loginScreen = document.getElementById('login-screen');
       const appLayout = document.querySelector('.app-layout');
-      if (loginScreen) loginScreen.style.display = 'flex';
+      const submitBtn = document.getElementById('btn-login-submit');
+      const errBanner = document.getElementById('login-error-banner');
+      const pwInput = document.getElementById('login-password');
+      const userInput = document.getElementById('login-username');
+
+      if (submitBtn) submitBtn.classList.remove('loading');
+      if (errBanner) errBanner.classList.remove('show');
+      if (pwInput) pwInput.value = '';
+
+      // Close any open mobile submenus
+      document.querySelectorAll('.mobile-submenu-overlay.active').forEach(el => el.classList.remove('active'));
+
+      if (loginScreen) {
+        loginScreen.style.display = 'flex';
+        loginScreen.classList.add('active');
+      }
       if (appLayout) appLayout.style.display = 'none';
+
+      // Auto focus username field
+      setTimeout(() => {
+        if (userInput) userInput.focus();
+      }, 100);
     },
 
     embedSupabaseCredentials() {
@@ -2665,6 +2736,15 @@ const app = {
           const moon = mobThemeBtn.querySelector('.theme-icon-moon');
           if (sun) sun.style.display = 'block';
           if (moon) moon.style.display = 'none';
+        }
+      }
+
+      const loginIcon = document.getElementById('login-theme-icon');
+      if (loginIcon) {
+        if (themeName === 'light') {
+          loginIcon.innerHTML = `<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>`;
+        } else {
+          loginIcon.innerHTML = `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>`;
         }
       }
 
@@ -7120,16 +7200,61 @@ const app = {
       // 1. Setup Database
       await app.db.init();
 
-      // Bind login form
+      // Bind login form & interactions
       const loginForm = document.getElementById('form-login');
       if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
           e.preventDefault();
-          const user = document.getElementById('login-username').value;
-          const pass = document.getElementById('login-password').value;
+          const user = document.getElementById('login-username')?.value || '';
+          const pass = document.getElementById('login-password')?.value || '';
           app.auth.login(user, pass);
         });
       }
+
+      // Password visibility toggle
+      const togglePwBtn = document.getElementById('btn-toggle-password');
+      const pwInput = document.getElementById('login-password');
+      if (togglePwBtn && pwInput) {
+        togglePwBtn.addEventListener('click', () => {
+          const isPw = pwInput.type === 'password';
+          pwInput.type = isPw ? 'text' : 'password';
+          togglePwBtn.setAttribute('aria-pressed', isPw ? 'true' : 'false');
+          togglePwBtn.setAttribute('aria-label', isPw ? 'Hide password' : 'Show password');
+          togglePwBtn.innerHTML = isPw
+            ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>`
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        });
+      }
+
+      // Quick Demo ID auto-fill button
+      const quickFillBtn = document.getElementById('btn-quick-fill');
+      if (quickFillBtn) {
+        quickFillBtn.addEventListener('click', () => {
+          const uInput = document.getElementById('login-username');
+          const pInput = document.getElementById('login-password');
+          if (uInput) uInput.value = app.auth.credentials.username;
+          if (pInput) pInput.value = app.auth.credentials.password;
+          document.getElementById('login-error-banner')?.classList.remove('show');
+          document.getElementById('btn-login-submit')?.focus();
+        });
+      }
+
+      // Login Screen Theme Switcher
+      const loginThemeBtn = document.getElementById('login-theme-toggle');
+      if (loginThemeBtn) {
+        loginThemeBtn.addEventListener('click', () => {
+          const curTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+          const nextTheme = curTheme === 'dark' ? 'light' : 'dark';
+          app.ui.setTheme(nextTheme, true);
+        });
+      }
+
+      // Automatically hide error banner when user begins typing
+      const clearLoginErr = () => {
+        document.getElementById('login-error-banner')?.classList.remove('show');
+      };
+      document.getElementById('login-username')?.addEventListener('input', clearLoginErr);
+      document.getElementById('login-password')?.addEventListener('input', clearLoginErr);
 
       // Check Authentication State
       const isLoggedIn = app.auth.isLoggedIn();
