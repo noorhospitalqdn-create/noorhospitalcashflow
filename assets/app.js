@@ -5224,7 +5224,18 @@ const app = {
         const slipList = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance'));
         const combined = [];
         advList.forEach(e => combined.push({ date: e.date, type: 'cash', remarks: e.remarks || '-', dr: e.amount, cr: 0, sortDate: e.date }));
-        billList.forEach(b => combined.push({ date: b.date, type: 'bill', remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}`, dr: 0, cr: b.amount, sortDate: b.date }));
+        const totalBillAmt = billList.reduce((s, x) => s + x.amount, 0);
+        if (billList.length) {
+          combined.push({
+            date: billList[billList.length - 1].date,
+            type: 'bill',
+            remarks: `Total Muhasib Bills (${billList.length} bills)`,
+            dr: 0,
+            cr: totalBillAmt,
+            sortDate: billList[billList.length - 1].date,
+            badge: 'Muhasib Bills - Total'
+          });
+        }
         slipList.forEach(s => combined.push({ date: s.date, type: 'slip', remarks: `Temp Slip #${s.tokenNumber || '-'}: ${s.vendor || '-'}${s.remarks ? ' - ' + s.remarks : ''}`, dr: 0, cr: s.amount, sortDate: s.date }));
         combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
         let runningBal = app.state.openingAdvanceCash;
@@ -5237,10 +5248,12 @@ const app = {
           const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
           const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
           let badge = '';
-          if (row.type === 'cash') {
+          if (row.badge) {
+            badge = `<span class="source-tag" style="background:var(--error-light);color:var(--error);border:1px solid rgba(239,68,68,0.3);font-weight:700;">${row.badge}</span>`;
+          } else if (row.type === 'cash') {
             badge = '<span class="source-tag" style="background:var(--success-light);color:var(--success)">Cash Received</span>';
           } else if (row.type === 'bill') {
-            badge = '<span class="source-tag" style="background:var(--error-light);color:var(--error)">Bill Expense</span>';
+            badge = '<span class="source-tag" style="background:var(--error-light);color:var(--error)">Muhasib Bills - Total</span>';
           } else if (row.type === 'slip') {
             badge = '<span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.3)">Muhasib Temp Slip</span>';
           }
@@ -5656,7 +5669,8 @@ const app = {
         let bal = app.state.openingAdvanceCash;
         const comb = [];
         app.state.advanceCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:e.remarks||'-', vType:'Cash Received', dr:e.amount, cr:0}));
-        app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}`, vType:'Advance Bill', dr:0, cr:b.amount}));
+        const _advBills = app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date));
+        if(_advBills.length) comb.push({date:_advBills[_advBills.length-1].date, particulars:`Total Muhasib Bills (${_advBills.length} bills)`, vType:'Muhasib Bills - Total', dr:0, cr:_advBills.reduce((s,x)=>s+x.amount,0)});
         app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance' && inRange(s.date)).forEach(s=>comb.push({date:s.date, particulars:`Temp Slip #${s.tokenNumber||'-'}: ${s.vendor||'-'}${s.remarks ? ' - ' + s.remarks : ''}`, vType:'Muhasib Temp Slip', dr:0, cr:s.amount}));
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
