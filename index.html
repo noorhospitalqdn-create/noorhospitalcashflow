@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260907_01">
+  <link rel="stylesheet" href="assets/app.css?v=20260908_02">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260907_01" defer></script>
+  <script src="assets/app.js?v=20260908_02" defer></script>
 </head>
 <body>
 
@@ -220,6 +220,13 @@
         <button class="nav-item" data-panel="reports">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
           <span>Reports Centre</span>
+        </button>
+
+        <div class="nav-section-title">Master Directory</div>
+        <button class="nav-item" data-panel="vendors">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Vendor Directory</span>
+          <span class="badge" id="nav-vendors-badge">0</span>
         </button>
 
         <div class="nav-section-title">Administration</div>
@@ -834,7 +841,6 @@
                   <th>Token No</th>
                   <th>Vendor / Person</th>
                   <th>Amount</th>
-                  <th>Expense Type</th>
                   <th>Status</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
@@ -887,7 +893,6 @@
                   <th>Token No</th>
                   <th>Vendor / Person</th>
                   <th>Amount</th>
-                  <th>Expense Type</th>
                   <th>Status</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
@@ -992,7 +997,6 @@
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Amount</th>
-                  <th>Category</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 80px;">Action</th>
@@ -1043,7 +1047,6 @@
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Amount</th>
-                  <th>Category</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 80px;">Action</th>
@@ -1226,9 +1229,17 @@
                     <option value="muhasib_bills">Muhasib Bill Report</option>
                     <option value="hospital_bills">Hospital Bill Report</option>
                     <option value="bills">All Bills Report</option>
+                    <option value="vendor">Vendor Comprehensive Report</option>
                     <option value="accounts_register">Accounts Register Report</option>
                     <option value="transfers">Transfer Report</option>
                     <option value="balance_sheet">Balance Sheet Report</option>
+                  </select>
+                </div>
+
+                <div class="form-group" id="report-vendor-group" style="display: none;">
+                  <label class="form-label" for="report-vendor-select">Select Vendor</label>
+                  <select id="report-vendor-select" class="form-select">
+                    <option value="">-- All Registered Vendors --</option>
                   </select>
                 </div>
                 
@@ -1284,7 +1295,60 @@
         </section>
 
 
-        <!-- 9. BACKUP & SETTINGS PANEL -->
+        <!-- 9. VENDORS DIRECTORY PANEL -->
+        <section class="panel" id="panel-vendors">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search vendors by name, phone, or remarks..." class="search-input" id="search-vendors" oninput="app.vendors.renderVendorsTable()">
+            </div>
+            <button type="button" class="btn btn-primary" onclick="app.vendors.openAddVendorModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add New Vendor</span>
+            </button>
+          </div>
+
+          <!-- Filter & Aggregate Bar -->
+          <div class="ledger-filter-bar" style="border-left:3px solid var(--primary); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem;">
+            <div class="ledger-filter-group" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <select id="sort-vendors" class="form-select form-input-sm" style="max-width:170px;" onchange="app.vendors.renderVendorsTable()">
+                <option value="name_asc">Name: A → Z</option>
+                <option value="name_desc">Name: Z → A</option>
+                <option value="spend_desc">Spend: High → Low</option>
+                <option value="bills_desc">Most Bills</option>
+              </select>
+              <span class="ledger-total-badge" id="kpi-total-vendors-badge">Total: 0 Vendors</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.75rem; margin-left:auto;">
+              <span id="kpi-vendors-summary-pill" style="font-size:0.82rem;font-weight:600;color:var(--text-muted);">
+                Total Spend: <strong class="text-success font-mono" id="kpi-vendors-total-spend-text" style="font-size:0.9rem;">₹0.00</strong>
+              </span>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="app.vendors.resetFilters()">Clear</button>
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="card overflow-x" style="border-left:3px solid var(--primary);">
+            <table class="data-table" id="table-vendors">
+              <thead>
+                <tr>
+                  <th style="width: 44px;" class="text-center">#</th>
+                  <th>Vendor / Party Name</th>
+                  <th>Contact Phone</th>
+                  <th class="text-right">Total Bills</th>
+                  <th class="text-right">Active Slips</th>
+                  <th class="text-right">Total Spend (₹)</th>
+                  <th class="text-center" style="width: 140px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="list-vendors">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+
+        <!-- 10. BACKUP & SETTINGS PANEL -->
         <section class="panel" id="panel-settings">
           <div class="settings-grid">
             <div class="card">
@@ -1548,6 +1612,17 @@ CREATE TABLE IF NOT EXISTS transfers (
   device_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS vendors (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  category TEXT DEFAULT 'General',
+  phone TEXT,
+  remarks TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
 -- Enable Row Level Security (optional but recommended)
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE advance_cash ENABLE ROW LEVEL SECURITY;
@@ -1556,12 +1631,14 @@ ALTER TABLE temporary_slips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transfers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hospital_deposits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations (for service_role key usage)
 CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON advance_cash FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON hospital_cash FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON temporary_slips FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON vendors FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON bills FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON transfers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (true);</code></pre>
@@ -1827,8 +1904,13 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         <!-- 2. Vendor / Person Name & Date (2-column layout) -->
         <div class="grid-2">
           <div class="form-group">
-            <label class="form-label" for="slip-vendor">Vendor / Person Name</label>
-            <input type="text" id="slip-vendor" class="form-input" placeholder="e.g. John Doe, Vendor Agency" required autocomplete="off">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+              <label class="form-label" for="slip-vendor" style="margin-bottom:0;">Vendor / Person <span class="text-error">*</span></label>
+              <button type="button" class="btn-vendor-quick-add" onclick="app.vendors.openAddVendorModal('', 'slip')">+ New Vendor</button>
+            </div>
+            <select id="slip-vendor" class="form-select" required>
+              <option value="">-- Select Registered Vendor --</option>
+            </select>
           </div>
           <div class="form-group">
             <label class="form-label" for="slip-date">Date</label>
@@ -1954,17 +2036,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
           <label class="form-label" for="convert-bill-amount">Final Bill Amount (₹)</label>
           <input type="number" step="0.01" min="0.01" id="convert-bill-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="convert-bill-category">Expense Category</label>
-          <select id="convert-bill-category" class="form-select" required>
-            <option value="Medicine">Medicine</option>
-            <option value="Transport">Transport</option>
-            <option value="Repair & Maintenance">Repair & Maintenance</option>
-            <option value="Stationery">Stationery</option>
-            <option value="Utilities">Utilities</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
+        <input type="hidden" id="convert-bill-category" value="General">
         <div class="form-group">
           <label class="form-label" for="convert-bill-remarks">Remarks</label>
           <textarea id="convert-bill-remarks" class="form-textarea" placeholder="Final bill adjustments..." rows="2"></textarea>
@@ -2051,14 +2123,15 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
           </div>
         </div>
 
-        <!-- 2. Vendor with autocomplete & Recents -->
+        <!-- 2. Vendor selection with quick add & Recents -->
         <div class="form-group" style="margin-bottom:.75rem">
-          <div class="form-label-row">
-            <label class="form-label" for="bill-vendor">Vendor Name</label>
-            <span class="text-xs text-muted">Suggestions enabled</span>
+          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label" for="bill-vendor" style="margin-bottom:0;">Vendor Name <span class="text-error">*</span></label>
+            <button type="button" class="btn-vendor-quick-add" onclick="app.vendors.openAddVendorModal('', 'bill')">+ New Vendor</button>
           </div>
-          <input type="text" id="bill-vendor" class="form-input" placeholder="Start typing vendor name..." required autocomplete="off" list="bill-vendor-list">
-          <datalist id="bill-vendor-list"></datalist>
+          <select id="bill-vendor" class="form-select" required>
+            <option value="">-- Select Registered Vendor --</option>
+          </select>
           <div class="recent-vendors" id="recent-vendors"></div>
         </div>
 
@@ -2081,47 +2154,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
           </select>
         </div>
 
-        <!-- 4. Category Grid (Tactile Chips) -->
-        <div class="form-group" style="margin-bottom:.75rem">
-          <div class="form-label-row">
-            <label class="form-label">Expense Category</label>
-            <span class="text-xs text-muted" id="bill-cat-current">Selected: Medicine</span>
-          </div>
-          <div class="cat-chips" id="bill-cat-chips">
-            <button type="button" class="cat-chip active" data-cat="Medicine">
-              <span class="cat-icon">💊</span>
-              <span>Medicine</span>
-            </button>
-            <button type="button" class="cat-chip" data-cat="Transport">
-              <span class="cat-icon">🚗</span>
-              <span>Transport</span>
-            </button>
-            <button type="button" class="cat-chip" data-cat="Repair & Maintenance">
-              <span class="cat-icon">🔧</span>
-              <span>Repair</span>
-            </button>
-            <button type="button" class="cat-chip" data-cat="Stationery">
-              <span class="cat-icon">📄</span>
-              <span>Stationery</span>
-            </button>
-            <button type="button" class="cat-chip" data-cat="Utilities">
-              <span class="cat-icon">⚡</span>
-              <span>Utilities</span>
-            </button>
-            <button type="button" class="cat-chip" data-cat="Other">
-              <span class="cat-icon">📦</span>
-              <span>Other</span>
-            </button>
-          </div>
-          <select id="bill-category" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
-            <option value="Medicine">Medicine</option>
-            <option value="Transport">Transport</option>
-            <option value="Repair & Maintenance">Repair & Maintenance</option>
-            <option value="Stationery">Stationery</option>
-            <option value="Utilities">Utilities</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
+        <input type="hidden" id="bill-category" value="General">
 
         <!-- 5. Bill no + Date (2-column layout) -->
         <div class="grid-2">
@@ -2308,6 +2341,41 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-transfer-add')">Cancel</button>
         <button type="submit" class="btn btn-primary">Save Transfer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Add/Edit Vendor -->
+  <dialog id="dialog-vendor-add" closedby="any" class="modal-dialog modal-dialog-sm">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="dialog-vendor-title">Add New Vendor</h3>
+        <p class="modal-subtitle">Register vendor in master list for bills and temporary slips</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-vendor-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-vendor-add">
+      <input type="hidden" id="edit-vendor-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="vendor-name">Vendor / Supplier Name <span class="text-error">*</span></label>
+          <input type="text" id="vendor-name" class="form-input" placeholder="e.g. Apex Surgicals, Al-Shifa Pharmacy" required autocomplete="off">
+        </div>
+        <input type="hidden" id="vendor-category-input" value="General">
+        <div class="form-group">
+          <label class="form-label" for="vendor-phone">Phone / Contact (Optional)</label>
+          <input type="text" id="vendor-phone" class="form-input" placeholder="e.g. +91 98765 43210" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="vendor-remarks">Remarks / Notes (Optional)</label>
+          <textarea id="vendor-remarks" class="form-textarea" placeholder="Payment terms, GST, contact person, address..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-vendor-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-vendor">Save Vendor</button>
       </div>
     </form>
   </dialog>
@@ -2521,25 +2589,6 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
       return;
     }
 
-    // Category Suggestion Chips (Medicine, Transport, Repair, etc.)
-    var catChip = e.target.closest("#bill-cat-chips button, #bill-cat-chips .cat-chip");
-    if (catChip) {
-      e.preventDefault();
-      var catSelect = $("bill-category");
-      if (catSelect && catChip.dataset.cat) {
-        catSelect.value = catChip.dataset.cat;
-        catSelect.dispatchEvent(new Event("change", { bubbles: true }));
-        document.querySelectorAll("#bill-cat-chips button, #bill-cat-chips .cat-chip").forEach(function(b) {
-          b.classList.toggle("active", b.dataset.cat === catSelect.value);
-        });
-        var curLbl = $("bill-cat-current");
-        if (curLbl) curLbl.textContent = "Selected: " + catSelect.value;
-        try { localStorage.setItem("nh_last_bill_cat", catSelect.value); } catch(err) {}
-        var amtInput = $("bill-amount");
-        if (amtInput) amtInput.focus();
-      }
-      return;
-    }
 
     // Segmented Buttons (slip-seg, bill-seg)
     var segBtn = e.target.closest(".seg-control .seg-btn");
@@ -2621,21 +2670,29 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     document.querySelectorAll("#bill-seg .seg-btn").forEach(function(b){b.addEventListener("click",function(){if(sel){sel.value=b.dataset.val;sel.dispatchEvent(new Event("change"));paintSeg();try{localStorage.setItem("nh_last_bill_type",sel.value);}catch(e){}}});});
     if(sel){sel.addEventListener("change",paintSeg);paintSeg();}
     function paintCat(){
-      if(!cat) return;
-      document.querySelectorAll("#bill-cat-chips button, #bill-cat-chips .cat-chip").forEach(function(b){b.classList.toggle("active",b.dataset.cat===cat.value);});
-      var curLbl = $("bill-cat-current");
-      if(curLbl) curLbl.textContent = "Selected: " + (cat.value || "None");
+      // Category removed from UI
     }
-    if(cat){cat.addEventListener("change",paintCat);paintCat();}
     function refreshVendors(){
       try{
         var appObj = window.app || (typeof app !== "undefined" ? app : null);
+        if(appObj && appObj.vendors && appObj.vendors.populateVendorDropdowns){
+          appObj.vendors.populateVendorDropdowns();
+        }
         var bills=(appObj&&appObj.state&&appObj.state.bills)||[];
         var seen={},order=[];
         bills.slice().reverse().forEach(function(b){var v=(b.vendor||"").trim();if(v&&!seen[v]){seen[v]=1;order.push(v);}});
-        var dl=$("bill-vendor-list");if(dl){dl.innerHTML=order.slice(0,30).map(function(v){return '<option value="'+v.replace(/"/g,"&quot;")+'">';}).join("");}
-        var rv=$("recent-vendors");if(rv){rv.innerHTML=order.slice(0,4).map(function(v){return '<button type="button">'+v.replace(/</g,"&lt;")+'</button>';}).join("");
-          Array.prototype.forEach.call(rv.querySelectorAll("button"),function(btn,idx){btn.addEventListener("click",function(){if(vendor)vendor.value=order[idx];if(amt)amt.focus();});});}
+        var rv=$("recent-vendors");if(rv){
+          rv.innerHTML=order.slice(0,4).map(function(v){return '<button type="button">'+v.replace(/</g,"&lt;")+'</button>';}).join("");
+          Array.prototype.forEach.call(rv.querySelectorAll("button"),function(btn,idx){
+            btn.addEventListener("click",function(){
+              if(vendor){
+                vendor.value=order[idx];
+                vendor.dispatchEvent(new Event("change", { bubbles: true }));
+              }
+              if(amt)amt.focus();
+            });
+          });
+        }
       }catch(e){}
     }
     function nextBillNo(){

@@ -8,8 +8,8 @@ const app = {
   // Database Configuration
   dbConfig: {
     name: 'NoorHospitalCashDB',
-    version: 6,
-    stores: ['settings', 'advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'sync_queue', 'hospital_deposits', 'accounts_register']
+    version: 7,
+    stores: ['settings', 'advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'sync_queue', 'hospital_deposits', 'accounts_register', 'vendors']
   },
 
   // Chart.js instances tracking
@@ -32,6 +32,7 @@ const app = {
     transfers: [],
     hospitalDeposits: [],
     accountsRegister: [],
+    vendors: [],
     
     // Calculated aggregates
     advanceCashAvailable: 0,
@@ -611,7 +612,7 @@ const app = {
         localStorage.removeItem('noor_database_reset_pending');
       }
       
-      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register'];
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors'];
       
       for (const table of tables) {
         try {
@@ -658,6 +659,10 @@ const app = {
           }
         } catch (err) {
           console.error(`Failed to pull table ${table}:`, err);
+          if (table === 'vendors') {
+            console.warn('Supabase vendors table not configured yet or inaccessible. Preserving local vendors.');
+            continue;
+          }
           throw err;
         }
       }
@@ -678,7 +683,7 @@ const app = {
      * Delete all rows from every Supabase data table (used by Reset Database).
      */
     async wipeRemoteTables() {
-      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register'];
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors'];
       for (const table of tables) {
         try {
           // Delete all rows by using a filter that matches every row (id > 0)
@@ -747,6 +752,9 @@ const app = {
           }
           if (!db.objectStoreNames.contains('accounts_register')) {
             db.createObjectStore('accounts_register', { keyPath: 'id', autoIncrement: true });
+          }
+          if (!db.objectStoreNames.contains('vendors')) {
+            db.createObjectStore('vendors', { keyPath: 'id', autoIncrement: true });
           }
         };
       });
@@ -1243,6 +1251,51 @@ const app = {
           const isAdv = String(slip.expenseType || '').toLowerCase().trim() === 'advance';
           slip.tokenNumber = app.generateToken(isAdv ? 'advance_slip' : 'hospital_slip');
           try { await app.db.put('temporary_slips', slip.id, slip); } catch (_) {}
+        }
+      }
+
+      // 2b. Fetch Vendors & Auto-Migrate from historical bills / slips
+      try {
+        app.state.vendors = await app.db.getAll('vendors') || [];
+      } catch (err) {
+        console.warn('Could not read vendors from DB, initializing empty:', err);
+        app.state.vendors = [];
+      }
+
+      const existingVendorMap = new Map();
+      (app.state.vendors || []).forEach(v => {
+        if (v && v.name) existingVendorMap.set(v.name.trim().toLowerCase(), v);
+      });
+
+      const discoveredVendors = new Set();
+      (app.state.bills || []).forEach(b => {
+        const v = (b.vendor || '').trim();
+        if (v) discoveredVendors.add(v);
+      });
+      (app.state.temporarySlips || []).forEach(s => {
+        const v = (s.vendor || '').trim();
+        if (v) discoveredVendors.add(v);
+      });
+
+      for (const vName of discoveredVendors) {
+        const norm = vName.toLowerCase();
+        if (!existingVendorMap.has(norm)) {
+          const newVendor = {
+            name: vName,
+            phone: '',
+            category: 'General',
+            remarks: 'Auto-migrated from existing transaction records',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          try {
+            const id = await app.db.add('vendors', newVendor);
+            newVendor.id = id;
+            app.state.vendors.push(newVendor);
+            existingVendorMap.set(norm, newVendor);
+          } catch (vErr) {
+            console.warn('Error auto-migrating vendor:', vName, vErr);
+          }
         }
       }
 
@@ -1774,11 +1827,22 @@ const app = {
             }
           }
 
+          const selectedVendor = (document.getElementById('slip-vendor')?.value || '').trim();
+          if (!selectedVendor) {
+            app.ui.showToast('Please select a vendor from the registered Vendor List.', 'warning');
+            return;
+          }
+          const vendorExists = (app.state.vendors || []).some(v => v.name && v.name.trim().toLowerCase() === selectedVendor.toLowerCase());
+          if (!vendorExists) {
+            app.ui.showToast(`Vendor "${selectedVendor}" is not in the Vendor List. Please create the vendor first.`, 'error');
+            return;
+          }
+
           const slipExp = document.getElementById('slip-exp-type').value;
           const slipTokenType = slipExp === 'hospital' ? 'hospital_slip' : 'advance_slip';
           const slip = {
             date: document.getElementById('slip-date').value,
-            vendor: document.getElementById('slip-vendor').value,
+            vendor: selectedVendor,
             amount: parseFloat(document.getElementById('slip-amount').value),
             expenseType: slipExp,
             remarks: document.getElementById('slip-remarks').value,
@@ -1949,11 +2013,22 @@ const app = {
             }
           }
 
+          const selectedVendor = (document.getElementById('bill-vendor')?.value || '').trim();
+          if (!selectedVendor) {
+            app.ui.showToast('Please select a vendor from the registered Vendor List.', 'warning');
+            return;
+          }
+          const vendorExists = (app.state.vendors || []).some(v => v.name && v.name.trim().toLowerCase() === selectedVendor.toLowerCase());
+          if (!vendorExists) {
+            app.ui.showToast(`Vendor "${selectedVendor}" is not in the Vendor List. Please create the vendor first.`, 'error');
+            return;
+          }
+
           const expenseType = document.getElementById('bill-exp-type').value;
           const bill = {
             date: document.getElementById('bill-date').value,
             billNumber: document.getElementById('bill-number').value,
-            vendor: document.getElementById('bill-vendor').value,
+            vendor: selectedVendor,
             amount: parseFloat(document.getElementById('bill-amount').value),
             expenseType: expenseType,
             category: document.getElementById('bill-category').value,
@@ -2121,10 +2196,34 @@ const app = {
         }
       });
 
+      // Form: Add/Edit Vendor
+      const formVendorAdd = document.getElementById('form-vendor-add');
+      if (formVendorAdd) {
+        formVendorAdd.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const vendorData = {
+            id: document.getElementById('edit-vendor-id')?.value,
+            name: document.getElementById('vendor-name')?.value,
+            category: document.getElementById('vendor-category-input')?.value,
+            phone: document.getElementById('vendor-phone')?.value,
+            remarks: document.getElementById('vendor-remarks')?.value
+          };
+          await app.vendors.saveVendor(vendorData);
+        });
+      }
+
       // Register report type change
       document.getElementById('report-select-type').addEventListener('change', () => {
+        const vGrp = document.getElementById('report-vendor-group');
+        if (vGrp) {
+          vGrp.style.display = document.getElementById('report-select-type').value === 'vendor' ? 'block' : 'none';
+        }
         app.reports.renderReportView();
       });
+      const reportVendorSelEl = document.getElementById('report-vendor-select');
+      if (reportVendorSelEl) {
+        reportVendorSelEl.addEventListener('change', () => app.reports.renderReportView());
+      }
       document.getElementById('report-date-start').addEventListener('input', () => app.reports.renderReportView());
       document.getElementById('report-date-end').addEventListener('input', () => app.reports.renderReportView());
 
@@ -2384,10 +2483,12 @@ const app = {
     },
 
     openBillModal(type){
+      const targetType = type || 'advance';
       const sel=document.getElementById('bill-exp-type');
-      if(sel && type) sel.value=type;
+      if(sel) sel.value=targetType;
+      app.ui.openModal('dialog-bill-add', targetType);
       if(sel) sel.dispatchEvent(new Event('change'));
-      app.ui.openModal('dialog-bill-add');
+      if (window.syncBillSegUI) window.syncBillSegUI(targetType);
     },
     openModal(dialogId) {
       const dialog = document.getElementById(dialogId);
@@ -2495,15 +2596,22 @@ const app = {
           if (slipTokenEl) slipTokenEl.value = '';
           const slipBadge = document.getElementById('slip-token-badge');
           if (slipBadge) slipBadge.innerText = 'AUTO';
+          if (app.vendors) app.vendors.populateVendorDropdowns();
+          const slipVendorEl = document.getElementById('slip-vendor');
+          if (slipVendorEl) slipVendorEl.value = '';
         } else if (dialogId === 'dialog-bill-add') {
           document.getElementById('edit-bill-id').value = '';
           document.getElementById('dialog-bill-title').innerText = 'Add Direct Bill';
           app.attachments.clearStagedFile('bill');
-          if (window.syncBillSegUI) window.syncBillSegUI('advance');
+          const passedType = (arguments.length > 1 && arguments[1]) ? arguments[1] : (document.getElementById('bill-exp-type')?.value || 'advance');
+          if (window.syncBillSegUI) window.syncBillSegUI(passedType);
           const billTokenEl = document.getElementById('bill-token');
           if (billTokenEl) billTokenEl.value = '';
           const billBadge = document.getElementById('bill-token-badge');
           if (billBadge) billBadge.innerText = 'AUTO';
+          if (app.vendors) app.vendors.populateVendorDropdowns();
+          const billVendorEl = document.getElementById('bill-vendor');
+          if (billVendorEl) billVendorEl.value = '';
         } else if (dialogId === 'dialog-transfer-add') {
           document.getElementById('edit-transfer-id').value = '';
           document.getElementById('dialog-transfer-title').innerText = 'Record Verification Transfer';
@@ -2561,7 +2669,9 @@ const app = {
           document.getElementById('edit-slip-id').value = id;
           document.getElementById('dialog-slip-title').innerText = record.expenseType === 'advance' ? 'Edit Muhasib Temp Slip' : 'Edit Hospital Temp Slip';
           document.getElementById('slip-date').value = record.date;
-          document.getElementById('slip-vendor').value = record.vendor;
+          if (app.vendors) app.vendors.populateVendorDropdowns(record.vendor);
+          const sVendor = document.getElementById('slip-vendor');
+          if (sVendor) sVendor.value = record.vendor || '';
           document.getElementById('slip-amount').value = record.amount;
           document.getElementById('slip-exp-type').value = record.expenseType;
           if (window.syncSlipSegUI) window.syncSlipSegUI(record.expenseType);
@@ -2579,7 +2689,9 @@ const app = {
           document.getElementById('dialog-bill-title').innerText = 'Edit Direct Bill';
           document.getElementById('bill-date').value = record.date;
           document.getElementById('bill-number').value = record.billNumber;
-          document.getElementById('bill-vendor').value = record.vendor;
+          if (app.vendors) app.vendors.populateVendorDropdowns(record.vendor);
+          const bVendor = document.getElementById('bill-vendor');
+          if (bVendor) bVendor.value = record.vendor || '';
           document.getElementById('bill-amount').value = record.amount;
           document.getElementById('bill-exp-type').value = record.expenseType;
           if (window.syncBillSegUI) window.syncBillSegUI(record.expenseType);
@@ -3024,6 +3136,11 @@ const app = {
       app.ui.renderAccountsTable();
       app.ui.renderTransfersTable();
 
+      if (app.vendors) {
+        app.vendors.populateVendorDropdowns();
+        app.vendors.renderVendorsTable();
+      }
+
       // 3. Render Balance Sheet Panel
       app.ui.renderBalanceSheet();
 
@@ -3155,12 +3272,11 @@ const app = {
       const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
-        const typeLabel = 'Hospital Cash';
         
         let actionBtn = '';
         if (slip.status === 'pending') {
@@ -3204,7 +3320,6 @@ const app = {
             <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
-            <td><span class="source-tag">${typeLabel}</span></td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
             <td>${attachmentHtml}</td>
             <td>${slip.remarks || '-'}</td>
@@ -3224,12 +3339,11 @@ const app = {
       const totEl=document.getElementById('total-advance-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-slips']||{}; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
-        const typeLabel = 'Muhasib Cash';
         
         let actionBtn = '';
         if (slip.status === 'pending') {
@@ -3273,7 +3387,6 @@ const app = {
             <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
-            <td><span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary);">${typeLabel}</span></td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
             <td>${attachmentHtml}</td>
             <td>${slip.remarks || '-'}</td>
@@ -3297,7 +3410,7 @@ const app = {
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -3309,7 +3422,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       }).join('');
     },
     async convertBill(id){
@@ -3343,7 +3456,7 @@ const app = {
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -3355,7 +3468,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}</td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td><span class="source-tag">${bill.category}</span><span class="text-muted text-xs block" style="display:block;font-size:0.7rem;">${note}</span></td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       }).join('');
     },
 
@@ -3869,6 +3982,344 @@ const app = {
   },
 
   // ==========================================
+  // VENDOR DIRECTORY & MANAGEMENT
+  // ==========================================
+  vendors: {
+    _returnContext: null,
+
+    openAddVendorModal(initialName = '', returnContext = null) {
+      app.vendors._returnContext = returnContext;
+      const form = document.getElementById('form-vendor-add');
+      if (form) form.reset();
+      const editId = document.getElementById('edit-vendor-id');
+      if (editId) editId.value = '';
+      const title = document.getElementById('dialog-vendor-title');
+      if (title) title.innerText = 'Add New Vendor';
+      const btn = document.getElementById('btn-save-vendor');
+      if (btn) btn.innerText = 'Save Vendor';
+      const nameInput = document.getElementById('vendor-name');
+      if (nameInput) nameInput.value = initialName || '';
+      app.ui.openModal('dialog-vendor-add');
+      setTimeout(() => {
+        if (nameInput) nameInput.focus();
+      }, 120);
+    },
+
+    async initiateEdit(id) {
+      const vendor = (app.state.vendors || []).find(v => v.id === id);
+      if (!vendor) {
+        app.ui.showToast('Vendor not found.', 'error');
+        return;
+      }
+      app.vendors._returnContext = null;
+      document.getElementById('edit-vendor-id').value = vendor.id;
+      document.getElementById('dialog-vendor-title').innerText = 'Edit Vendor Details';
+      const btn = document.getElementById('btn-save-vendor');
+      if (btn) btn.innerText = 'Update Vendor';
+      document.getElementById('vendor-name').value = vendor.name || '';
+      document.getElementById('vendor-category-input').value = vendor.category || 'General';
+      document.getElementById('vendor-phone').value = vendor.phone || '';
+      document.getElementById('vendor-remarks').value = vendor.remarks || '';
+      app.ui.openModal('dialog-vendor-add');
+    },
+
+    async saveVendor(formData) {
+      const name = (formData.name || '').trim();
+      if (!name) {
+        app.ui.showToast('Vendor name is required.', 'warning');
+        return false;
+      }
+      const editId = formData.id ? parseInt(formData.id, 10) : null;
+
+      // Case-insensitive duplicate check
+      const duplicate = (app.state.vendors || []).find(v => 
+        v.name && v.name.trim().toLowerCase() === name.toLowerCase() && v.id !== editId
+      );
+      if (duplicate) {
+        app.ui.showToast(`A vendor named "${name}" is already registered!`, 'error');
+        return false;
+      }
+
+      if (editId) {
+        const existing = (app.state.vendors || []).find(v => v.id === editId);
+        const oldName = existing ? (existing.name || '').trim() : '';
+        const updated = {
+          ...existing,
+          name: name,
+          category: formData.category || 'General',
+          phone: formData.phone || '',
+          remarks: formData.remarks || '',
+          updated_at: new Date().toISOString()
+        };
+        await app.db.put('vendors', editId, updated);
+        const idx = app.state.vendors.findIndex(v => v.id === editId);
+        if (idx !== -1) app.state.vendors[idx] = updated;
+
+        // Cascade rename to past bills and slips if name changed
+        if (oldName && oldName.toLowerCase() !== name.toLowerCase()) {
+          for (const b of (app.state.bills || [])) {
+            if ((b.vendor || '').trim().toLowerCase() === oldName.toLowerCase()) {
+              b.vendor = name;
+              try { await app.db.put('bills', b.id, b); } catch (_) {}
+            }
+          }
+          for (const s of (app.state.temporarySlips || [])) {
+            if ((s.vendor || '').trim().toLowerCase() === oldName.toLowerCase()) {
+              s.vendor = name;
+              try { await app.db.put('temporary_slips', s.id, s); } catch (_) {}
+            }
+          }
+        }
+        app.ui.showToast(`Vendor "${name}" updated successfully!`, 'success');
+      } else {
+        const newVendor = {
+          name: name,
+          category: formData.category || 'General',
+          phone: formData.phone || '',
+          remarks: formData.remarks || '',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const newId = await app.db.add('vendors', newVendor);
+        newVendor.id = newId;
+        app.state.vendors.push(newVendor);
+        app.ui.showToast(`Vendor "${name}" registered successfully!`, 'success');
+      }
+
+      app.ui.closeModal('dialog-vendor-add');
+      app.vendors.populateVendorDropdowns(name);
+      app.vendors.renderVendorsTable();
+
+      if (app.vendors._returnContext === 'bill') {
+        const billVendorSel = document.getElementById('bill-vendor');
+        if (billVendorSel) {
+          billVendorSel.value = name;
+          billVendorSel.dispatchEvent(new Event('change'));
+        }
+      } else if (app.vendors._returnContext === 'slip') {
+        const slipVendorSel = document.getElementById('slip-vendor');
+        if (slipVendorSel) {
+          slipVendorSel.value = name;
+          slipVendorSel.dispatchEvent(new Event('change'));
+        }
+      }
+      app.vendors._returnContext = null;
+
+      const badge = document.getElementById('nav-vendors-badge');
+      if (badge) badge.textContent = app.state.vendors.length;
+
+      return true;
+    },
+
+    async deleteVendor(id) {
+      const vendor = (app.state.vendors || []).find(v => v.id === id);
+      if (!vendor) return;
+
+      const vName = (vendor.name || '').trim().toLowerCase();
+      const linkedBills = (app.state.bills || []).filter(b => (b.vendor || '').trim().toLowerCase() === vName);
+      const linkedSlips = (app.state.temporarySlips || []).filter(s => (s.vendor || '').trim().toLowerCase() === vName);
+      const totalCount = linkedBills.length + linkedSlips.length;
+
+      let msg = `Are you sure you want to delete vendor "${vendor.name}"?`;
+      if (totalCount > 0) {
+        msg += `\n\nNotice: This vendor has ${totalCount} recorded transaction(s) (${linkedBills.length} bills, ${linkedSlips.length} slips). Existing transactions will retain this vendor name, but creating future entries will require registering the vendor again.`;
+      }
+
+      if (!confirm(msg)) return;
+
+      try {
+        await app.db.delete('vendors', id);
+        app.state.vendors = (app.state.vendors || []).filter(v => v.id !== id);
+        app.vendors.populateVendorDropdowns();
+        app.vendors.renderVendorsTable();
+        const badge = document.getElementById('nav-vendors-badge');
+        if (badge) badge.textContent = app.state.vendors.length;
+        app.ui.showToast(`Vendor "${vendor.name}" deleted.`, 'info');
+      } catch (err) {
+        console.error(err);
+        app.ui.showToast('Failed to delete vendor.', 'error');
+      }
+    },
+
+    populateVendorDropdowns(selectedVendor = '') {
+      const sorted = [...(app.state.vendors || [])].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+
+      // 1. Bill Vendor Select
+      const billSel = document.getElementById('bill-vendor');
+      if (billSel) {
+        const currVal = selectedVendor || billSel.value;
+        billSel.innerHTML = '<option value="">-- Select Registered Vendor --</option>' + 
+          sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}</option>`).join('');
+        if (currVal) billSel.value = currVal;
+      }
+
+      // 2. Slip Vendor Select
+      const slipSel = document.getElementById('slip-vendor');
+      if (slipSel) {
+        const currVal = selectedVendor || slipSel.value;
+        slipSel.innerHTML = '<option value="">-- Select Registered Vendor --</option>' + 
+          sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}</option>`).join('');
+        if (currVal) slipSel.value = currVal;
+      }
+
+      // 3. Report Vendor Select
+      const reportSel = document.getElementById('report-vendor-select');
+      if (reportSel) {
+        const currVal = reportSel.value;
+        reportSel.innerHTML = '<option value="">-- All Registered Vendors --</option>' + 
+          sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}</option>`).join('');
+        if (currVal) reportSel.value = currVal;
+      }
+
+      // 4. Update sidebar badge
+      const badge = document.getElementById('nav-vendors-badge');
+      if (badge) badge.textContent = sorted.length;
+    },
+
+    renderVendorsTable() {
+      const tbody = document.getElementById('list-vendors');
+      if (!tbody) return;
+
+      const q = (document.getElementById('search-vendors')?.value || '').trim().toLowerCase();
+      const sortVal = document.getElementById('sort-vendors')?.value || 'name_asc';
+
+      let list = [...(app.state.vendors || [])];
+
+      // Calculate aggregates for each vendor
+      const vendorStats = new Map();
+      let totalHospVol = 0;
+      let totalMuhasibVol = 0;
+      let totalSpendAll = 0;
+
+      list.forEach(v => {
+        const norm = (v.name || '').trim().toLowerCase();
+        const hospBills = (app.state.bills || []).filter(b => b.expenseType === 'hospital' && (b.vendor || '').trim().toLowerCase() === norm);
+        const muBills = (app.state.bills || []).filter(b => b.expenseType === 'advance' && (b.vendor || '').trim().toLowerCase() === norm);
+        const slips = app.getActiveTemporarySlips().filter(s => (s.vendor || '').trim().toLowerCase() === norm);
+
+        const hospAmt = hospBills.reduce((s, x) => s + (x.amount || 0), 0);
+        const muAmt = muBills.reduce((s, x) => s + (x.amount || 0), 0);
+        const slipAmt = slips.reduce((s, x) => s + (x.amount || 0), 0);
+        const totalBillsCount = hospBills.length + muBills.length;
+        const totalBillsAmt = hospAmt + muAmt;
+        const totalSpend = totalBillsAmt + slipAmt;
+
+        vendorStats.set(v.id, {
+          hospBillsCount: hospBills.length,
+          hospAmt,
+          muBillsCount: muBills.length,
+          muAmt,
+          slipsCount: slips.length,
+          slipAmt,
+          totalBillsCount,
+          totalBillsAmt,
+          totalSpend
+        });
+
+        totalHospVol += hospAmt;
+        totalMuhasibVol += muAmt;
+        totalSpendAll += totalSpend;
+      });
+
+      // Update Header Summary Elements
+      const kpiBadge = document.getElementById('kpi-total-vendors-badge');
+      if (kpiBadge) kpiBadge.textContent = `Total: ${list.length} Vendors`;
+      const kpiTotalSpend = document.getElementById('kpi-vendors-total-spend-text');
+      if (kpiTotalSpend) kpiTotalSpend.textContent = app.ui.formatCurrency(totalSpendAll);
+
+      // Filtering (Search query on name, phone, remarks)
+      if (q) {
+        list = list.filter(v => 
+          (v.name || '').toLowerCase().includes(q) ||
+          (v.phone || '').toLowerCase().includes(q) ||
+          (v.remarks || '').toLowerCase().includes(q)
+        );
+      }
+
+      // Sorting
+      list.sort((a,b) => {
+        const statsA = vendorStats.get(a.id) || { totalSpend: 0, totalBillsCount: 0 };
+        const statsB = vendorStats.get(b.id) || { totalSpend: 0, totalBillsCount: 0 };
+        if (sortVal === 'name_asc') return (a.name || '').localeCompare(b.name || '');
+        if (sortVal === 'name_desc') return (b.name || '').localeCompare(a.name || '');
+        if (sortVal === 'spend_desc') return statsB.totalSpend - statsA.totalSpend;
+        if (sortVal === 'bills_desc') return statsB.totalBillsCount - statsA.totalBillsCount;
+        return 0;
+      });
+
+      tbody.innerHTML = '';
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding: 2.5rem;">No vendors found matching your criteria. Click "+ Add New Vendor" to register one.</td></tr>`;
+        return;
+      }
+
+      list.forEach((v, idx) => {
+        const stats = vendorStats.get(v.id) || { totalBillsCount: 0, totalBillsAmt: 0, slipsCount: 0, slipAmt: 0, totalSpend: 0 };
+        
+        tbody.innerHTML += `
+          <tr>
+            <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx + 1}</td>
+            <td>
+              <div class="vendor-name-cell">
+                <span class="vendor-name-title">${app.ui.escapeHTML(v.name)}</span>
+                ${v.remarks ? `<span class="vendor-remarks-sub">${app.ui.escapeHTML(v.remarks)}</span>` : ''}
+              </div>
+            </td>
+            <td class="font-mono text-xs text-muted">
+              ${v.phone ? app.ui.escapeHTML(v.phone) : '<span style="opacity:0.4">-</span>'}
+            </td>
+            <td class="num-val text-right">
+              ${stats.totalBillsCount ? `<span class="font-bold">${stats.totalBillsCount}</span> <small class="text-muted">(${app.ui.formatCurrency(stats.totalBillsAmt)})</small>` : '<span class="text-muted" style="opacity:0.4">-</span>'}
+            </td>
+            <td class="num-val text-right">
+              ${stats.slipsCount ? `<span class="badge badge-warning" style="font-size:0.72rem;padding:2px 6px;">${stats.slipsCount} slip${stats.slipsCount > 1 ? 's' : ''} (${app.ui.formatCurrency(stats.slipAmt)})</span>` : '<span class="text-muted" style="opacity:0.4">-</span>'}
+            </td>
+            <td class="num-val text-right font-bold text-success" style="font-size:0.92rem;">
+              ${app.ui.formatCurrency(stats.totalSpend)}
+            </td>
+            <td class="text-center">
+              <div class="table-actions" style="justify-content:center;gap:6px">
+                <button type="button" class="btn btn-secondary btn-xs" title="View Full Vendor Statement" onclick="app.vendors.viewVendorReport('${v.name.replace(/'/g, "\\'")}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:0.75rem;font-weight:600;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+                  <span>Statement</span>
+                </button>
+                <button type="button" class="btn-action-icon" title="Edit Vendor" onclick="app.vendors.initiateEdit(${v.id})" style="width:26px;height:26px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                </button>
+                <button type="button" class="btn-action-icon text-error" title="Delete Vendor" onclick="app.vendors.deleteVendor(${v.id})" style="width:26px;height:26px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    },
+
+    viewVendorReport(vendorName) {
+      app.ui.switchTab('reports');
+      const rSel = document.getElementById('report-select-type');
+      if (rSel) {
+        rSel.value = 'vendor';
+        rSel.dispatchEvent(new Event('change'));
+      }
+      const vSel = document.getElementById('report-vendor-select');
+      if (vSel) {
+        vSel.value = vendorName;
+        vSel.dispatchEvent(new Event('change'));
+      }
+    },
+
+    resetFilters() {
+      const s = document.getElementById('search-vendors');
+      if (s) s.value = '';
+      const so = document.getElementById('sort-vendors');
+      if (so) so.value = 'name_asc';
+      app.vendors.renderVendorsTable();
+    }
+  },
+
+  // ==========================================
   // REPORTS CENTRE & PRINT/EXPORT PIPELINES
   // ==========================================
   reports: {
@@ -4035,7 +4486,7 @@ const app = {
                 <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(b.date)}</span>
                 Bill #${b.billNumber || '-'}: ${b.vendor || '-'} ${b.remarks ? '('+b.remarks+')' : ''}
               </td>
-              <td><span class="source-tag">${b.category || 'Hospital'}</span></td>
+              <td><span class="source-tag">Hospital Bill</span></td>
               <td class="num-val text-right text-muted">-</td>
               <td class="num-val text-right text-error">-${app.ui.formatCurrency(b.amount)}</td>
             </tr>
@@ -4071,7 +4522,7 @@ const app = {
                 <span class="num-val" style="margin-right:8px; color:var(--text-muted);">${app.ui.formatDate(b.date)}</span>
                 Bill #${b.billNumber || '-'}: ${b.vendor || '-'} ${b.remarks ? '('+b.remarks+')' : ''}
               </td>
-              <td><span class="source-tag">${b.category || 'Advance'}</span></td>
+              <td><span class="source-tag">Muhasib Bill</span></td>
               <td class="num-val text-right text-muted">-</td>
               <td class="num-val text-right text-error">-${app.ui.formatCurrency(b.amount)}</td>
             </tr>
@@ -4296,6 +4747,12 @@ const app = {
       }
       metaDisplay.innerText = dateMetaText;
 
+      // Toggle vendor selection field visibility
+      const vGrp = document.getElementById('report-vendor-group');
+      if (vGrp) {
+        vGrp.style.display = (type === 'vendor') ? 'block' : 'none';
+      }
+
       // Hide balance sheet print layout by default
       bsPlaceholder.classList.add('hidden');
       thead.classList.remove('hidden');
@@ -4379,7 +4836,6 @@ const app = {
             <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
-            <th>Expense Type</th>
             <th>Status</th>
             <th>Attachment Available</th>
             <th>Attachment File Name</th>
@@ -4391,7 +4847,6 @@ const app = {
         tbody.innerHTML = '';
         
         filtered.forEach(slip => {
-          const typeLabel = slip.expenseType === 'advance' ? 'Advance Expense' : 'Hospital Expense';
           const attachAvailable = slip.attachmentUrl ? 'Yes' : 'No';
           const attachName = slip.attachmentUrl ? (slip.fileName || 'document') : '-';
           
@@ -4401,7 +4856,6 @@ const app = {
               <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
-              <td><span class="source-tag">${typeLabel}</span></td>
               <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
               <td>${attachAvailable}</td>
               <td class="font-mono text-xs">${attachName}</td>
@@ -4410,7 +4864,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'muhasib_slips') {
@@ -4421,7 +4875,6 @@ const app = {
             <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
-            <th>Expense Type</th>
             <th>Status</th>
             <th>Attachment Available</th>
             <th>Attachment File Name</th>
@@ -4439,7 +4892,6 @@ const app = {
               <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
-              <td><span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary)">Muhasib Cash</span></td>
               <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
               <td>${attachAvailable}</td>
               <td class="font-mono text-xs">${attachName}</td>
@@ -4448,7 +4900,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'hospital_slips') {
@@ -4459,7 +4911,6 @@ const app = {
             <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
-            <th>Expense Type</th>
             <th>Status</th>
             <th>Attachment Available</th>
             <th>Attachment File Name</th>
@@ -4477,7 +4928,6 @@ const app = {
               <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
-              <td><span class="source-tag">Hospital Cash</span></td>
               <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
               <td>${attachAvailable}</td>
               <td class="font-mono text-xs">${attachName}</td>
@@ -4486,7 +4936,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'muhasib_bills') {
@@ -4498,7 +4948,6 @@ const app = {
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
-            <th>Category</th>
             <th>Attachment Available</th>
             <th>Attachment File Name</th>
             <th>Remarks</th>
@@ -4516,7 +4965,6 @@ const app = {
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-              <td><span class="source-tag">${bill.category}</span></td>
               <td>${attachAvailable}</td>
               <td class="font-mono text-xs">${attachName}</td>
               <td>${bill.remarks || '-'}</td>
@@ -4524,7 +4972,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
         }
       } else if (type === 'hospital_bills') {
         titleDisplay.innerText = 'Hospital Bill Report';
@@ -4535,7 +4983,6 @@ const app = {
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
-            <th>Category</th>
             <th>Attachment Available</th>
             <th>Attachment File Name</th>
             <th>Remarks</th>
@@ -4553,7 +5000,6 @@ const app = {
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-              <td><span class="source-tag">${bill.category}</span></td>
               <td>${attachAvailable}</td>
               <td class="font-mono text-xs">${attachName}</td>
               <td>${bill.remarks || '-'}</td>
@@ -4561,7 +5007,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
         }
       } else if (type === 'bills') {
         titleDisplay.innerText = 'All Bills Report';
@@ -4572,8 +5018,6 @@ const app = {
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
-            <th>Expense Type</th>
-            <th>Category</th>
             <th>Attachment Available</th>
             <th>Attachment File Name</th>
             <th>Remarks</th>
@@ -4584,7 +5028,6 @@ const app = {
         tbody.innerHTML = '';
 
         filtered.forEach(bill => {
-          const typeLabel = bill.expenseType === 'advance' ? 'Advance Expense' : 'Hospital Expense';
           const attachAvailable = bill.attachmentUrl ? 'Yes' : 'No';
           const attachName = bill.attachmentUrl ? (bill.fileName || 'document') : '-';
           
@@ -4595,8 +5038,6 @@ const app = {
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-              <td><span class="source-tag">${typeLabel}</span></td>
-              <td><span class="source-tag">${bill.category}</span></td>
               <td>${attachAvailable}</td>
               <td class="font-mono text-xs">${attachName}</td>
               <td>${bill.remarks || '-'}</td>
@@ -4604,7 +5045,7 @@ const app = {
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'accounts_register') {
@@ -4783,7 +5224,7 @@ const app = {
         const slipList = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance'));
         const combined = [];
         advList.forEach(e => combined.push({ date: e.date, type: 'cash', remarks: e.remarks || '-', dr: e.amount, cr: 0, sortDate: e.date }));
-        billList.forEach(b => combined.push({ date: b.date, type: 'bill', remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, dr: 0, cr: b.amount, sortDate: b.date }));
+        billList.forEach(b => combined.push({ date: b.date, type: 'bill', remarks: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}`, dr: 0, cr: b.amount, sortDate: b.date }));
         slipList.forEach(s => combined.push({ date: s.date, type: 'slip', remarks: `Temp Slip #${s.tokenNumber || '-'}: ${s.vendor || '-'}${s.remarks ? ' - ' + s.remarks : ''}`, dr: 0, cr: s.amount, sortDate: s.date }));
         combined.sort((a,b) => new Date(a.sortDate) - new Date(b.sortDate));
         let runningBal = app.state.openingAdvanceCash;
@@ -4887,6 +5328,168 @@ const app = {
             </div>
           </div>
         `;
+      } else if (type === 'vendor') {
+        const selVendor = (document.getElementById('report-vendor-select')?.value || '').trim();
+
+        if (selVendor) {
+          titleDisplay.innerText = `Vendor Comprehensive Statement: ${selVendor}`;
+          
+          const vBills = (app.state.bills || []).filter(b => (b.vendor || '').trim().toLowerCase() === selVendor.toLowerCase());
+          const vSlips = app.getActiveTemporarySlips().filter(s => (s.vendor || '').trim().toLowerCase() === selVendor.toLowerCase());
+
+          const combined = [];
+          vBills.forEach(b => {
+            combined.push({
+              date: b.date,
+              token: b.tokenNumber || '-',
+              type: b.expenseType === 'advance' ? 'Muhasib Bill' : 'Hospital Bill',
+              isMuhasib: b.expenseType === 'advance',
+              docNo: b.billNumber || '-',
+              status: b.status || 'pending',
+              attachmentUrl: b.attachmentUrl,
+              fileName: b.fileName,
+              remarks: b.remarks || '-',
+              amount: b.amount,
+              isBill: true
+            });
+          });
+
+          vSlips.forEach(s => {
+            combined.push({
+              date: s.date,
+              token: s.tokenNumber || '-',
+              type: s.expenseType === 'advance' ? 'Muhasib Temp Slip' : 'Hospital Temp Slip',
+              isMuhasib: s.expenseType === 'advance',
+              docNo: 'Slip #' + (s.tokenNumber || s.id),
+              status: s.status || 'pending',
+              attachmentUrl: s.attachmentUrl,
+              fileName: s.fileName,
+              remarks: s.remarks || '-',
+              amount: s.amount,
+              isBill: false
+            });
+          });
+
+          const filtered = filterByDateRange(combined);
+          filtered.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+          const hospBillsAmt = filtered.filter(x => x.isBill && !x.isMuhasib).reduce((s,x)=>s+x.amount, 0);
+          const muBillsAmt = filtered.filter(x => x.isBill && x.isMuhasib).reduce((s,x)=>s+x.amount, 0);
+          const slipsAmt = filtered.filter(x => !x.isBill).reduce((s,x)=>s+x.amount, 0);
+          const grandTotal = filtered.reduce((s,x)=>s+x.amount, 0);
+
+          metaDisplay.innerHTML = `
+            <span>Vendor: <strong>${selVendor}</strong></span> &nbsp;•&nbsp; 
+            <span>${dateMetaText}</span> &nbsp;•&nbsp; 
+            <span>${filtered.length} Total Records</span> &nbsp;•&nbsp; 
+            <span class="text-success font-bold">Total Spend: ${app.ui.formatCurrency(grandTotal)}</span>
+          `;
+
+          thead.innerHTML = `
+            <tr>
+              <th>Date</th>
+              <th>Token No</th>
+              <th>Ledger / Entry Type</th>
+              <th>Bill / Ref No</th>
+              <th>Remarks / Particulars</th>
+              <th>Status</th>
+              <th>Attachment</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          `;
+
+          tbody.innerHTML = '';
+          filtered.forEach(row => {
+            const badgeStyle = row.isMuhasib ? 'background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.3)' : 'background:rgba(16,185,129,0.12);color:var(--accent);border:1px solid rgba(16,185,129,0.3)';
+            const attachAvailable = row.attachmentUrl ? 'Yes' : 'No';
+            const attachName = row.attachmentUrl ? (row.fileName || 'document') : '-';
+
+            tbody.innerHTML += `
+              <tr>
+                <td class="num-val">${app.ui.formatDate(row.date)}</td>
+                <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${row.token}</span></td>
+                <td><span class="source-tag" style="${badgeStyle}">${row.type}</span></td>
+                <td class="font-mono text-xs">${row.docNo}</td>
+                <td>
+                  ${row.remarks && row.remarks !== '-' ? `<div style="font-weight:600;">${row.remarks}</div>` : '<span class="text-muted">-</span>'}
+                </td>
+                <td><span class="status-pill ${row.status}">${row.status}</span></td>
+                <td class="text-xs font-mono">${attachAvailable === 'Yes' ? `<a href="${row.attachmentUrl}" target="_blank" class="text-accent underline" style="text-decoration:underline;">${attachName}</a>` : '<span class="text-muted">-</span>'}</td>
+                <td class="num-val text-right text-error font-bold">-${app.ui.formatCurrency(row.amount)}</td>
+              </tr>
+            `;
+          });
+
+          if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding:2rem;">No transactions recorded for vendor "${selVendor}" in selected date range.</td></tr>`;
+          } else {
+            tbody.innerHTML += `
+              <tr style="background:var(--bg-elevated);border-top:2px solid var(--border-color);font-weight:bold;">
+                <td colspan="4" class="text-muted text-xs" style="vertical-align:middle;">
+                  Hospital Bills: ${app.ui.formatCurrency(hospBillsAmt)} &nbsp;|&nbsp; Muhasib Bills: ${app.ui.formatCurrency(muBillsAmt)} &nbsp;|&nbsp; Slips: ${app.ui.formatCurrency(slipsAmt)}
+                </td>
+                <td colspan="3" class="text-right" style="vertical-align:middle;font-size:0.9rem;">TOTAL VENDOR EXPENDITURE:</td>
+                <td class="num-val text-right text-error" style="font-size:1.05rem;font-weight:900;">-${app.ui.formatCurrency(grandTotal)}</td>
+              </tr>
+            `;
+          }
+        } else {
+          // Master Vendor Summary Table
+          titleDisplay.innerText = 'Master Vendor Financial Summary';
+          metaDisplay.innerText = `${(app.state.vendors || []).length} Registered Vendors • All Ledgers (Hospital & Muhasib)`;
+
+          thead.innerHTML = `
+            <tr>
+              <th>Vendor / Supplier Name</th>
+              <th class="text-right">Hospital Bills (₹)</th>
+              <th class="text-right">Muhasib Bills (₹)</th>
+              <th class="text-right">Active Slips (₹)</th>
+              <th class="text-right">Total Combined (₹)</th>
+              <th class="text-center">Action</th>
+            </tr>
+          `;
+          tbody.innerHTML = '';
+
+          let gHosp = 0, gMu = 0, gSlips = 0, gAll = 0;
+          const sorted = [...(app.state.vendors || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+
+          sorted.forEach(v => {
+            const norm = (v.name || '').trim().toLowerCase();
+            const hAmt = filterByDateRange((app.state.bills || []).filter(b => b.expenseType === 'hospital' && (b.vendor||'').trim().toLowerCase() === norm)).reduce((s,x)=>s+x.amount, 0);
+            const mAmt = filterByDateRange((app.state.bills || []).filter(b => b.expenseType === 'advance' && (b.vendor||'').trim().toLowerCase() === norm)).reduce((s,x)=>s+x.amount, 0);
+            const sAmt = filterByDateRange(app.getActiveTemporarySlips().filter(s => (s.vendor||'').trim().toLowerCase() === norm)).reduce((s,x)=>s+x.amount, 0);
+            const tot = hAmt + mAmt + sAmt;
+            gHosp += hAmt; gMu += mAmt; gSlips += sAmt; gAll += tot;
+
+            tbody.innerHTML += `
+              <tr>
+                <td class="font-bold">${v.name}</td>
+                <td class="num-val text-right">${hAmt ? app.ui.formatCurrency(hAmt) : '<span class="text-muted">-</span>'}</td>
+                <td class="num-val text-right">${mAmt ? app.ui.formatCurrency(mAmt) : '<span class="text-muted">-</span>'}</td>
+                <td class="num-val text-right">${sAmt ? app.ui.formatCurrency(sAmt) : '<span class="text-muted">-</span>'}</td>
+                <td class="num-val text-right font-bold ${tot ? 'text-success' : 'text-muted'}">${app.ui.formatCurrency(tot)}</td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-secondary btn-xs" onclick="app.vendors.viewVendorReport('${v.name.replace(/'/g, "\\'")}')">View Details</button>
+                </td>
+              </tr>
+            `;
+          });
+
+          if (!sorted.length) {
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding:2rem;">No registered vendors found.</td></tr>`;
+          } else {
+            tbody.innerHTML += `
+              <tr style="background:var(--bg-elevated);border-top:2px solid var(--border-color);font-weight:bold;">
+                <td>GRAND TOTAL:</td>
+                <td class="num-val text-right">${app.ui.formatCurrency(gHosp)}</td>
+                <td class="num-val text-right">${app.ui.formatCurrency(gMu)}</td>
+                <td class="num-val text-right">${app.ui.formatCurrency(gSlips)}</td>
+                <td class="num-val text-right text-success" style="font-size:1.05rem;font-weight:900;">${app.ui.formatCurrency(gAll)}</td>
+                <td></td>
+              </tr>
+            `;
+          }
+        }
       } else if (type === 'balance_sheet') {
         titleDisplay.innerText = 'Cash Balance Sheet Statement';
         thead.classList.add('hidden');
@@ -4970,6 +5573,76 @@ const app = {
       const sVal = document.getElementById('report-date-start') ? document.getElementById('report-date-start').value : '';
       const eVal = document.getElementById('report-date-end') ? document.getElementById('report-date-end').value : '';
       const inRange = (d) => { if(!d) return true; if(sVal && d < sVal) return false; if(eVal && d > eVal) return false; return true; };
+      if (selType === 'vendor') {
+        const selVendor = (document.getElementById('report-vendor-select')?.value || '').trim();
+        const wbSingle = XLSX.utils.book_new();
+
+        if (selVendor) {
+          const vBills = (app.state.bills || []).filter(b => (b.vendor || '').trim().toLowerCase() === selVendor.toLowerCase() && inRange(b.date));
+          const vSlips = app.getActiveTemporarySlips().filter(s => (s.vendor || '').trim().toLowerCase() === selVendor.toLowerCase() && inRange(s.date));
+          const rows = [
+            [`Noor Hospital - Vendor Ledger Statement: ${selVendor}`],
+            ['Report Date Range', sVal || 'Start', 'to', eVal || 'End'],
+            ['Generated On', new Date().toLocaleString('en-IN')],
+            [],
+            ['Date', 'Token No', 'Entry / Ledger Type', 'Bill / Invoice #', 'Status', 'Remarks', 'Amount (₹)']
+          ];
+          const combined = [];
+          vBills.forEach(b => combined.push({
+            date: b.date,
+            token: b.tokenNumber || '-',
+            type: b.expenseType === 'advance' ? 'Muhasib Purchase Bill' : 'Hospital Purchase Bill',
+            docNo: b.billNumber || '-',
+            status: b.status || 'pending',
+            remarks: b.remarks || '-',
+            amount: b.amount
+          }));
+          vSlips.forEach(s => combined.push({
+            date: s.date,
+            token: s.tokenNumber || '-',
+            type: s.expenseType === 'advance' ? 'Muhasib Temp Slip' : 'Hospital Temp Slip',
+            docNo: 'Slip #' + (s.tokenNumber || s.id),
+            status: s.status || 'pending',
+            remarks: s.remarks || '-',
+            amount: s.amount
+          }));
+          combined.sort((a,b) => new Date(a.date) - new Date(b.date));
+          combined.forEach(r => {
+            rows.push([app.ui.formatDate(r.date), r.token, r.type, r.docNo, r.status, r.remarks, r.amount]);
+          });
+          if (!combined.length) rows.push(['No transactions recorded in selected range', '', '', '', '', '', '']);
+          const totalAmt = combined.reduce((s, r) => s + (r.amount || 0), 0);
+          rows.push([]);
+          rows.push(['GRAND TOTAL', '', '', '', '', '', totalAmt]);
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          ws['!cols'] = [{wch:13},{wch:14},{wch:24},{wch:18},{wch:14},{wch:30},{wch:16}];
+          ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:6}}];
+          XLSX.utils.book_append_sheet(wbSingle, ws, 'Vendor Statement');
+          XLSX.writeFile(wbSingle, `NoorHospital_Vendor_${selVendor.replace(/[^a-z0-9]/gi, '_')}_Statement.xlsx`);
+          app.ui.showToast(`Vendor statement for "${selVendor}" exported.`);
+        } else {
+          const rows = [
+            ['Noor Hospital - Master Vendor Directory & Financial Summary'],
+            ['Generated On', new Date().toLocaleString('en-IN')],
+            [],
+            ['Vendor Name', 'Phone', 'Hospital Bills (₹)', 'Muhasib Bills (₹)', 'Temp Slips (₹)', 'Total Volume (₹)']
+          ];
+          (app.state.vendors || []).forEach(v => {
+            const vName = (v.name || '').trim().toLowerCase();
+            const hAmt = (app.state.bills || []).filter(b => b.expenseType === 'hospital' && (b.vendor || '').trim().toLowerCase() === vName && inRange(b.date)).reduce((s,x)=>s+x.amount, 0);
+            const mAmt = (app.state.bills || []).filter(b => b.expenseType === 'advance' && (b.vendor || '').trim().toLowerCase() === vName && inRange(b.date)).reduce((s,x)=>s+x.amount, 0);
+            const sAmt = app.getActiveTemporarySlips().filter(s => (s.vendor || '').trim().toLowerCase() === vName && inRange(s.date)).reduce((s,x)=>s+x.amount, 0);
+            rows.push([v.name, v.phone || '-', hAmt, mAmt, sAmt, hAmt + mAmt + sAmt]);
+          });
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          ws['!cols'] = [{wch:28},{wch:18},{wch:18},{wch:18},{wch:18},{wch:20}];
+          ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:5}}];
+          XLSX.utils.book_append_sheet(wbSingle, ws, 'All Vendors Summary');
+          XLSX.writeFile(wbSingle, `NoorHospital_All_Vendors_Summary.xlsx`);
+          app.ui.showToast('Master vendor summary exported.');
+        }
+        return;
+      }
       if (selType === 'advance_bills') {
         const wbSingle = XLSX.utils.book_new();
         const rows = [
@@ -4983,7 +5656,7 @@ const app = {
         let bal = app.state.openingAdvanceCash;
         const comb = [];
         app.state.advanceCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:e.remarks||'-', vType:'Cash Received', dr:e.amount, cr:0}));
-        app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}${b.category?' - '+b.category:''}`, vType:'Advance Bill', dr:0, cr:b.amount}));
+        app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date)).forEach(b=>comb.push({date:b.date, particulars:`${b.vendor||'-'}${b.billNumber?' ('+b.billNumber+')':''}`, vType:'Advance Bill', dr:0, cr:b.amount}));
         app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance' && inRange(s.date)).forEach(s=>comb.push({date:s.date, particulars:`Temp Slip #${s.tokenNumber||'-'}: ${s.vendor||'-'}${s.remarks ? ' - ' + s.remarks : ''}`, vType:'Muhasib Temp Slip', dr:0, cr:s.amount}));
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
@@ -5055,11 +5728,11 @@ const app = {
         const filterBills = isMu ? app.state.bills.filter(b=>b.expenseType==='advance'&&inRange(b.date)) : isHosp ? app.state.bills.filter(b=>b.expenseType==='hospital'&&inRange(b.date)) : app.state.bills.filter(b=>inRange(b.date));
         const title = isMu ? 'Muhasib Bill Report' : isHosp ? 'Hospital Bill Report' : 'All Bills Report';
         const wbS=XLSX.utils.book_new();
-        const rows=[ [title], ['Date Range', sVal||'Start','to',eVal||'End'], ['Generated On', new Date().toLocaleString('en-IN')], [], ['Date','Token No','Bill Number','Vendor','Amount','Category','Expense Type','Remarks'] ];
-        filterBills.forEach(b=> rows.push([app.ui.formatDate(b.date), b.tokenNumber||'-', b.billNumber, b.vendor, b.amount, b.category, b.expenseType==='advance'?'Muhasib':'Hospital', b.remarks||'-']));
-        if(!filterBills.length) rows.push(['No records in selected range','','','','','','','']);
+        const rows=[ [title], ['Date Range', sVal||'Start','to',eVal||'End'], ['Generated On', new Date().toLocaleString('en-IN')], [], ['Date','Token No','Bill Number','Vendor','Amount','Remarks'] ];
+        filterBills.forEach(b=> rows.push([app.ui.formatDate(b.date), b.tokenNumber||'-', b.billNumber, b.vendor, b.amount, b.remarks||'-']));
+        if(!filterBills.length) rows.push(['No records in selected range','','','','','']);
         rows.push([]); rows.push(['Total Bills', filterBills.length, '', '', filterBills.reduce((s,b)=>s+b.amount,0)]);
-        const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:13},{wch:14},{wch:16},{wch:20},{wch:14},{wch:16},{wch:14},{wch:30}]; ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:7}}]; ws['A1'].s={font:{bold:true,sz:13,color:{rgb:"1F4E79"}},alignment:{horizontal:"center"}};
+        const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:13},{wch:14},{wch:16},{wch:20},{wch:14},{wch:30}]; ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}}]; ws['A1'].s={font:{bold:true,sz:13,color:{rgb:"1F4E79"}},alignment:{horizontal:"center"}};
         XLSX.utils.book_append_sheet(wbS, ws, title.substring(0,31));
         XLSX.writeFile(wbS, `NoorHospital_${selType}_${sVal||'all'}_to_${eVal||'all'}.xlsx`);
         app.ui.showToast(title+' exported!');
@@ -5122,7 +5795,7 @@ const app = {
       const slipRows = [
         ['Temporary Slips Register'],
         [],
-        ['Date', 'Vendor / Person', 'Amount (₹)', 'Expense Type', 'Status', 'Attachment Available', 'Attachment File Name', 'Remarks']
+        ['Date', 'Vendor / Person', 'Amount (₹)', 'Status', 'Attachment Available', 'Attachment File Name', 'Remarks']
       ];
       app.state.temporarySlips.forEach(s => {
         const attachAvailable = s.attachmentUrl ? 'Yes' : 'No';
@@ -5131,7 +5804,6 @@ const app = {
           app.ui.formatDate(s.date),
           s.vendor,
           s.amount,
-          s.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash',
           s.status,
           attachAvailable,
           attachName,
@@ -5144,7 +5816,7 @@ const app = {
       const billRows = [
         ['Bills Register'],
         [],
-        ['Date', 'Bill Number', 'Vendor Name', 'Amount (₹)', 'Expense Type', 'Category', 'Attachment Available', 'Attachment File Name', 'Remarks']
+        ['Date', 'Bill Number', 'Vendor Name', 'Amount (₹)', 'Attachment Available', 'Attachment File Name', 'Remarks']
       ];
       app.state.bills.forEach(b => {
         const attachAvailable = b.attachmentUrl ? 'Yes' : 'No';
@@ -5154,8 +5826,6 @@ const app = {
           b.billNumber,
           b.vendor,
           b.amount,
-          b.expenseType === 'advance' ? 'Muhasib Cash' : 'Hospital Cash',
-          b.category,
           attachAvailable,
           attachName,
           b.remarks || ''
@@ -5240,7 +5910,7 @@ const app = {
       let runningDrCr = app.state.openingAdvanceCash;
       const drCrCombined = [];
       app.state.advanceCashEntries.forEach(e => drCrCombined.push({ date: e.date, particulars: e.remarks || '-', vType: 'Cash Received', dr: e.amount, cr: 0 }));
-      app.state.bills.filter(b => b.expenseType === 'advance').forEach(b => drCrCombined.push({ date: b.date, particulars: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}${b.category ? ' - '+b.category : ''}`, vType: 'Advance Bill', dr: 0, cr: b.amount }));
+      app.state.bills.filter(b => b.expenseType === 'advance').forEach(b => drCrCombined.push({ date: b.date, particulars: `${b.vendor || '-'}${b.billNumber ? ' ('+b.billNumber+')' : ''}`, vType: 'Advance Bill', dr: 0, cr: b.amount }));
       drCrCombined.sort((a,b) => new Date(a.date) - new Date(b.date));
       drCrCombined.forEach(r => {
         if (r.dr) runningDrCr += r.dr;
@@ -5287,23 +5957,23 @@ const app = {
         sheetName='Deposits';
       } else if(page==='slips'){
         const d=filtered(app.getActiveTemporarySlips(),'slips').filter(s=>s.expenseType==='hospital');
-        rows=[['Hospital Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
+        rows=[['Hospital Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Status','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.status,e.remarks||'-']));
         sheetName='Hospital Temp Slips';
       } else if(page==='advance-slips'){
         const d=filtered(app.getActiveTemporarySlips(),'advance-slips').filter(s=>s.expenseType==='advance');
-        rows=[['Muhasib Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Expense Type','Status','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.expenseType,e.status,e.remarks||'-']));
+        rows=[['Muhasib Temporary Slips (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Vendor','Amount (₹)','Status','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.vendor,e.amount,e.status,e.remarks||'-']));
         sheetName='Muhasib Temp Slips';
       } else if(page==='advance-bills'){
         const d=filtered(app.state.bills,'advance-bills').filter(b=>b.expenseType==='advance');
-        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Category','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
+        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.remarks||'-']));
         sheetName='Muhasib Bills';
       } else if(page==='bills'){
         const d=filtered(app.state.bills,'bills').filter(b=>b.expenseType==='hospital');
-        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Category','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.category,e.remarks||'-']));
+        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.remarks||'-']));
         sheetName='Hospital Bills';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
@@ -5464,12 +6134,6 @@ const app = {
         .text-success { color: #059669 !important; }
         .text-error { color: #dc2626 !important; }
         .text-warning { color: #d97706 !important; }
-        .text-muted { color: #64748b !important; }
-        .audit-signatures { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-inside: avoid; }
-        .sig-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .sig-line { width: 80%; border-bottom: 1.5px solid #0f172a; height: 32px; margin-bottom: 5px; }
-        .sig-title { font-size: 9px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
-        .sig-sub { font-size: 7.5px; color: #64748b; margin-top: 1px; }
         .report-footer { margin-top: 18px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5px; color: #94a3b8; }
         .report-header-preview { display: none !important; }
         .hidden { display: none !important; }
@@ -5514,24 +6178,6 @@ const app = {
 
         <div class="report-content-body">
           ${printContent}
-        </div>
-
-        <div class="audit-signatures">
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <div class="sig-title">Prepared By</div>
-            <div class="sig-sub">Cashier / Muhasib Incharge</div>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <div class="sig-title">Verified By</div>
-            <div class="sig-sub">Internal Accounts Officer</div>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <div class="sig-title">Approved By</div>
-            <div class="sig-sub">Medical Superintendent / Director</div>
-          </div>
         </div>
 
         <div class="report-footer">
@@ -5633,11 +6279,6 @@ const app = {
         .text-success { color: #059669 !important; font-weight: 700; }
         .text-error { color: #dc2626 !important; font-weight: 700; }
         .text-warning { color: #d97706 !important; font-weight: 700; }
-        .audit-signatures { margin-top: 30px; padding-top: 12px; border-top: 1px solid #e2e8f0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; page-break-inside: avoid; }
-        .sig-col { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .sig-line { width: 80%; border-bottom: 1.5px solid #0f172a; height: 36px; margin-bottom: 6px; }
-        .sig-title { font-size: 9.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.03em; }
-        .sig-sub { font-size: 8px; color: #64748b; margin-top: 2px; }
         .report-footer { margin-top: 22px; border-top: 1px dashed #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8; }
         @media print { body { padding: 0; } }
       `;
@@ -5673,7 +6314,7 @@ const app = {
             <span class="meta-val">${now}</span>
           </div>
           <div class="meta-item">
-            <span class="meta-label">Authorized Signatory</span>
+            <span class="meta-label">Reporting Incharge</span>
             <span class="meta-val">Treasury Muhasib Incharge</span>
           </div>
         </div>
@@ -5767,24 +6408,6 @@ const app = {
           </tbody>
         </table>
 
-        <div class="audit-signatures">
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <div class="sig-title">Prepared By</div>
-            <div class="sig-sub">Cashier / Muhasib Incharge</div>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <div class="sig-title">Verified By</div>
-            <div class="sig-sub">Internal Accounts Officer</div>
-          </div>
-          <div class="sig-col">
-            <div class="sig-line"></div>
-            <div class="sig-title">Approved By</div>
-            <div class="sig-sub">Medical Superintendent / Director</div>
-          </div>
-        </div>
-
         <div class="report-footer">
           <span>Official Treasury Statement • Confidential Noor Hospital Financial Record</span>
           <span>NH-CMS v2.4 • System Reconciled</span>
@@ -5871,14 +6494,14 @@ const app = {
       // Part II Outflows
       const hospBills = (app.state.bills || []).filter(b => b.expenseType === 'hospital');
       hospBills.forEach(b => {
-        rows.push(['PART II: OUTFLOWS', `Hospital Bill #${b.billNumber || '-'}: ${b.vendor || '-'}`, b.category || 'Hospital', '', b.amount || 0, '']);
+        rows.push(['PART II: OUTFLOWS', `Hospital Bill #${b.billNumber || '-'}: ${b.vendor || '-'}`, 'Hospital Bill', '', b.amount || 0, '']);
       });
       const subtotalHospBills = hospBills.reduce((s,b) => s + (b.amount || 0), 0);
       rows.push(['PART II: OUTFLOWS', 'Subtotal: Hospital Bills Paid', '', '', subtotalHospBills, '']);
 
       const advBills = (app.state.bills || []).filter(b => b.expenseType === 'advance');
       advBills.forEach(b => {
-        rows.push(['PART II: OUTFLOWS', `Muhasib Bill #${b.billNumber || '-'}: ${b.vendor || '-'}`, b.category || 'Advance', '', b.amount || 0, '']);
+        rows.push(['PART II: OUTFLOWS', `Muhasib Bill #${b.billNumber || '-'}: ${b.vendor || '-'}`, 'Muhasib Bill', '', b.amount || 0, '']);
       });
       const subtotalAdvBills = advBills.reduce((s,b) => s + (b.amount || 0), 0);
       rows.push(['PART II: OUTFLOWS', 'Subtotal: Muhasib Bills Paid', '', '', subtotalAdvBills, '']);
@@ -6817,7 +7440,6 @@ const app = {
             <div class="mobile-card-meta">
               <span class="mobile-card-date">${app.ui.formatDate(slip.date)}</span>
               ${slip.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${slip.tokenNumber}</span>` : ''}
-              <span class="source-tag">${typeLabel}</span>
               <span class="status-pill ${statusClass}">${slip.status}</span>
               ${attachmentHtml}
             </div>
@@ -6887,7 +7509,6 @@ const app = {
             <div class="mobile-card-meta">
               <span class="mobile-card-date">${app.ui.formatDate(slip.date)}</span>
               ${slip.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${slip.tokenNumber}</span>` : ''}
-              <span class="source-tag" style="background:var(--tertiary-light);color:var(--tertiary);">${typeLabel}</span>
               <span class="status-pill ${statusClass}">${slip.status}</span>
               ${attachmentHtml}
             </div>
@@ -6926,7 +7547,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--tertiary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${app.ui.escapeHTML(bill.category)}</span><span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Category</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.category)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--tertiary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
     renderBillsCards() {
@@ -6952,7 +7573,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${app.ui.escapeHTML(bill.category)}</span><span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Category</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.category)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
 
