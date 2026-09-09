@@ -278,7 +278,7 @@ const app = {
 
     embedSupabaseCredentials() {
       const embeddedUrl = 'https://lwnowxuqsqffhttfudxd.supabase.co';
-      const embeddedKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3bm93eHVxc3FmZmh0dGZ1ZHhkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDg1MTU4OCwiZXhwIjoyMDk2NDI3NTg4fQ.s4oVRjjNEnP8kpNwzi9-CNSq31QZKv4nkfUDvtrZ46o';
+      const embeddedKey = 'sb_publishable_nLS45eVXGjhh2N_GF_l2mQ_c5TGpqWm';
       const embeddedBucket = 'bills';
 
       localStorage.setItem('noor_supabase_url', embeddedUrl);
@@ -650,10 +650,10 @@ const app = {
             }
           }
           
-          const remoteIds = new Set(remoteRecords.map(r => r.id));
+          const remoteIds = new Set(remoteRecords.map(r => String(r.id)));
           
           for (const local of localRecords) {
-            if (!remoteIds.has(local.id) && !queuedInserts.has(local.id)) {
+            if (!remoteIds.has(String(local.id)) && !queuedInserts.has(String(local.id))) {
               await app.db.delete(table, local.id, true); // localOnly = true
             }
           }
