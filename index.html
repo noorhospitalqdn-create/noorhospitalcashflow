@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260909_06">
+  <link rel="stylesheet" href="assets/app.css?v=20260912_02">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260909_08" defer></script>
+  <script src="assets/app.js?v=20260912_01" defer></script>
 </head>
 <body>
 
@@ -1001,10 +1001,27 @@
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('advance-bills')">Clear</button>
           </div>
 
+          <div class="batch-action-bar" id="advance-batch-bar" style="border-left:3px solid var(--tertiary)">
+            <label class="batch-select-all">
+              <input type="checkbox" id="select-all-advance-bills" onchange="app.ui.toggleSelectAllAdvanceBills(this.checked)">
+              <span>Select All</span>
+            </label>
+            <span class="batch-count-badge" id="selected-advance-count">0 selected</span>
+            <span class="batch-total-badge" id="selected-advance-total"></span>
+            <input type="text" id="advance-batch-name-inline" class="form-input form-input-sm batch-name-input" placeholder="Batch name e.g. Batch-12 / 12-Sep" list="advance-batch-list" style="max-width:220px">
+            <datalist id="advance-batch-list"></datalist>
+            <button class="btn btn-primary btn-sm" id="btn-batch-clear" onclick="app.ui.openBatchClearModal()" disabled style="background:var(--tertiary);border-color:var(--tertiary)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Move Selected to Adv Clear</span>
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="app.ui.clearAdvanceBillSelection()">Unselect</button>
+          </div>
+
           <div class="card overflow-x" style="border-left:3px solid var(--tertiary)">
             <table class="data-table" id="table-advance-bills">
               <thead>
                 <tr>
+                  <th class="text-center" style="width:36px;"><input type="checkbox" id="select-all-advance-bills-head" title="Select all" onchange="app.ui.toggleSelectAllAdvanceBills(this.checked)"></th>
                   <th>Date</th>
                   <th>Token No</th>
                   <th>Bill Number</th>
@@ -1043,6 +1060,9 @@
               <option value="alpha_asc">Vendor A → Z</option>
               <option value="alpha_desc">Vendor Z → A</option>
             </select>
+            <select id="filter-advance-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('advance-cleared',{})" title="Filter by batch">
+              <option value="">All Batches</option>
+            </select>
             <span class="ledger-total-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border-color:rgba(16,185,129,0.25)" id="total-advance-cleared">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-cleared')">Export Excel</button>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.printAdvanceClearedDetail()" style="background:var(--success);border-color:var(--success);color:#fff;font-weight:700">🖨️ PDF Print</button>
@@ -1059,6 +1079,7 @@
                   <th>Vendor Name</th>
                   <th>Head</th>
                   <th>Amount</th>
+                  <th>Batch</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 80px;">Action</th>
@@ -2534,6 +2555,35 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         <button type="submit" class="btn btn-primary" id="btn-save-head">Save Head</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- MODAL: Batch Adv Clear (multi-bill move with batch name) -->
+  <dialog id="dialog-batch-clear" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3>Move Bills to Adv Clear — Batch</h3>
+        <p class="modal-subtitle">Select kiye gaye bills ek hi batch me clear honge</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-batch-clear')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="batch-clear-name">Batch Name / Number *</label>
+        <input type="text" id="batch-clear-name" class="form-input" placeholder="e.g. Batch-12, 12-Sep-Match, Imprest-05" list="advance-batch-list" autocomplete="off">
+        <small class="form-hint">Ye naam Adv Clear page me har bill ke sath show hoga taake pata lage ye sare bill is batch ke hein.</small>
+      </div>
+      <div class="batch-summary-card">
+        <div class="batch-summary-row"><span>Total Bills</span><strong id="batch-clear-count">0</strong></div>
+        <div class="batch-summary-row"><span>Total Amount</span><strong id="batch-clear-total">₹0.00</strong></div>
+      </div>
+      <div id="batch-clear-list" class="batch-clear-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-batch-clear')">Cancel</button>
+      <button type="button" class="btn btn-primary" id="btn-batch-clear-confirm" onclick="app.ui.confirmBatchClear()" style="background:var(--tertiary);border-color:var(--tertiary)">Confirm Move to Adv Clear</button>
+    </div>
   </dialog>
 
   <!-- MODAL: Confirmation Dialog (Custom Alert Overlay) -->
