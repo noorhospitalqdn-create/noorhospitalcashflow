@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260909_02">
+  <link rel="stylesheet" href="assets/app.css?v=20260909_03">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260909_02" defer></script>
+  <script src="assets/app.js?v=20260909_06" defer></script>
 </head>
 <body>
 
@@ -227,6 +227,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Vendor Directory</span>
           <span class="badge" id="nav-vendors-badge">0</span>
+        </button>
+        <button class="nav-item" data-panel="heads">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          <span>Head Directory</span>
+          <span class="badge" id="nav-heads-badge">0</span>
         </button>
 
         <div class="nav-section-title">Administration</div>
@@ -830,6 +835,7 @@
             </select>
             <span class="ledger-total-badge" id="total-slips">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('slips')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.printHospitalSlipsDetail()" style="background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700">🖨️ PDF Print</button>
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('slips')">Clear</button>
           </div>
 
@@ -882,6 +888,7 @@
             </select>
             <span class="ledger-total-badge" style="background:var(--tertiary-light);color:var(--tertiary);border-color:rgba(168,85,247,0.2)" id="total-advance-slips">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-slips')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.printAdvanceSlipsDetail()" style="background:var(--tertiary);border-color:var(--tertiary);color:#fff;font-weight:700">🖨️ PDF Print</button>
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('advance-slips')">Clear</button>
           </div>
 
@@ -985,6 +992,7 @@
             </select>
             <span class="ledger-total-badge" style="background:var(--tertiary-light);color:var(--tertiary);border-color:rgba(168,85,247,0.2)" id="total-advance-bills">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-bills')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.printAdvanceBillsDetail()" style="background:var(--tertiary);border-color:var(--tertiary);color:#fff;font-weight:700">🖨️ PDF Print</button>
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('advance-bills')">Clear</button>
           </div>
 
@@ -996,6 +1004,7 @@
                   <th>Token No</th>
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
+                  <th>Head</th>
                   <th>Amount</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
@@ -1035,6 +1044,7 @@
             </select>
             <span class="ledger-total-badge" style="background:var(--secondary-light);color:var(--secondary);border-color:rgba(99,102,241,0.2)" id="total-bills">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('bills')">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.reports.printHospitalBillsDetail()" style="background:var(--secondary);border-color:var(--secondary);color:#fff;font-weight:700">🖨️ PDF Print</button>
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters('bills')">Clear</button>
           </div>
 
@@ -1046,6 +1056,7 @@
                   <th>Token No</th>
                   <th>Bill Number</th>
                   <th>Vendor Name</th>
+                  <th>Head</th>
                   <th>Amount</th>
                   <th>Attachment</th>
                   <th>Remarks</th>
@@ -1340,7 +1351,40 @@
                   <th class="text-center" style="width: 140px;">Actions</th>
                 </tr>
               </thead>
-              <tbody id="list-vendors">
+            <tbody id="list-vendors">
+                <!-- Javascript populated -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 9B. HEAD DIRECTORY PANEL (same for Muhasib + Hospital) -->
+        <section class="panel" id="panel-heads">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search heads..." class="search-input" id="search-heads">
+            </div>
+            <button type="button" class="btn btn-primary" onclick="app.heads.openAddHeadModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
+              <span>Add New Head</span>
+            </button>
+          </div>
+          <div class="ledger-filter-bar" style="border-left:3px solid var(--primary); display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+            <span class="ledger-total-badge" id="kpi-total-heads-badge">Total: 0 Heads</span>
+            <span class="text-sm text-muted">Same heads apply to Muhasib + Hospital bills</span>
+            <button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="app.heads.resetFilters()">Clear</button>
+          </div>
+          <div class="card overflow-x" style="border-left:3px solid var(--primary);">
+            <table class="data-table" id="table-heads">
+              <thead>
+                <tr>
+                  <th style="width: 44px;" class="text-center">#</th>
+                  <th>Head Name</th>
+                  <th class="text-right">Bills Usage</th>
+                  <th class="text-center" style="width: 120px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="list-heads">
                 <!-- Javascript populated -->
               </tbody>
             </table>
@@ -1623,6 +1667,17 @@ CREATE TABLE IF NOT EXISTS vendors (
   device_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS heads (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+-- Quick Upgrade for existing Supabase projects (run once):
+-- ALTER TABLE bills ADD COLUMN IF NOT EXISTS "head" TEXT;
+
 -- Enable Row Level Security (optional but recommended)
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE advance_cash ENABLE ROW LEVEL SECURITY;
@@ -1632,6 +1687,7 @@ ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transfers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hospital_deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE heads ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations (for service_role key usage)
 CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
@@ -1639,6 +1695,7 @@ CREATE POLICY "Allow all" ON advance_cash FOR ALL USING (true) WITH CHECK (true)
 CREATE POLICY "Allow all" ON hospital_cash FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON temporary_slips FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON vendors FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON heads FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON bills FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON transfers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (true);</code></pre>
@@ -2038,6 +2095,15 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         </div>
         <input type="hidden" id="convert-bill-category" value="General">
         <div class="form-group">
+          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label" for="convert-bill-head" style="margin-bottom:0;">Head <span class="text-error">*</span></label>
+            <button type="button" class="btn-vendor-quick-add" onclick="app.heads.openAddHeadModal('', 'bill')">+ New Head</button>
+          </div>
+          <select id="convert-bill-head" class="form-select" required>
+            <option value="">-- Select Head --</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label" for="convert-bill-remarks">Remarks</label>
           <textarea id="convert-bill-remarks" class="form-textarea" placeholder="Final bill adjustments..." rows="2"></textarea>
         </div>
@@ -2155,6 +2221,17 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
         </div>
 
         <input type="hidden" id="bill-category" value="General">
+
+        <!-- 4. Head selection (same for Muhasib + Hospital) -->
+        <div class="form-group" style="margin-bottom:.75rem">
+          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label" for="bill-head" style="margin-bottom:0;">Head <span class="text-error">*</span></label>
+            <button type="button" class="btn-vendor-quick-add" onclick="app.heads.openAddHeadModal('', 'bill')">+ New Head</button>
+          </div>
+          <select id="bill-head" class="form-select" required>
+            <option value="">-- Select Head --</option>
+          </select>
+        </div>
 
         <!-- 5. Bill no + Date (2-column layout) -->
         <div class="grid-2">
@@ -2380,6 +2457,32 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
     </form>
   </dialog>
 
+  <!-- MODAL: Add/Edit Head (same for Muhasib + Hospital) -->
+  <dialog id="dialog-head-add" closedby="any" class="modal-dialog modal-dialog-sm">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="dialog-head-title">Add New Head</h3>
+        <p class="modal-subtitle">Expense head for Muhasib + Hospital bills (e.g. STATIONARY)</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-head-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-head-add">
+      <input type="hidden" id="edit-head-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="head-name">Head Name <span class="text-error">*</span></label>
+          <input type="text" id="head-name" class="form-input" placeholder="e.g. STATIONARY" required autocomplete="off" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-head-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="btn-save-head">Save Head</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- MODAL: Confirmation Dialog (Custom Alert Overlay) -->
   <dialog id="dialog-confirm" closedby="any" class="modal-dialog modal-dialog-sm border-error-subtle">
     <div class="modal-header">
@@ -2547,7 +2650,7 @@ CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (
 // Premium hero sync — mirrors dashboard totals into hero banner + panel subtitles (event driven, no lag)
 (function(){
   var map=[["dash-advance-cash","hero-adv-cash"],["dash-hospital-cash","hero-hosp-cash"],["dash-total-pending-bills","hero-pending"]];
-  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "transfers":"Verification & settlement transfers", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "settings":"Opening balances, backup & restore"};
+  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "transfers":"Verification & settlement transfers", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "vendors":"Vendor master • Add / edit", "heads":"Expense heads • Same for Muhasib + Hospital", "settings":"Opening balances, backup & restore"};
   function sync(){
     map.forEach(function(p){var a=document.getElementById(p[0]),b=document.getElementById(p[1]);if(a&&b&&a.textContent)b.textContent=a.textContent;});
     var t=document.getElementById("main-panel-title"),s=document.getElementById("main-panel-sub");

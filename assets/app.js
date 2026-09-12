@@ -8,8 +8,8 @@ const app = {
   // Database Configuration
   dbConfig: {
     name: 'NoorHospitalCashDB',
-    version: 7,
-    stores: ['settings', 'advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'sync_queue', 'hospital_deposits', 'accounts_register', 'vendors']
+    version: 8,
+    stores: ['settings', 'advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'sync_queue', 'hospital_deposits', 'accounts_register', 'vendors', 'heads']
   },
 
   // Chart.js instances tracking
@@ -33,6 +33,7 @@ const app = {
     hospitalDeposits: [],
     accountsRegister: [],
     vendors: [],
+    heads: [],
     
     // Calculated aggregates
     advanceCashAvailable: 0,
@@ -58,6 +59,8 @@ const app = {
     temporarySlipsPending: 0,
     temporarySlipsPendingAmount: 0
   },
+
+  DEFAULT_HEADS: ["ADVIYAAT","AKHBARAT RASALAJAT","AMLA SHARES","DAK","DENTAL","DHULAI PARCHAT","ECG","FEES OPERATION","IKHRAJAT ELAJ MOALJA KARKUNAN SADR ANJUMAN AHMADIY","IKHRAJAT ELAJ MOALJA KARKUNAN WAQFE JADID","INSURANCE MOTERCAR","ISHTIHARAT TIBAT","KHAREED MURAMMAT SAMAN","LABROTARY","MEDICAL INSURANCE","MUTAFARIQ GAIR MAMOOLI","MUTAFARRIQ","OZAR JIRAHI","PANI BIJLI GAS","PHONE","RAFA GAREEB MUFLIS MAREEZ","SAFAR KHARCH DAFTER","SAFAR KHARCH DOCTOR","SAFAR KHATCH FEES CONSULTATION","STATIONARY","TAMIR MARMAT NOOR HOSPITAL","TAWAZOO","TOTAL","ULTRASOUND","WAPSI QARZA MARQAZI FUND","WARDI AMLA","X-RAY"],
 
   // Get/generate unique device ID
   getDeviceId() {
@@ -387,6 +390,13 @@ const app = {
           const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
           return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
         }
+        // Bills: head column may not exist yet in Supabase — category always syncs, retry without head
+        if (clone.head !== undefined && String(err.message || '').toLowerCase().includes('head')) {
+          const fallbackClone = { ...clone };
+          delete fallbackClone.head;
+          const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
+          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
+        }
         throw err;
       }
     },
@@ -403,6 +413,12 @@ const app = {
           console.warn(`Supabase table "${table}" does not have tokenNumber column yet. Retrying update without tokenNumber.`);
           const fallbackClone = { ...clone };
           delete fallbackClone.tokenNumber;
+          const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
+          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
+        }
+        if (clone.head !== undefined && String(err.message || '').toLowerCase().includes('head')) {
+          const fallbackClone = { ...clone };
+          delete fallbackClone.head;
           const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
           return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
         }
@@ -569,6 +585,14 @@ const app = {
               
               await app.db.delete('sync_queue', item.id);
             } catch (itemErr) {
+              const msg = String((itemErr && itemErr.message) || itemErr || '');
+              const isMissingTable = msg.includes('PGRST205') || msg.includes('schema cache') || msg.includes('Could not find the table');
+              const isVendorConflict = (item.table === 'vendors' || item.table === 'heads') && (msg.includes('duplicate') || msg.includes('already exists') || msg.includes('23505') || msg.includes('unique'));
+              if (isMissingTable || isVendorConflict) {
+                console.warn('Dropping non-blocking queue item (table missing or vendor duplicate):', item, itemErr);
+                try { await app.db.delete('sync_queue', item.id); } catch (_) {}
+                continue;
+              }
               console.error('Failed to sync queue item:', item, itemErr);
               app.sync.setStatus('error', 'Sync Error');
               return;
@@ -612,7 +636,7 @@ const app = {
         localStorage.removeItem('noor_database_reset_pending');
       }
       
-      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors'];
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads'];
       
       for (const table of tables) {
         try {
@@ -659,8 +683,8 @@ const app = {
           }
         } catch (err) {
           console.error(`Failed to pull table ${table}:`, err);
-          if (table === 'vendors') {
-            console.warn('Supabase vendors table not configured yet or inaccessible. Preserving local vendors.');
+          if (table === 'vendors' || table === 'heads') {
+            console.warn(`Supabase ${table} table not configured yet or inaccessible. Preserving local data.`);
             continue;
           }
           throw err;
@@ -683,7 +707,7 @@ const app = {
      * Delete all rows from every Supabase data table (used by Reset Database).
      */
     async wipeRemoteTables() {
-      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors'];
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads'];
       for (const table of tables) {
         try {
           // Delete all rows by using a filter that matches every row (id > 0)
@@ -755,6 +779,9 @@ const app = {
           }
           if (!db.objectStoreNames.contains('vendors')) {
             db.createObjectStore('vendors', { keyPath: 'id', autoIncrement: true });
+          }
+          if (!db.objectStoreNames.contains('heads')) {
+            db.createObjectStore('heads', { keyPath: 'id', autoIncrement: true });
           }
         };
       });
@@ -1254,7 +1281,36 @@ const app = {
         }
       }
 
-      // 2b. Fetch Vendors & Auto-Migrate from historical bills / slips
+      // 2b. Fetch Heads & seed defaults (same for Muhasib + Hospital)
+      try {
+        app.state.heads = await app.db.getAll('heads') || [];
+      } catch (err) {
+        console.warn('Could not read heads from DB, initializing empty:', err);
+        app.state.heads = [];
+      }
+      if (!app.state.heads.length) {
+        for (const hName of (app.DEFAULT_HEADS || [])) {
+          const rec = { name: hName, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+          try { const id = await app.db.add('heads', rec); rec.id = id; app.state.heads.push(rec); } catch (_) {}
+        }
+      } else {
+        // Add any missing defaults without duplicates
+        const have = new Set(app.state.heads.map(h => String(h.name||'').trim().toLowerCase()));
+        for (const hName of (app.DEFAULT_HEADS || [])) {
+          if (!have.has(hName.toLowerCase())) {
+            const rec = { name: hName, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+            try { const id = await app.db.add('heads', rec); rec.id = id; app.state.heads.push(rec); have.add(hName.toLowerCase()); } catch (_) {}
+          }
+        }
+      }
+      // Normalize old bills: head stored in category; copy to head field for display
+      for (const b of (app.state.bills || [])) {
+        const h = (b.head || b.category || '').trim();
+        if (h && !b.head) { b.head = h; }
+        if (b.head && !b.category) { b.category = b.head; }
+      }
+
+      // 2c. Fetch Vendors & Auto-Migrate from historical bills / slips
       try {
         app.state.vendors = await app.db.getAll('vendors') || [];
       } catch (err) {
@@ -1940,7 +1996,8 @@ const app = {
             vendor: originalVendor, // carried over
             amount: parseFloat(document.getElementById('convert-bill-amount').value),
             expenseType: expenseType, // Hospital Bill (or chosen destination)
-            category: document.getElementById('convert-bill-category').value,
+            category: ((document.getElementById('convert-bill-head')?.value || document.getElementById('convert-bill-category')?.value || '').trim().toUpperCase() || 'General'),
+            head: ((document.getElementById('convert-bill-head')?.value || document.getElementById('convert-bill-category')?.value || '').trim().toUpperCase() || 'General'),
             remarks: document.getElementById('convert-bill-remarks').value,
             slipId: slipId, // references parent slip
             status: 'pending', // pending / transferred
@@ -2024,6 +2081,16 @@ const app = {
             return;
           }
 
+          const selectedHead = (document.getElementById('bill-head')?.value || document.getElementById('bill-category')?.value || '').trim().toUpperCase();
+          if (!selectedHead) {
+            app.ui.showToast('Please select a Head (e.g. STATIONARY).', 'warning');
+            return;
+          }
+          const headExists = (app.state.heads || []).some(h => h.name && h.name.trim().toUpperCase() === selectedHead);
+          if (!headExists) {
+            app.ui.showToast(`Head "${selectedHead}" is not in the Head List. Please create the head first.`, 'error');
+            return;
+          }
           const expenseType = document.getElementById('bill-exp-type').value;
           const bill = {
             date: document.getElementById('bill-date').value,
@@ -2031,7 +2098,8 @@ const app = {
             vendor: selectedVendor,
             amount: parseFloat(document.getElementById('bill-amount').value),
             expenseType: expenseType,
-            category: document.getElementById('bill-category').value,
+            category: selectedHead,
+            head: selectedHead,
             remarks: document.getElementById('bill-remarks').value,
             slipId: editId ? app.attachments.activeViewedRecord.slipId : null,
             status: editId ? app.attachments.activeViewedRecord.status : 'pending',
@@ -2211,6 +2279,31 @@ const app = {
           await app.vendors.saveVendor(vendorData);
         });
       }
+
+      // Form: Add/Edit Head
+      const formHeadAdd = document.getElementById('form-head-add');
+      if (formHeadAdd) {
+        formHeadAdd.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const headData = {
+            id: document.getElementById('edit-head-id')?.value,
+            name: document.getElementById('head-name')?.value
+          };
+          await app.heads.saveHead(headData);
+        });
+      }
+      const searchHeads = document.getElementById('search-heads');
+      if (searchHeads) searchHeads.addEventListener('input', () => app.heads.renderHeadsTable());
+      const billHeadSel = document.getElementById('bill-head');
+      if (billHeadSel) billHeadSel.addEventListener('change', () => {
+        const hc = document.getElementById('bill-category');
+        if (hc) hc.value = billHeadSel.value;
+      });
+      const convHeadSel = document.getElementById('convert-bill-head');
+      if (convHeadSel) convHeadSel.addEventListener('change', () => {
+        const cc = document.getElementById('convert-bill-category');
+        if (cc) cc.value = convHeadSel.value;
+      });
 
       // Register report type change
       document.getElementById('report-select-type').addEventListener('change', () => {
@@ -2462,6 +2555,8 @@ const app = {
         'transfers': 'Accounts Verification & Transfers',
         'balance-sheet': 'Cash Position Balance Sheet',
         'reports': 'Financial Reports Centre',
+        'vendors': 'Vendor Directory',
+        'heads': 'Head Directory',
         'settings': 'Data Backup & Settings'
       };
       
@@ -2533,6 +2628,7 @@ const app = {
           }
         } else if (dialogId === 'dialog-bill-add') {
           app.attachments.clearStagedFile('bill');
+          if (app.heads) app.heads.populateHeadDropdowns();
           if (window.syncBillSegUI) setTimeout(() => window.syncBillSegUI(document.getElementById('bill-exp-type')?.value || 'advance'), 0);
           // Auto-generate token for new bills
           const billTokenEl = document.getElementById('bill-token');
@@ -2612,6 +2708,9 @@ const app = {
           if (app.vendors) app.vendors.populateVendorDropdowns();
           const billVendorEl = document.getElementById('bill-vendor');
           if (billVendorEl) billVendorEl.value = '';
+          if (app.heads) app.heads.populateHeadDropdowns();
+          const billHeadEl = document.getElementById('bill-head');
+          if (billHeadEl) billHeadEl.value = '';
         } else if (dialogId === 'dialog-transfer-add') {
           document.getElementById('edit-transfer-id').value = '';
           document.getElementById('dialog-transfer-title').innerText = 'Record Verification Transfer';
@@ -2621,6 +2720,9 @@ const app = {
           document.getElementById('btn-accounts-save').innerText = 'Send to Accounts';
         } else if (dialogId === 'dialog-slip-convert') {
           app.attachments.clearStagedFile('convert');
+        } else if (dialogId === 'dialog-head-add') {
+          document.getElementById('edit-head-id').value = '';
+          document.getElementById('dialog-head-title').innerText = 'Add New Head';
         }
       }
     },
@@ -2695,7 +2797,10 @@ const app = {
           document.getElementById('bill-amount').value = record.amount;
           document.getElementById('bill-exp-type').value = record.expenseType;
           if (window.syncBillSegUI) window.syncBillSegUI(record.expenseType);
-          document.getElementById('bill-category').value = record.category;
+          if (document.getElementById('bill-category')) document.getElementById('bill-category').value = record.category || record.head || '';
+          if (app.heads) app.heads.populateHeadDropdowns(record.head || record.category || '');
+          const bHead = document.getElementById('bill-head');
+          if (bHead) bHead.value = (record.head || record.category || '').trim().toUpperCase();
           document.getElementById('bill-remarks').value = record.remarks || '';
           const billTokenEl = document.getElementById('bill-token');
           if (billTokenEl) billTokenEl.value = record.tokenNumber || '';
@@ -3050,7 +3155,11 @@ const app = {
         convertPreview.classList.add('hidden');
         convertPreview.innerHTML = '';
       }
-      
+
+      if (app.heads) app.heads.populateHeadDropdowns();
+      const convHeadEl = document.getElementById('convert-bill-head');
+      if (convHeadEl) convHeadEl.value = '';
+
       app.ui.openModal('dialog-slip-convert');
     },
 
@@ -3139,6 +3248,10 @@ const app = {
       if (app.vendors) {
         app.vendors.populateVendorDropdowns();
         app.vendors.renderVendorsTable();
+      }
+      if (app.heads) {
+        app.heads.populateHeadDropdowns();
+        app.heads.renderHeadsTable();
       }
 
       // 3. Render Balance Sheet Panel
@@ -3410,7 +3523,7 @@ const app = {
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -3422,7 +3535,8 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+        const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
+        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       }).join('');
     },
     async convertBill(id){
@@ -3456,7 +3570,7 @@ const app = {
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -3468,7 +3582,8 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
-        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
+        const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
+        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})">Delete</button></div></td></tr>`;
       }).join('');
     },
 
@@ -4316,6 +4431,147 @@ const app = {
       const so = document.getElementById('sort-vendors');
       if (so) so.value = 'name_asc';
       app.vendors.renderVendorsTable();
+    }
+  },
+
+  heads: {
+    _returnContext: null,
+    openAddHeadModal(initialName = '', returnContext = null) {
+      app.heads._returnContext = returnContext;
+      const form = document.getElementById('form-head-add');
+      if (form) form.reset();
+      const editId = document.getElementById('edit-head-id');
+      if (editId) editId.value = '';
+      const title = document.getElementById('dialog-head-title');
+      if (title) title.innerText = 'Add New Head';
+      const btn = document.getElementById('btn-save-head');
+      if (btn) btn.innerText = 'Save Head';
+      const nameInput = document.getElementById('head-name');
+      if (nameInput) nameInput.value = initialName || '';
+      app.ui.openModal('dialog-head-add');
+      setTimeout(() => { if (nameInput) nameInput.focus(); }, 120);
+    },
+    async initiateEdit(id) {
+      const head = (app.state.heads || []).find(h => h.id === id);
+      if (!head) { app.ui.showToast('Head not found.', 'error'); return; }
+      app.heads._returnContext = null;
+      document.getElementById('edit-head-id').value = head.id;
+      document.getElementById('dialog-head-title').innerText = 'Edit Head';
+      const btn = document.getElementById('btn-save-head');
+      if (btn) btn.innerText = 'Update Head';
+      document.getElementById('head-name').value = head.name || '';
+      app.ui.openModal('dialog-head-add');
+    },
+    async saveHead(formData) {
+      const name = (formData.name || '').trim().toUpperCase();
+      if (!name) { app.ui.showToast('Head name is required.', 'warning'); return false; }
+      const editId = formData.id ? parseInt(formData.id, 10) : null;
+      const duplicate = (app.state.heads || []).find(h => h.name && h.name.trim().toUpperCase() === name && h.id !== editId);
+      if (duplicate) { app.ui.showToast(`Head "${name}" already exists!`, 'error'); return false; }
+      if (editId) {
+        const existing = (app.state.heads || []).find(h => h.id === editId);
+        const oldName = existing ? (existing.name || '').trim() : '';
+        const updated = { ...existing, name, updated_at: new Date().toISOString() };
+        await app.db.put('heads', editId, updated);
+        const idx = app.state.heads.findIndex(h => h.id === editId);
+        if (idx !== -1) app.state.heads[idx] = updated;
+        if (oldName && oldName.toUpperCase() !== name) {
+          for (const b of (app.state.bills || [])) {
+            const cur = (b.head || b.category || '').trim();
+            if (cur.toUpperCase() === oldName.toUpperCase()) {
+              b.head = name; b.category = name;
+              try { await app.db.put('bills', b.id, b); } catch (_) {}
+            }
+          }
+        }
+        app.ui.showToast(`Head "${name}" updated!`, 'success');
+      } else {
+        const rec = { name, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+        const newId = await app.db.add('heads', rec);
+        rec.id = newId;
+        app.state.heads.push(rec);
+        app.ui.showToast(`Head "${name}" added!`, 'success');
+      }
+      app.ui.closeModal('dialog-head-add');
+      app.heads.populateHeadDropdowns(name);
+      app.heads.renderHeadsTable();
+      if (app.heads._returnContext === 'bill') {
+        const sel = document.getElementById('bill-head');
+        if (sel) { sel.value = name; sel.dispatchEvent(new Event('change')); }
+        const conv = document.getElementById('convert-bill-head');
+        if (conv) conv.value = name;
+      }
+      app.heads._returnContext = null;
+      return true;
+    },
+    async deleteHead(id) {
+      const head = (app.state.heads || []).find(h => h.id === id);
+      if (!head) return;
+      const hName = (head.name || '').trim().toUpperCase();
+      const linked = (app.state.bills || []).filter(b => ((b.head || b.category || '').trim().toUpperCase() === hName)).length;
+      let msg = `Delete head "${head.name}"?`;
+      if (linked > 0) msg += `\n\nNotice: ${linked} bill(s) use this head. Existing bills will keep the head name.`;
+      if (!confirm(msg)) return;
+      try {
+        await app.db.delete('heads', id);
+        app.state.heads = (app.state.heads || []).filter(h => h.id !== id);
+        app.heads.populateHeadDropdowns();
+        app.heads.renderHeadsTable();
+        app.ui.showToast(`Head "${head.name}" deleted.`, 'info');
+      } catch (err) { app.ui.showToast('Failed to delete head.', 'error'); }
+    },
+    populateHeadDropdowns(selected = '') {
+      const sorted = [...(app.state.heads || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      const opts = '<option value="">-- Select Head --</option>' + sorted.map(h => `<option value="${String(h.name).replace(/"/g,'&quot;')}">${String(h.name).replace(/</g,'&lt;')}</option>`).join('');
+      const billSel = document.getElementById('bill-head');
+      if (billSel) {
+        const cur = selected || billSel.value || document.getElementById('bill-category')?.value || '';
+        billSel.innerHTML = opts;
+        if (cur) billSel.value = cur;
+      }
+      const convSel = document.getElementById('convert-bill-head');
+      if (convSel) {
+        const cur2 = convSel.value || '';
+        convSel.innerHTML = opts;
+        if (cur2) convSel.value = cur2;
+      }
+      const badge = document.getElementById('nav-heads-badge');
+      if (badge) badge.textContent = sorted.length;
+    },
+    renderHeadsTable() {
+      const tbody = document.getElementById('list-heads');
+      if (!tbody) return;
+      const q = (document.getElementById('search-heads')?.value || '').trim().toLowerCase();
+      let list = [...(app.state.heads || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      if (q) list = list.filter(h => (h.name||'').toLowerCase().includes(q));
+      const badge = document.getElementById('kpi-total-heads-badge');
+      if (badge) badge.textContent = `Total: ${list.length} Heads`;
+      const nb = document.getElementById('nav-heads-badge');
+      if (nb) nb.textContent = (app.state.heads||[]).length;
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding:2rem;">No heads found. Click "+ Add New Head".</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = '';
+      list.forEach((h, idx) => {
+        const hn = (h.name||'').trim();
+        const bills = (app.state.bills||[]).filter(b => ((b.head||b.category||'').trim().toUpperCase() === hn.toUpperCase()));
+        const amt = bills.reduce((s,x) => s + (Number(x.amount)||0), 0);
+        tbody.innerHTML += `<tr>
+          <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx+1}</td>
+          <td class="text-bold">${app.ui.escapeHTML(hn)}</td>
+          <td class="num-val text-right">${bills.length ? `<span class="font-bold">${bills.length}</span> <small class="text-muted">(${app.ui.formatCurrency(amt)})</small>` : '<span class="text-muted" style="opacity:0.4">-</span>'}</td>
+          <td class="text-center"><div class="table-actions" style="justify-content:center;gap:6px">
+            <button type="button" class="btn-action-icon" title="Edit Head" onclick="app.heads.initiateEdit(${h.id})" style="width:26px;height:26px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+            <button type="button" class="btn-action-icon text-error" title="Delete Head" onclick="app.heads.deleteHead(${h.id})" style="width:26px;height:26px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+          </div></td>
+        </tr>`;
+      });
+    },
+    resetFilters() {
+      const s = document.getElementById('search-heads');
+      if (s) s.value = '';
+      app.heads.renderHeadsTable();
     }
   },
 
@@ -5830,7 +6086,7 @@ const app = {
       const billRows = [
         ['Bills Register'],
         [],
-        ['Date', 'Bill Number', 'Vendor Name', 'Amount (₹)', 'Attachment Available', 'Attachment File Name', 'Remarks']
+        ['Date', 'Bill Number', 'Vendor Name', 'Head', 'Amount (₹)', 'Attachment Available', 'Attachment File Name', 'Remarks']
       ];
       app.state.bills.forEach(b => {
         const attachAvailable = b.attachmentUrl ? 'Yes' : 'No';
@@ -5839,6 +6095,7 @@ const app = {
           app.ui.formatDate(b.date),
           b.billNumber,
           b.vendor,
+          b.head || b.category || '-',
           b.amount,
           attachAvailable,
           attachName,
@@ -5981,13 +6238,13 @@ const app = {
         sheetName='Muhasib Temp Slips';
       } else if(page==='advance-bills'){
         const d=filtered(app.state.bills,'advance-bills').filter(b=>b.expenseType==='advance');
-        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.remarks||'-']));
+        rows=[['Muhasib Bills (Advance) (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.amount,e.remarks||'-']));
         sheetName='Muhasib Bills';
       } else if(page==='bills'){
         const d=filtered(app.state.bills,'bills').filter(b=>b.expenseType==='hospital');
-        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Amount (₹)','Remarks']];
-        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.amount,e.remarks||'-']));
+        rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Amount (₹)','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.amount,e.remarks||'-']));
         sheetName='Hospital Bills';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
@@ -6005,6 +6262,55 @@ const app = {
       XLSX.utils.book_append_sheet(wb,ws,sheetName);
       XLSX.writeFile(wb,fileName);
       app.ui.showToast(`${sheetName} exported (${rows.length-5} rows)`);
+    },
+
+    _printBillDetailList(list,numLabel,headLabel){
+      if(!list.length){ app.ui.showToast('No records to print.','warning'); return; }
+      const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
+      const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+      const esc=s=>app.ui.escapeHTML(s==null?'':String(s));
+      const showHead=!!headLabel;
+      const rows=list.map((b,i)=>`<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(b.num||'-')}</td>${showHead?`<td>${esc(b.head||'-')}</td>`:''}<td class="r">₹${fmt(Number(b.amount)||0)}</td></tr>`).join('');
+      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Detail</title><style>
+@page{size:A4 portrait;margin:12mm 14mm;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:24px 10px;}
+h1{font-size:26px;font-weight:800;text-align:center;letter-spacing:.02em;margin-bottom:6px;color:#111;}
+.rule{height:2px;background:#111;margin:0 auto 18px;max-width:100%;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+thead th{background:#111!important;color:#fff!important;font-weight:700;font-size:13px;padding:10px 12px;border:1px solid #111;text-align:left;}
+thead th.c,tbody td.c{text-align:center;}
+thead th.r,tbody td.r{text-align:right;}
+tbody td{border:1px solid #d1d5db;padding:9px 12px;color:#111;}
+tbody tr:nth-child(even){background:#f8fafc;}
+tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5px;background:#f1f5f9;}
+tfoot .r{text-align:right;}
+@media print{body{padding:0;}}
+</style></head><body>
+<h1>Bill Detail</h1><div class="rule"></div>
+<table><thead><tr><th class="c" style="width:55px">S.No</th><th>Vendor Name</th><th class="c" style="width:150px">${numLabel}</th>${showHead?'<th style="width:170px">Head</th>':''}<th class="r" style="width:150px">Amount</th></tr></thead>
+<tbody>${rows}</tbody>
+<tfoot><tr><td colspan="${showHead?4:3}" style="text-align:right">Total</td><td class="r">₹${fmt(total)}</td></tr></tfoot></table>
+</body></html>`;
+      app.reports._printHtmlViaIframe(html);
+    },
+    printAdvanceBillsDetail(){
+      const list=app.ui.getFiltered(app.state.bills,'advance-bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',amount:b.amount}));
+      app.reports._printBillDetailList(list,'Bill Number','Head');
+    },
+    printHospitalBillsDetail(){
+      const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',amount:b.amount}));
+      app.reports._printBillDetailList(list,'Bill Number','Head');
+    },
+    printAdvanceSlipsDetail(){
+      const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance');
+      const list=app.ui.getFiltered(active,'advance-slips').map(s=>({vendor:s.vendor,num:s.tokenNumber,amount:s.amount}));
+      app.reports._printBillDetailList(list,'Token No');
+    },
+    printHospitalSlipsDetail(){
+      const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='hospital');
+      const list=app.ui.getFiltered(active,'slips').map(s=>({vendor:s.vendor,num:s.tokenNumber,amount:s.amount}));
+      app.reports._printBillDetailList(list,'Token No');
     },
 
     _previewHtml: '',
@@ -7561,7 +7867,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--tertiary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--tertiary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Hosp</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
     renderBillsCards() {
@@ -7587,7 +7893,7 @@ const app = {
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
 
