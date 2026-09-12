@@ -1588,6 +1588,31 @@ dialog::backdrop {
   border-top: 1px solid var(--border-subtle);
 }
 .mobile-card-footer .btn { flex: 1; min-height: 36px; }
+.mobile-card-footer { flex-wrap: wrap; }
+.mobile-card-footer .btn-sm { flex: 1 1 44%; min-height: 42px; font-size: 0.8rem; }
+
+/* Bill register row actions — compact aligned icon buttons */
+.bill-actions { display:flex; align-items:center; justify-content:center; gap:6px; }
+.bill-act { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); cursor:pointer; transition:background .15s ease, transform .1s ease; }
+.bill-act:hover { background:var(--bg-elevated); transform:translateY(-1px); }
+.bill-act:active { transform:translateY(0); }
+.bill-act svg { width:15px; height:15px; }
+.bill-act.clear { color:var(--success); border-color:rgba(16,185,129,0.4); }
+.bill-act.clear:hover { background:rgba(16,185,129,0.12); }
+.bill-act.convert { color:var(--secondary); border-color:rgba(99,102,241,0.35); }
+.bill-act.convert:hover { background:rgba(99,102,241,0.1); }
+.bill-act.undo { color:var(--warning,#f59e0b); border-color:rgba(245,158,11,0.4); }
+.bill-act.undo:hover { background:rgba(245,158,11,0.12); }
+.bill-act.del { color:var(--error); border-color:rgba(239,68,68,0.3); }
+.bill-act.del:hover { background:rgba(239,68,68,0.1); }
+
+/* Bill register row actions — roomier click/touch targets */
+#table-advance-bills td .flex.gap-2.justify-center,
+#table-advance-cleared td .flex.gap-2.justify-center,
+#table-bills td .flex.gap-2.justify-center { gap: 10px !important; flex-wrap: wrap; row-gap: 8px; }
+#table-advance-bills td .btn-sm,
+#table-advance-cleared td .btn-sm,
+#table-bills td .btn-sm { padding: 7px 13px !important; min-height: 34px; font-size: 0.78rem; }
 
 /* Backdrop & Drawer */
 .sidebar-backdrop {
@@ -3003,6 +3028,8 @@ html[data-theme="dark"] .login-card {
   overflow-x: hidden;
 }
 
+#panel-advance-bills, #panel-advance-cleared, #panel-bills { max-width: 100%; }
+#table-advance-bills, #table-advance-cleared, #table-bills { width: 100%; }
 #panel-vendors .card.overflow-x {
   max-width: 100%;
   overflow-x: auto;
