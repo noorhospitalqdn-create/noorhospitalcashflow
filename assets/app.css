@@ -3499,3 +3499,61 @@ html[data-theme="dark"] .month-lower-badge {
     justify-content: center;
   }
 }
+
+/* Selective Monthly Report Styles */
+.upi-report-toolbar {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #0284c7;
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+.upi-report-toolbar-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.upi-report-selectors-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+@media (max-width: 768px) {
+  .upi-report-selectors-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .upi-report-selectors-row .month-select-wrap {
+    width: 100% !important;
+  }
+}
+
+/* Multi-Month Selection Styles */
+.upi-report-mode-tabs .btn.active {
+  background: #0284c7;
+  border-color: #0284c7;
+  color: #ffffff;
+  font-weight: 700;
+}
+.upi-month-chip:hover {
+  border-color: #0284c7 !important;
+  transform: translateY(-1px);
+}
+.upi-month-chip.active {
+  border-color: #0284c7 !important;
+  background: rgba(2, 132, 199, 0.16) !important;
+  color: #0284c7 !important;
+}
+html[data-theme="dark"] .upi-month-chip.active {
+  color: #38bdf8 !important;
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.16) !important;
+}
+
+

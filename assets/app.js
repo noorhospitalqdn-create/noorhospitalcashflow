@@ -3025,6 +3025,17 @@ const app = {
      */
     formatDate(val) {
       if (!val) return '-';
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        const matchIso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (matchIso) {
+          return `${matchIso[3]}-${matchIso[2]}-${matchIso[1]}`;
+        }
+        const matchDmy = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})/);
+        if (matchDmy) {
+          return trimmed;
+        }
+      }
       const d = new Date(val);
       if (isNaN(d.getTime())) return val;
       const dd = String(d.getDate()).padStart(2,'0');
@@ -3595,7 +3606,7 @@ const app = {
       const targetType=toHospital?'hospital':'advance';
       const targetLabel=toHospital?'Hospital Bill':'Muhasib Bill';
       const sourceLabel=toHospital?'Muhasib Bill':'Hospital Bill';
-      app.ui.showConfirm('Convert Bill',`${sourceLabel} #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) ko ${targetLabel} me convert karna hai? Ye bill ${sourceLabel} se hat kar ${targetLabel} me chala jayega.`, async()=>{
+      app.ui.showConfirm('Convert Bill', `Convert ${sourceLabel} #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) to ${targetLabel}? This bill will be moved from ${sourceLabel} to ${targetLabel}.`, async()=>{
         try{
           bill.expenseType=targetType;
           bill.tokenNumber = app.generateToken(toHospital ? 'hospital_bill' : 'advance_bill');
@@ -3668,7 +3679,7 @@ const app = {
     openBatchClearModal(singleId){
       if(singleId){ app.ui.selectedAdvanceBills = new Set([singleId]); }
       const sel=app.ui.getSelectedAdvanceBills();
-      if(!sel.length){ app.ui.showToast('Pehle koi bill select karein (checkbox tick karein).','warning'); return; }
+      if(!sel.length){ app.ui.showToast('Please select at least one bill first.','warning'); return; }
       const nameInput=document.getElementById('batch-clear-name');
       const inline=document.getElementById('advance-batch-name-inline');
       const preset=(inline && inline.value.trim()) ? inline.value.trim() : app.ui.suggestBatchName();
@@ -3683,10 +3694,10 @@ const app = {
     },
     async confirmBatchClear(){
       const sel=app.ui.getSelectedAdvanceBills();
-      if(!sel.length){ app.ui.showToast('Koi bill selected nahi.','warning'); return; }
+      if(!sel.length){ app.ui.showToast('No bills selected.','warning'); return; }
       const nameEl=document.getElementById('batch-clear-name');
       const batch=(nameEl?.value||'').trim();
-      if(!batch){ app.ui.showToast('Batch name likhna zaroori hai taake pata lage ye sare bill is batch ke hein.','warning'); nameEl?.focus(); return; }
+      if(!batch){ app.ui.showToast('Batch name is required to identify all bills in this batch.','warning'); nameEl?.focus(); return; }
       const btn=document.getElementById('btn-batch-clear-confirm'); if(btn) btn.disabled=true;
       try{
         const now=new Date().toISOString();
@@ -3699,7 +3710,7 @@ const app = {
         const inline=document.getElementById('advance-batch-name-inline'); if(inline) inline.value='';
         app.ui.selectedAdvanceBills.clear();
         app.ui.closeModal('dialog-batch-clear');
-        app.ui.showToast(`${sel.length} bills Batch "${batch}" me Adv Clear ho gaye!`);
+        app.ui.showToast(`${sel.length} bills cleared in Batch "${batch}"!`);
         app.syncState();
       }catch(e){ app.ui.showToast('Batch clear failed: '+(e.message||e),'error'); }
       if(btn) btn.disabled=false;
@@ -3707,7 +3718,7 @@ const app = {
     async undoAdvanceClear(id){
       const bill=app.state.bills.find(b=>b.id===id);
       if(!bill){ app.ui.showToast('Bill not found','error'); return; }
-      app.ui.showConfirm('Undo Clear',`Bill #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) ko wapas Muhasib Bills me bhejna hai?`, async()=>{
+      app.ui.showConfirm('Undo Clear', `Move Bill #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) back to Muhasib Bills?`, async()=>{
         try{
           bill.status='pending';
           bill.clearBatch='';
@@ -3720,11 +3731,11 @@ const app = {
     },
     async undoAdvanceClearBatch(batchName){
       const items=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared' && String(b.clearBatch||'')===String(batchName));
-      if(!items.length){ app.ui.showToast('Is batch me koi bill nahi.','warning'); return; }
-      app.ui.showConfirm('Undo Batch',`Batch "${batchName}" ke ${items.length} bills wapas Muhasib Bills me bhejne hein?`, async()=>{
+      if(!items.length){ app.ui.showToast('No bills found in this batch.','warning'); return; }
+      app.ui.showConfirm('Undo Batch', `Move all ${items.length} bills in batch "${batchName}" back to Muhasib Bills?`, async()=>{
         try{
           for(const b of items){ b.status='pending'; b.clearBatch=''; b.clearedAt=null; await app.db.put('bills',b.id,b); }
-          app.ui.showToast(`Batch "${batchName}" wapas move ho gaya.`);
+          app.ui.showToast(`Batch "${batchName}" moved back to Muhasib Bills.`);
           app.syncState();
         }catch(e){ app.ui.showToast('Undo failed: '+(e.message||e),'error'); }
       });
@@ -4825,13 +4836,13 @@ const app = {
           qDiff.innerText = 'Diff: ₹0.00';
         } else if (diff === 0) {
           qDiff.classList.add('matched');
-          qDiff.innerText = '✓ Matched (₹0.00)';
+          qDiff.innerText = '✓ Reconciled (Matched)';
         } else if (diff > 0) {
           qDiff.classList.add('mismatch-hosp');
-          qDiff.innerText = `Hospital +${app.ui.formatCurrency(diff)}`;
+          qDiff.innerText = `Hospital +${app.ui.formatCurrency(diff)} (Hospital Excess)`;
         } else {
           qDiff.classList.add('mismatch-bank');
-          qDiff.innerText = `Bank +${app.ui.formatCurrency(Math.abs(diff))}`;
+          qDiff.innerText = `Bank +${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess)`;
         }
       };
       if (qHosp) qHosp.addEventListener('input', updateQuickDiff);
@@ -4854,13 +4865,13 @@ const app = {
           mDiff.innerText = 'Diff: ₹0.00';
         } else if (diff === 0) {
           mDiff.classList.add('matched');
-          mDiff.innerText = '✓ Matched (₹0.00 Difference)';
+          mDiff.innerText = '✓ Reconciled (Matched - ₹0.00 Difference)';
         } else if (diff > 0) {
           mDiff.classList.add('mismatch-hosp');
-          mDiff.innerText = `⚠️ Hospital Excess: +${app.ui.formatCurrency(diff)}`;
+          mDiff.innerText = `⚠️ Hospital Excess: +${app.ui.formatCurrency(diff)} (Bank Deficit)`;
         } else {
           mDiff.classList.add('mismatch-bank');
-          mDiff.innerText = `⚠️ Bank Excess: +${app.ui.formatCurrency(Math.abs(diff))}`;
+          mDiff.innerText = `⚠️ Bank Excess: +${app.ui.formatCurrency(Math.abs(diff))} (Hospital Deficit)`;
         }
       };
       if (mHosp) mHosp.addEventListener('input', updateModalDiff);
@@ -4871,21 +4882,25 @@ const app = {
       app.upiReconciliation.activeTab = view;
       const btnDaily = document.getElementById('btn-subnav-daily');
       const btnMonthly = document.getElementById('btn-subnav-monthly');
+      const btnReport = document.getElementById('btn-subnav-monthly-report');
       const viewDaily = document.getElementById('upi-view-daily');
       const viewMonthly = document.getElementById('upi-view-monthly');
+      const viewReport = document.getElementById('upi-view-monthly-report');
+
+      if (btnDaily) btnDaily.classList.toggle('active', view === 'daily');
+      if (btnMonthly) btnMonthly.classList.toggle('active', view === 'monthly');
+      if (btnReport) btnReport.classList.toggle('active', view === 'monthly-report');
+
+      if (viewDaily) viewDaily.style.display = view === 'daily' ? 'block' : 'none';
+      if (viewMonthly) viewMonthly.style.display = view === 'monthly' ? 'block' : 'none';
+      if (viewReport) viewReport.style.display = view === 'monthly-report' ? 'block' : 'none';
 
       if (view === 'daily') {
-        if (btnDaily) btnDaily.classList.add('active');
-        if (btnMonthly) btnMonthly.classList.remove('active');
-        if (viewDaily) viewDaily.style.display = 'block';
-        if (viewMonthly) viewMonthly.style.display = 'none';
         app.upiReconciliation.renderTable();
-      } else {
-        if (btnDaily) btnDaily.classList.remove('active');
-        if (btnMonthly) btnMonthly.classList.add('active');
-        if (viewDaily) viewDaily.style.display = 'none';
-        if (viewMonthly) viewMonthly.style.display = 'block';
+      } else if (view === 'monthly') {
         app.upiReconciliation.renderMonthlyComparison();
+      } else if (view === 'monthly-report') {
+        app.upiReconciliation.renderMonthlyReport();
       }
     },
 
@@ -5070,6 +5085,8 @@ const app = {
         app.upiReconciliation.renderKPIs();
         if (app.upiReconciliation.activeTab === 'monthly') {
           app.upiReconciliation.renderMonthlyComparison();
+        } else if (app.upiReconciliation.activeTab === 'monthly-report') {
+          app.upiReconciliation.renderMonthlyReport();
         }
         return true;
       } catch (err) {
@@ -5094,6 +5111,8 @@ const app = {
         app.upiReconciliation.renderKPIs();
         if (app.upiReconciliation.activeTab === 'monthly') {
           app.upiReconciliation.renderMonthlyComparison();
+        } else if (app.upiReconciliation.activeTab === 'monthly-report') {
+          app.upiReconciliation.renderMonthlyReport();
         }
       } catch (err) {
         console.error('Failed to delete UPI reconciliation:', err);
@@ -5176,9 +5195,9 @@ const app = {
         if (diff === 0) {
           diffBadge = `<span class="badge-matched">✓ Matched (₹0.00)</span>`;
         } else if (diff > 0) {
-          diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement has more UPI than bank">Hospital +${app.ui.formatCurrency(diff)}</span>`;
+          diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(diff)} (Hospital Excess)</span>`;
         } else {
-          diffBadge = `<span class="badge-mismatch-bank" title="Bank statement has more UPI than hospital">Bank +${app.ui.formatCurrency(Math.abs(diff))}</span>`;
+          diffBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess)</span>`;
         }
 
         const tr = document.createElement('tr');
@@ -5250,9 +5269,22 @@ const app = {
       if (elBank) elBank.textContent = app.ui.formatCurrency(totalBank);
 
       const elDiff = document.getElementById('kpi-upi-diff');
+      const elDiffSub = document.getElementById('kpi-upi-diff-sub');
       if (elDiff) {
-        elDiff.textContent = (netDiff > 0 ? '+' : '') + app.ui.formatCurrency(netDiff);
-        elDiff.style.color = netDiff === 0 ? 'var(--success)' : (netDiff > 0 ? '#f59e0b' : '#ef4444');
+        if (netDiff === 0) {
+          elDiff.innerHTML = `${app.ui.formatCurrency(0)} <span style="font-size:0.75rem; font-weight:700; color:var(--success); background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Reconciled</span>`;
+          elDiff.style.color = 'var(--success)';
+          if (elDiffSub) elDiffSub.innerHTML = '<span style="color:var(--success); font-weight:700;">✓ Perfectly Reconciled (Hospital = Bank)</span>';
+        } else if (netDiff > 0) {
+          elDiff.innerHTML = `+${app.ui.formatCurrency(netDiff)} <span style="font-size:0.75rem; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Hospital Excess</span>`;
+          elDiff.style.color = '#0284c7';
+          if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#0284c7; font-weight:700;">Hospital statement has excess</span> &bull; Bank deficit';
+        } else {
+          const absDiff = Math.abs(netDiff);
+          elDiff.innerHTML = `-${app.ui.formatCurrency(absDiff)} <span style="font-size:0.75rem; font-weight:700; color:#8b5cf6; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Bank Excess</span>`;
+          elDiff.style.color = '#8b5cf6';
+          if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#8b5cf6; font-weight:700;">Bank statement has excess</span> &bull; Hospital deficit';
+        }
       }
 
       const elStatus = document.getElementById('kpi-upi-status');
@@ -5401,9 +5433,9 @@ const app = {
           if (m.difference === 0) {
             statusBadge = `<span class="badge-matched">✓ Matched</span>`;
           } else if (m.difference > 0) {
-            statusBadge = `<span class="badge-mismatch-hosp">Hosp +${app.ui.formatCurrency(m.difference)}</span>`;
+            statusBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(m.difference)} (Hospital Excess)</span>`;
           } else {
-            statusBadge = `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(m.difference))}</span>`;
+            statusBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(m.difference))} (Bank Excess)</span>`;
           }
 
           let vsPrev = '<span class="text-muted" style="opacity:0.4">-</span>';
@@ -5423,8 +5455,11 @@ const app = {
             <td class="text-center font-mono">${m.daysCount}</td>
             <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(m.hospital_upi)}</td>
             <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(m.bank_upi)}</td>
-            <td class="num-val text-center font-bold" style="${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#f59e0b;' : 'color:#ef4444;')}">
+            <td class="num-val text-center font-bold" style="${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#0284c7;' : 'color:#8b5cf6;')}">
               ${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}
+              <div class="text-xs" style="font-size:0.7rem; font-weight:600; color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')};">
+                ${m.difference === 0 ? 'Reconciled' : (m.difference > 0 ? 'Hospital Excess' : 'Bank Excess')}
+              </div>
             </td>
             <td class="text-center">${vsPrev}</td>
             <td class="text-center">${statusBadge}</td>
@@ -5514,7 +5549,7 @@ const app = {
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; padding-top: 0.4rem; border-top: 1px dashed var(--border-color);">
               <span class="text-sm text-muted font-semibold">Difference:</span>
-              <span>${monthA.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : `<span class="badge-mismatch-bank">Diff: ${app.ui.formatCurrency(monthA.difference)}</span>`}</span>
+              <span>${monthA.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : (monthA.difference > 0 ? `<span class="badge-mismatch-hosp">Hospital +${app.ui.formatCurrency(monthA.difference)} (Hospital Excess)</span>` : `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(monthA.difference))} (Bank Excess)</span>`)}</span>
             </div>
           </div>
         </div>
@@ -5537,7 +5572,7 @@ const app = {
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; padding-top: 0.4rem; border-top: 1px dashed var(--border-color);">
               <span class="text-sm text-muted font-semibold">Difference:</span>
-              <span>${monthB.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : `<span class="badge-mismatch-bank">Diff: ${app.ui.formatCurrency(monthB.difference)}</span>`}</span>
+              <span>${monthB.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : (monthB.difference > 0 ? `<span class="badge-mismatch-hosp">Hospital +${app.ui.formatCurrency(monthB.difference)} (Hospital Excess)</span>` : `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(monthB.difference))} (Bank Excess)</span>`)}</span>
             </div>
           </div>
         </div>
@@ -5635,7 +5670,7 @@ const app = {
         const rowsHtml = list.map((r, i) => `
           <tr>
             <td style="text-align:center;">${i + 1}</td>
-            <td>${r.date}</td>
+            <td>${app.ui.formatDate(r.date)}</td>
             <td style="text-align:right;">₹${(Number(r.hospital_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
             <td style="text-align:right;">₹${(Number(r.bank_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
             <td style="text-align:center; font-weight:bold; color:${(Number(r.difference)||0)===0 ? '#059669' : '#dc2626'};">
@@ -5751,6 +5786,1084 @@ const app = {
           </html>
         `);
       }
+
+      w.document.close();
+      setTimeout(() => {
+        w.print();
+      }, 300);
+    },
+
+    selectedReportMonth: '',
+    selectedReportMonths: [],
+    reportMode: 'single',
+
+    setReportMode(mode = 'single') {
+      app.upiReconciliation.reportMode = mode;
+      const btnSingle = document.getElementById('btn-report-mode-single');
+      const btnMulti = document.getElementById('btn-report-mode-multi');
+      const ctrlSingle = document.getElementById('upi-report-controls-single');
+      const ctrlMulti = document.getElementById('upi-report-controls-multi');
+      const cardMulti = document.getElementById('card-multi-month-summary');
+
+      if (btnSingle) btnSingle.classList.toggle('active', mode === 'single');
+      if (btnMulti) btnMulti.classList.toggle('active', mode === 'multiple');
+
+      if (ctrlSingle) ctrlSingle.style.display = mode === 'single' ? 'flex' : 'none';
+      if (ctrlMulti) ctrlMulti.style.display = mode === 'multiple' ? 'flex' : 'none';
+      if (cardMulti) cardMulti.style.display = mode === 'multiple' ? 'block' : 'none';
+
+      if (mode === 'multiple' && (!app.upiReconciliation.selectedReportMonths || !app.upiReconciliation.selectedReportMonths.length)) {
+        app.upiReconciliation.populateMultiMonthCheckboxes();
+      }
+
+      app.upiReconciliation.renderMonthlyReport();
+    },
+
+    populateMonthlyReportDropdown() {
+      const select = document.getElementById('report-upi-month-select');
+      const picker = document.getElementById('report-upi-month-picker');
+      if (!select) return;
+
+      const list = app.state.upiReconciliations || [];
+      const monthsSet = new Set();
+      list.forEach(r => {
+        if (r.date && r.date.length >= 7) {
+          monthsSet.add(r.date.substring(0, 7));
+        }
+      });
+
+      // Always ensure current month is in set
+      const currentMonthKey = new Date().toISOString().substring(0, 7);
+      monthsSet.add(currentMonthKey);
+
+      const sortedMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+      
+      if (!app.upiReconciliation.selectedReportMonth || !monthsSet.has(app.upiReconciliation.selectedReportMonth)) {
+        app.upiReconciliation.selectedReportMonth = sortedMonths[0];
+      }
+
+      select.innerHTML = sortedMonths.map(mKey => {
+        const [y, m] = mKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+        const count = list.filter(r => r.date && r.date.startsWith(mKey)).length;
+        return `<option value="${mKey}">${mName} (${count} Day${count === 1 ? '' : 's'})</option>`;
+      }).join('');
+
+      select.value = app.upiReconciliation.selectedReportMonth;
+      if (picker) picker.value = app.upiReconciliation.selectedReportMonth;
+    },
+
+    populateMultiMonthCheckboxes() {
+      const container = document.getElementById('report-upi-months-checkboxes');
+      const fromInput = document.getElementById('report-upi-range-from');
+      const toInput = document.getElementById('report-upi-range-to');
+
+      const list = app.state.upiReconciliations || [];
+      const monthsSet = new Set();
+      list.forEach(r => {
+        if (r.date && r.date.length >= 7) {
+          monthsSet.add(r.date.substring(0, 7));
+        }
+      });
+      const currentMonthKey = new Date().toISOString().substring(0, 7);
+      monthsSet.add(currentMonthKey);
+
+      const sortedMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+
+      if (!app.upiReconciliation.selectedReportMonths || !app.upiReconciliation.selectedReportMonths.length) {
+        // Default to last 3 available months
+        app.upiReconciliation.selectedReportMonths = sortedMonths.slice(0, 3);
+      }
+
+      if (fromInput && !fromInput.value && sortedMonths.length > 0) {
+        fromInput.value = sortedMonths[sortedMonths.length - 1];
+      }
+      if (toInput && !toInput.value && sortedMonths.length > 0) {
+        toInput.value = sortedMonths[0];
+      }
+
+      if (!container) return;
+
+      container.innerHTML = sortedMonths.map(mKey => {
+        const [y, m] = mKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        const mName = dateObj.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+        const count = list.filter(r => r.date && r.date.startsWith(mKey)).length;
+        const isChecked = app.upiReconciliation.selectedReportMonths.includes(mKey);
+
+        return `
+          <label class="upi-month-chip ${isChecked ? 'active' : ''}" style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.35rem 0.65rem; border-radius:999px; border:1px solid ${isChecked ? '#0284c7' : 'var(--border-color)'}; background:${isChecked ? 'rgba(2,132,199,0.15)' : 'var(--bg-app)'}; font-size:0.8rem; font-weight:700; color:${isChecked ? '#0284c7' : 'var(--text-main)'}; cursor:pointer; user-select:none; transition:all 0.15s ease;">
+            <input type="checkbox" value="${mKey}" ${isChecked ? 'checked' : ''} onchange="app.upiReconciliation.toggleReportMonth('${mKey}')" style="accent-color:#0284c7; width:14px; height:14px; cursor:pointer;">
+            <span>${mName}</span>
+            <span style="font-size:0.7rem; opacity:0.75; font-family:var(--font-mono);">(${count})</span>
+          </label>
+        `;
+      }).join('');
+    },
+
+    toggleReportMonth(monthKey) {
+      if (!app.upiReconciliation.selectedReportMonths) app.upiReconciliation.selectedReportMonths = [];
+      const idx = app.upiReconciliation.selectedReportMonths.indexOf(monthKey);
+      if (idx !== -1) {
+        app.upiReconciliation.selectedReportMonths.splice(idx, 1);
+      } else {
+        app.upiReconciliation.selectedReportMonths.push(monthKey);
+        app.upiReconciliation.selectedReportMonths.sort((a, b) => b.localeCompare(a));
+      }
+      app.upiReconciliation.populateMultiMonthCheckboxes();
+      app.upiReconciliation.renderMonthlyReport();
+    },
+
+    setMultiMonthPreset(preset = 'all') {
+      const list = app.state.upiReconciliations || [];
+      const monthsSet = new Set();
+      list.forEach(r => {
+        if (r.date && r.date.length >= 7) monthsSet.add(r.date.substring(0, 7));
+      });
+      monthsSet.add(new Date().toISOString().substring(0, 7));
+      const sortedMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+
+      if (preset === 'all') {
+        app.upiReconciliation.selectedReportMonths = [...sortedMonths];
+      } else if (preset === 'last3') {
+        app.upiReconciliation.selectedReportMonths = sortedMonths.slice(0, 3);
+      } else if (preset === 'last6') {
+        app.upiReconciliation.selectedReportMonths = sortedMonths.slice(0, 6);
+      } else if (preset === 'clear') {
+        app.upiReconciliation.selectedReportMonths = [];
+      }
+
+      app.upiReconciliation.populateMultiMonthCheckboxes();
+      app.upiReconciliation.renderMonthlyReport();
+    },
+
+    applyMonthRange() {
+      let from = document.getElementById('report-upi-range-from')?.value;
+      let to = document.getElementById('report-upi-range-to')?.value;
+
+      if (!from || !to) {
+        app.ui.showToast('Please select both From and To months.', 'warning');
+        return;
+      }
+
+      if (from > to) {
+        const tmp = from;
+        from = to;
+        to = tmp;
+        const fromEl = document.getElementById('report-upi-range-from');
+        const toEl = document.getElementById('report-upi-range-to');
+        if (fromEl) fromEl.value = from;
+        if (toEl) toEl.value = to;
+      }
+
+      // Generate all YYYY-MM months between from and to
+      const [fromY, fromM] = from.split('-').map(Number);
+      const [toY, toM] = to.split('-').map(Number);
+      const selected = [];
+
+      let curY = fromY;
+      let curM = fromM;
+
+      while (curY < toY || (curY === toY && curM <= toM)) {
+        const mKey = `${curY}-${String(curM).padStart(2, '0')}`;
+        selected.push(mKey);
+        curM++;
+        if (curM > 12) {
+          curM = 1;
+          curY++;
+        }
+      }
+
+      selected.sort((a, b) => b.localeCompare(a));
+      app.upiReconciliation.selectedReportMonths = selected;
+      app.upiReconciliation.populateMultiMonthCheckboxes();
+      app.upiReconciliation.renderMonthlyReport();
+      app.ui.showToast(`Applied range: ${selected.length} month(s) selected!`, 'success');
+    },
+
+    handleReportMonthChange(source = 'dropdown') {
+      const select = document.getElementById('report-upi-month-select');
+      const picker = document.getElementById('report-upi-month-picker');
+      let targetMonth = '';
+
+      if (source === 'dropdown' && select) {
+        targetMonth = select.value;
+        if (picker) picker.value = targetMonth;
+      } else if (source === 'picker' && picker) {
+        targetMonth = picker.value;
+        if (select) {
+          let opt = Array.from(select.options).find(o => o.value === targetMonth);
+          if (!opt && targetMonth) {
+            const [y, m] = targetMonth.split('-');
+            const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+            const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+            const newOpt = document.createElement('option');
+            newOpt.value = targetMonth;
+            newOpt.textContent = `${mName} (0 Days)`;
+            select.insertBefore(newOpt, select.firstChild);
+          }
+          select.value = targetMonth;
+        }
+      }
+
+      if (targetMonth) {
+        app.upiReconciliation.selectedReportMonth = targetMonth;
+        app.upiReconciliation.renderMonthlyReport();
+      }
+    },
+
+    setReportMonthQuick(type = 'current') {
+      const now = new Date();
+      let targetMonth = '';
+
+      if (type === 'current') {
+        targetMonth = now.toISOString().substring(0, 7);
+      } else if (type === 'previous') {
+        const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const y = prev.getFullYear();
+        const m = String(prev.getMonth() + 1).padStart(2, '0');
+        targetMonth = `${y}-${m}`;
+      }
+
+      const select = document.getElementById('report-upi-month-select');
+      const picker = document.getElementById('report-upi-month-picker');
+      if (select) {
+        let opt = Array.from(select.options).find(o => o.value === targetMonth);
+        if (!opt && targetMonth) {
+          const [y, m] = targetMonth.split('-');
+          const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+          const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+          const newOpt = document.createElement('option');
+          newOpt.value = targetMonth;
+          newOpt.textContent = `${mName} (0 Days)`;
+          select.insertBefore(newOpt, select.firstChild);
+        }
+        select.value = targetMonth;
+      }
+      if (picker) picker.value = targetMonth;
+
+      app.upiReconciliation.selectedReportMonth = targetMonth;
+      app.upiReconciliation.renderMonthlyReport();
+    },
+
+    renderMonthlyReport() {
+      const mode = app.upiReconciliation.reportMode || 'single';
+      let targetMonths = [];
+
+      if (mode === 'single') {
+        app.upiReconciliation.populateMonthlyReportDropdown();
+        if (app.upiReconciliation.selectedReportMonth) {
+          targetMonths = [app.upiReconciliation.selectedReportMonth];
+        }
+      } else {
+        app.upiReconciliation.populateMultiMonthCheckboxes();
+        targetMonths = app.upiReconciliation.selectedReportMonths || [];
+      }
+
+      const targetSet = new Set(targetMonths);
+      const allList = (app.state.upiReconciliations || []).filter(r => r.date && targetSet.has(r.date.substring(0, 7)));
+
+      // Title & Label
+      let displayTitle = '';
+      if (mode === 'single') {
+        if (targetMonths[0]) {
+          const [y, m] = targetMonths[0].split('-');
+          const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+          displayTitle = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+        } else {
+          displayTitle = 'No Month Selected';
+        }
+      } else {
+        displayTitle = targetMonths.length ? `${targetMonths.length} Months Selected` : 'No Months Selected';
+      }
+
+      // Calculate combined KPIs
+      const monthHosp = allList.reduce((sum, r) => sum + (Number(r.hospital_upi) || 0), 0);
+      const monthBank = allList.reduce((sum, r) => sum + (Number(r.bank_upi) || 0), 0);
+      const monthDiff = Math.round((monthHosp - monthBank) * 100) / 100;
+      const matchedCount = allList.filter(r => (Number(r.difference) || 0) === 0).length;
+      const mismatchCount = allList.length - matchedCount;
+      const matchRate = allList.length > 0 ? Math.round((matchedCount / allList.length) * 1000) / 10 : 100;
+
+      // Update KPIs
+      const elTitle = document.getElementById('kpi-report-month-title');
+      if (elTitle) elTitle.textContent = displayTitle;
+
+      const elHosp = document.getElementById('kpi-report-hospital');
+      if (elHosp) elHosp.textContent = app.ui.formatCurrency(monthHosp);
+
+      const elBank = document.getElementById('kpi-report-bank');
+      if (elBank) elBank.textContent = app.ui.formatCurrency(monthBank);
+
+      const elDiff = document.getElementById('kpi-report-diff');
+      const elDiffSub = document.getElementById('kpi-report-diff-sub');
+      if (elDiff) {
+        if (monthDiff === 0) {
+          elDiff.innerHTML = `${app.ui.formatCurrency(0)} <span style="font-size:0.75rem; font-weight:700; color:var(--success); background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Reconciled</span>`;
+          elDiff.style.color = 'var(--success)';
+          if (elDiffSub) elDiffSub.innerHTML = '<span style="color:var(--success); font-weight:700;">✓ Perfectly Reconciled (Hospital = Bank)</span>';
+        } else if (monthDiff > 0) {
+          elDiff.innerHTML = `+${app.ui.formatCurrency(monthDiff)} <span style="font-size:0.75rem; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Hospital Excess</span>`;
+          elDiff.style.color = '#0284c7';
+          if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#0284c7; font-weight:700;">Hospital statement has excess</span> &bull; Bank deficit';
+        } else {
+          const absDiff = Math.abs(monthDiff);
+          elDiff.innerHTML = `-${app.ui.formatCurrency(absDiff)} <span style="font-size:0.75rem; font-weight:700; color:#8b5cf6; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Bank Excess</span>`;
+          elDiff.style.color = '#8b5cf6';
+          if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#8b5cf6; font-weight:700;">Bank statement has excess</span> &bull; Hospital deficit';
+        }
+      }
+
+      const elStatus = document.getElementById('kpi-report-status');
+      const elStatusSub = document.getElementById('kpi-report-status-sub');
+      if (elStatus) {
+        if (!allList.length) {
+          elStatus.innerHTML = '<span class="text-muted text-sm">No Entries</span>';
+        } else if (mismatchCount === 0) {
+          elStatus.innerHTML = `<span class="badge-matched">✓ 100% Reconciled</span>`;
+        } else {
+          elStatus.innerHTML = `<span class="badge-mismatch-bank">⚠️ ${mismatchCount} Discrepanc${mismatchCount === 1 ? 'y' : 'ies'}</span>`;
+        }
+      }
+      if (elStatusSub) {
+        elStatusSub.textContent = allList.length ? `${allList.length} Day(s) • ${matchedCount} Matched (${matchRate}%)` : (targetMonths.length ? '0 entries in selected period' : 'Select at least 1 month');
+      }
+
+      // Build Month-by-Month Summaries for all target months
+      const monthSummaries = targetMonths.map(mKey => {
+        const [y, m] = mKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+        const mEntries = (app.state.upiReconciliations || []).filter(r => r.date && r.date.startsWith(mKey));
+        const mHosp = mEntries.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+        const mBank = mEntries.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+        const mDiff = Math.round((mHosp - mBank) * 100) / 100;
+        const mMatched = mEntries.filter(r => (Number(r.difference) || 0) === 0).length;
+        const mMismatch = mEntries.length - mMatched;
+
+        return {
+          monthKey: mKey,
+          monthName: mName,
+          entries: mEntries,
+          daysCount: mEntries.length,
+          hospital_upi: mHosp,
+          bank_upi: mBank,
+          difference: mDiff,
+          matchedDays: mMatched,
+          mismatchDays: mMismatch
+        };
+      });
+
+      // Filter by status for Month-Wise display
+      const statusFilter = document.getElementById('filter-upi-report-status')?.value || 'all';
+      let displayMonths = [...monthSummaries];
+      if (statusFilter === 'matched') {
+        displayMonths = displayMonths.filter(m => m.difference === 0 && m.mismatchDays === 0);
+      } else if (statusFilter === 'mismatched') {
+        displayMonths = displayMonths.filter(m => m.difference !== 0 || m.mismatchDays > 0);
+      }
+
+      // Update Discrepancy Alert / Highlights Box
+      const alertContainer = document.getElementById('upi-report-discrepancy-alert');
+      if (alertContainer) {
+        if (!allList.length) {
+          alertContainer.innerHTML = '';
+        } else if (mismatchCount === 0) {
+          alertContainer.innerHTML = `
+            <div class="month-highlight-banner" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.35); padding: 0.85rem 1rem; border-radius: var(--radius-md); display: flex; align-items: center; gap: 0.75rem;">
+              <div style="font-size: 1.5rem; line-height: 1;">🟢</div>
+              <div>
+                <div style="font-weight: 800; color: var(--success); font-size: 0.95rem;">Perfect Reconciliation for ${displayTitle}</div>
+                <div class="text-xs text-muted" style="margin-top: 2px;">All ${allList.length} daily entries match completely between Hospital statement and Bank UPI (Difference: ₹0.00).</div>
+              </div>
+            </div>
+          `;
+        } else {
+          const discrepancies = allList.filter(r => (Number(r.difference) || 0) !== 0);
+          const discRows = discrepancies.map(r => {
+            const d = Number(r.difference) || 0;
+            const diffText = d > 0 ? `Hospital Excess: +${app.ui.formatCurrency(d)} (Bank Deficit)` : `Bank Excess: +${app.ui.formatCurrency(Math.abs(d))} (Hospital Deficit)`;
+            return `
+              <li style="display:flex; justify-content:space-between; align-items:center; padding: 0.5rem 0; border-bottom: 1px dashed rgba(239,68,68,0.2); flex-wrap:wrap; gap:0.4rem;">
+                <div>
+                  <strong>${app.ui.formatDate(r.date)}:</strong>
+                  <span style="color:#0284c7; margin-left: 6px; font-weight:600;">Hosp: ${app.ui.formatCurrency(r.hospital_upi)}</span>
+                  <span style="color:#8b5cf6; margin-left: 6px; font-weight:600;">Bank: ${app.ui.formatCurrency(r.bank_upi)}</span>
+                  <span class="${d > 0 ? 'badge-mismatch-hosp' : 'badge-mismatch-bank'}" style="margin-left: 8px;">${diffText}</span>
+                  ${r.remarks ? `<span class="text-xs text-muted" style="margin-left: 6px;">(${app.ui.escapeHTML(r.remarks)})</span>` : ''}
+                </div>
+                <div style="display:flex; align-items:center; gap: 0.5rem;">
+                  <span style="font-weight:700; font-family:var(--font-mono); color:${d > 0 ? '#0284c7' : '#8b5cf6'};">
+                    ${d > 0 ? '+' : ''}${app.ui.formatCurrency(d)}
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.initiateEdit(${r.id})" style="padding: 2px 8px; font-size: 0.75rem;">Edit</button>
+                </div>
+              </li>
+            `;
+          }).join('');
+
+          alertContainer.innerHTML = `
+            <div class="month-highlight-banner" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.85rem 1rem; border-radius: var(--radius-md);">
+              <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.25rem;">⚠️</span>
+                <strong style="color: #ef4444; font-size: 0.95rem;">${mismatchCount} Discrepancy Day${mismatchCount === 1 ? '' : 's'} in ${displayTitle}:</strong>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.82rem;">
+                ${discRows}
+              </ul>
+            </div>
+          `;
+        }
+      }
+
+      // Update table header elements
+      const nameEl = document.getElementById('report-table-month-name');
+      if (nameEl) nameEl.textContent = `${displayTitle} (Month-Wise)`;
+      const badgeEl = document.getElementById('report-table-count-badge');
+      if (badgeEl) badgeEl.textContent = `${displayMonths.length} Month${displayMonths.length === 1 ? '' : 's'}`;
+
+      const tbody = document.getElementById('list-upi-monthly-report');
+      const tfoot = document.getElementById('foot-upi-monthly-report');
+      const mobileList = document.getElementById('mobile-list-upi-monthly-report');
+
+      if (!tbody) return;
+
+      if (!displayMonths.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 2.5rem;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:36px;height:36px;opacity:0.5;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+            <span>No monthly statement records match for ${displayTitle} (${statusFilter === 'all' ? 'no data in selected period' : 'no months match status filter'}).</span>
+          </div>
+        </td></tr>`;
+        if (tfoot) tfoot.innerHTML = '';
+        if (mobileList) mobileList.innerHTML = `<div class="text-center text-muted" style="padding:2rem;">No months found for ${displayTitle}.</div>`;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      if (mobileList) mobileList.innerHTML = '';
+
+      let aggHosp = 0;
+      let aggBank = 0;
+      let aggDays = 0;
+      let aggMatched = 0;
+      let aggMismatch = 0;
+
+      displayMonths.forEach((m, idx) => {
+        aggHosp += m.hospital_upi;
+        aggBank += m.bank_upi;
+        aggDays += m.daysCount;
+        aggMatched += m.matchedDays;
+        aggMismatch += m.mismatchDays;
+
+        let statusBadge = '';
+        if (!m.daysCount) {
+          statusBadge = '<span class="text-muted text-xs">No Data</span>';
+        } else if (m.difference === 0 && m.mismatchDays === 0) {
+          statusBadge = '<span class="badge-matched">✓ 100% Reconciled</span>';
+        } else if (m.difference > 0) {
+          statusBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(m.difference)} (Hospital Excess)</span>`;
+        } else {
+          statusBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(m.difference))} (Bank Excess)</span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx + 1}</td>
+          <td>
+            <div style="font-weight:700; font-size:0.95rem; color:var(--text-main);">${m.monthName}</div>
+            <div class="text-xs text-muted font-mono">${m.monthKey}</div>
+          </td>
+          <td class="text-center font-mono font-semibold">${m.daysCount} Day(s)</td>
+          <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(m.hospital_upi)}</td>
+          <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(m.bank_upi)}</td>
+          <td class="num-val text-center font-bold" style="${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#0284c7;' : 'color:#8b5cf6;')}">
+            ${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}
+            <div class="text-xs" style="font-size:0.7rem; font-weight:600; color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')};">
+              ${m.difference === 0 ? 'Reconciled' : (m.difference > 0 ? 'Hospital Excess' : 'Bank Excess')}
+            </div>
+          </td>
+          <td class="text-center font-mono text-xs">
+            <span style="color:var(--success); font-weight:700;">${m.matchedDays} Matched</span>
+            ${m.mismatchDays > 0 ? ` &bull; <span style="color:#ef4444; font-weight:700;">${m.mismatchDays} Disc.</span>` : ''}
+          </td>
+          <td class="text-center">${statusBadge}</td>
+          <td class="text-center">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.showMonthDaysBreakdown('${m.monthKey}')" title="View daily entries of ${m.monthName}" style="padding: 3px 8px; font-size: 0.75rem; white-space: nowrap;">
+              👁️ View Days
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        if (mobileList) {
+          const mCard = document.createElement('div');
+          mCard.className = 'mobile-record-card';
+          mCard.style.borderLeft = m.difference === 0 ? '4px solid #10b981' : (m.difference > 0 ? '4px solid #0284c7' : '4px solid #8b5cf6');
+          mCard.innerHTML = `
+            <div class="mobile-record-header">
+              <span class="mobile-record-title">${m.monthName}</span>
+              ${statusBadge}
+            </div>
+            <div class="mobile-record-body" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin:0.5rem 0;">
+              <div>
+                <span class="text-xs text-muted" style="display:block;">Hospital UPI Total:</span>
+                <span class="font-bold font-mono" style="color:#0284c7;">${app.ui.formatCurrency(m.hospital_upi)}</span>
+              </div>
+              <div>
+                <span class="text-xs text-muted" style="display:block;">Bank UPI Total:</span>
+                <span class="font-bold font-mono" style="color:#8b5cf6;">${app.ui.formatCurrency(m.bank_upi)}</span>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.4rem; padding-top:0.4rem; border-top:1px dashed var(--border-color); font-size:0.8rem;">
+              <span>Net Difference: <strong style="color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')}">${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}</strong></span>
+              <span class="text-xs text-muted font-mono">${m.daysCount} Days (${m.matchedDays} M / ${m.mismatchDays} D)</span>
+            </div>
+            <div class="mobile-record-actions" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.showMonthDaysBreakdown('${m.monthKey}')">👁️ View Days (${m.daysCount})</button>
+            </div>
+          `;
+          mobileList.appendChild(mCard);
+        }
+      });
+
+      // Update table footer
+      const aggDiff = Math.round((aggHosp - aggBank) * 100) / 100;
+      if (tfoot) {
+        tfoot.innerHTML = `
+          <tr>
+            <td colspan="2" style="padding: 10px 12px; font-weight: 800;">
+              TOTAL (${displayMonths.length} Month${displayMonths.length === 1 ? '' : 's'})
+            </td>
+            <td class="text-center font-mono font-bold" style="padding: 10px 12px;">${aggDays} Days</td>
+            <td class="num-val text-right font-bold" style="color:#0284c7; padding: 10px 12px; font-size: 1rem;">
+              ${app.ui.formatCurrency(aggHosp)}
+            </td>
+            <td class="num-val text-right font-bold" style="color:#8b5cf6; padding: 10px 12px; font-size: 1rem;">
+              ${app.ui.formatCurrency(aggBank)}
+            </td>
+            <td class="num-val text-center font-bold" style="padding: 10px 12px; color:${aggDiff === 0 ? 'var(--success)' : (aggDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+              ${(aggDiff > 0 ? '+' : '') + app.ui.formatCurrency(aggDiff)}
+              <div class="text-xs" style="font-size:0.72rem; font-weight:700; color:${aggDiff === 0 ? 'var(--success)' : (aggDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+                ${aggDiff === 0 ? 'Reconciled' : (aggDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}
+              </div>
+            </td>
+            <td class="text-center text-xs" style="padding: 10px 12px;">
+              ${aggMatched} Matched &bull; ${aggMismatch} Disc.
+            </td>
+            <td class="text-center" style="padding: 10px 12px;">
+              ${aggDiff === 0 ? '<span class="badge-matched">✓ Reconciled</span>' : (aggDiff > 0 ? `<span class="badge-mismatch-hosp">Hospital Excess (+${app.ui.formatCurrency(aggDiff)})</span>` : `<span class="badge-mismatch-bank">Bank Excess (+${app.ui.formatCurrency(Math.abs(aggDiff))})</span>`)}
+            </td>
+            <td></td>
+          </tr>
+        `;
+      }
+    },
+
+    showMonthDaysBreakdown(mKey) {
+      const card = document.getElementById('card-day-wise-breakdown');
+      if (!card) return;
+
+      const [y, m] = mKey.split('-');
+      const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+      const label = document.getElementById('day-breakdown-month-label');
+      if (label) label.textContent = mName;
+
+      const entries = (app.state.upiReconciliations || [])
+        .filter(r => r.date && r.date.startsWith(mKey))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      const tbody = document.getElementById('list-upi-day-breakdown');
+      const tfoot = document.getElementById('foot-upi-day-breakdown');
+      const mobileList = document.getElementById('mobile-list-upi-day-breakdown');
+
+      if (tbody) {
+        if (!entries.length) {
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding:1.5rem;">No daily entries found for ${mName}.</td></tr>`;
+          if (tfoot) tfoot.innerHTML = '';
+        } else {
+          tbody.innerHTML = '';
+          if (mobileList) mobileList.innerHTML = '';
+          let sumHosp = 0;
+          let sumBank = 0;
+
+          entries.forEach((r, idx) => {
+            const hosp = Number(r.hospital_upi) || 0;
+            const bank = Number(r.bank_upi) || 0;
+            const diff = Math.round((hosp - bank) * 100) / 100;
+            sumHosp += hosp;
+            sumBank += bank;
+
+            let diffBadge = '';
+            if (diff === 0) {
+              diffBadge = `<span class="badge-matched">✓ Matched (₹0.00)</span>`;
+            } else if (diff > 0) {
+              diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(diff)} (Hospital Excess)</span>`;
+            } else {
+              diffBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess)</span>`;
+            }
+
+            const dObj = new Date(r.date + 'T00:00:00');
+            const weekday = isNaN(dObj.getTime()) ? '' : dObj.toLocaleDateString('en-IN', { weekday: 'short' });
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="text-center font-mono text-muted text-xs">${idx + 1}</td>
+              <td>
+                <div style="font-weight:600;">${app.ui.formatDate(r.date)}</div>
+                <div class="text-xs text-muted font-mono">${weekday}</div>
+              </td>
+              <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(hosp)}</td>
+              <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(bank)}</td>
+              <td class="text-center">${diffBadge}</td>
+              <td class="text-sm text-muted" style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${app.ui.escapeHTML(r.remarks || '')}">
+                ${r.remarks ? app.ui.escapeHTML(r.remarks) : '<span style="opacity:0.35;">-</span>'}
+              </td>
+              <td class="text-center">
+                <div class="table-actions" style="justify-content:center; gap:6px;">
+                  <button type="button" class="btn-action-icon" title="Quick Edit" onclick="app.upiReconciliation.initiateEdit(${r.id})" style="width:28px;height:28px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                  </button>
+                  <button type="button" class="btn-action-icon text-error" title="Delete Entry" onclick="app.upiReconciliation.delete(${r.id})" style="width:28px;height:28px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </td>
+            `;
+            tbody.appendChild(tr);
+
+            if (mobileList) {
+              const mCard = document.createElement('div');
+              mCard.className = 'mobile-record-card';
+              mCard.style.borderLeft = diff === 0 ? '4px solid #10b981' : (diff > 0 ? '4px solid #0284c7' : '4px solid #8b5cf6');
+              mCard.innerHTML = `
+                <div class="mobile-record-header">
+                  <span class="mobile-record-title">${app.ui.formatDate(r.date)} (${weekday})</span>
+                  ${diffBadge}
+                </div>
+                <div class="mobile-record-body" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin:0.5rem 0;">
+                  <div>
+                    <span class="text-xs text-muted" style="display:block;">Hospital Statement:</span>
+                    <span class="font-bold font-mono" style="color:#0284c7;">${app.ui.formatCurrency(hosp)}</span>
+                  </div>
+                  <div>
+                    <span class="text-xs text-muted" style="display:block;">Bank Statement:</span>
+                    <span class="font-bold font-mono" style="color:#8b5cf6;">${app.ui.formatCurrency(bank)}</span>
+                  </div>
+                </div>
+                ${r.remarks ? `<div class="text-xs text-muted" style="margin-bottom:0.5rem;"><strong>Note:</strong> ${app.ui.escapeHTML(r.remarks)}</div>` : ''}
+                <div class="mobile-record-actions" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.initiateEdit(${r.id})">Edit</button>
+                  <button type="button" class="btn btn-secondary btn-sm text-error" onclick="app.upiReconciliation.delete(${r.id})">Delete</button>
+                </div>
+              `;
+              mobileList.appendChild(mCard);
+            }
+          });
+
+          const totalDiff = Math.round((sumHosp - sumBank) * 100) / 100;
+          if (tfoot) {
+            tfoot.innerHTML = `
+              <tr>
+                <td colspan="2" style="padding: 8px 12px; font-weight: 800;">TOTAL (${entries.length} Days)</td>
+                <td class="num-val text-right font-bold" style="color:#0284c7; padding: 8px 12px;">${app.ui.formatCurrency(sumHosp)}</td>
+                <td class="num-val text-right font-bold" style="color:#8b5cf6; padding: 8px 12px;">${app.ui.formatCurrency(sumBank)}</td>
+                <td class="num-val text-center font-bold" style="padding: 8px 12px; color:${totalDiff === 0 ? 'var(--success)' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')}">
+                  ${(totalDiff > 0 ? '+' : '') + app.ui.formatCurrency(totalDiff)}
+                </td>
+                <td colspan="2" class="text-center text-xs" style="padding: 8px 12px;">
+                  ${totalDiff === 0 ? '<span class="badge-matched">✓ Reconciled</span>' : (totalDiff > 0 ? `<span class="badge-mismatch-hosp">Hospital Excess: +${app.ui.formatCurrency(totalDiff)}</span>` : `<span class="badge-mismatch-bank">Bank Excess: +${app.ui.formatCurrency(Math.abs(totalDiff))}</span>`)}
+                </td>
+              </tr>
+            `;
+          }
+        }
+      }
+
+      card.style.display = 'block';
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
+
+    toggleDayBreakdown(force) {
+      const card = document.getElementById('card-day-wise-breakdown');
+      if (!card) return;
+      const show = typeof force === 'boolean' ? force : card.style.display === 'none';
+      card.style.display = show ? 'block' : 'none';
+    },
+
+    exportMonthlyReportExcel() {
+      if (typeof XLSX === 'undefined') {
+        app.ui.showToast('Excel library not loaded.', 'error');
+        return;
+      }
+
+      const mode = app.upiReconciliation.reportMode || 'single';
+      let targetMonths = [];
+      let reportTitle = '';
+
+      if (mode === 'single') {
+        const monthKey = app.upiReconciliation.selectedReportMonth;
+        if (!monthKey) {
+          app.ui.showToast('Please select a month first.', 'warning');
+          return;
+        }
+        targetMonths = [monthKey];
+        const [y, m] = monthKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        reportTitle = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      } else {
+        targetMonths = app.upiReconciliation.selectedReportMonths || [];
+        if (!targetMonths.length) {
+          app.ui.showToast('Please select at least one month.', 'warning');
+          return;
+        }
+        reportTitle = `${targetMonths.length}_Months_Reconciliation`;
+      }
+
+      const targetSet = new Set(targetMonths);
+      const list = (app.state.upiReconciliations || [])
+        .filter(r => r.date && targetSet.has(r.date.substring(0, 7)))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      if (!list.length) {
+        app.ui.showToast(`No reconciliation entries found for ${reportTitle}.`, 'warning');
+        return;
+      }
+
+      const totalHosp = list.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+      const totalBank = list.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+      const totalDiff = Math.round((totalHosp - totalBank) * 100) / 100;
+      const matchedDays = list.filter(r => (Number(r.difference) || 0) === 0).length;
+      const mismatchDays = list.length - matchedDays;
+
+      const wb = XLSX.utils.book_new();
+
+      // Month-Wise Summary Sheet (Always sheet 1)
+      const summaryRows = [
+        ['NOOR HOSPITAL - MONTH-WISE UPI STATEMENT & SUMMARY'],
+        [`Period: ${reportTitle}`, `Generated: ${new Date().toLocaleString()}`, `Device: ${app.getDeviceId()}`],
+        [],
+        ['Month', 'Days Reconciled', 'Hospital UPI Total', 'Bank UPI Total', 'Net Difference', 'Difference Detail', 'Matched Days', 'Discrepancy Days', 'Status']
+      ];
+
+      targetMonths.forEach(mKey => {
+        const [y, m] = mKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+        const mEntries = list.filter(r => r.date && r.date.startsWith(mKey));
+        const mHosp = mEntries.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+        const mBank = mEntries.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+        const mDiff = Math.round((mHosp - mBank) * 100) / 100;
+        const mMatch = mEntries.filter(r => (Number(r.difference) || 0) === 0).length;
+        const mDisc = mEntries.length - mMatch;
+        const diffDetail = mDiff === 0 ? 'Reconciled (Matched)' : (mDiff > 0 ? `Hospital Excess: ₹${mDiff} (Bank Deficit)` : `Bank Excess: ₹${Math.abs(mDiff)} (Hospital Deficit)`);
+
+        summaryRows.push([
+          mName,
+          mEntries.length,
+          mHosp,
+          mBank,
+          mDiff,
+          diffDetail,
+          mMatch,
+          mDisc,
+          mDiff === 0 ? 'Matched' : 'Discrepancy'
+        ]);
+      });
+
+      const aggDiffDetail = totalDiff === 0 ? 'Reconciled (Matched)' : (totalDiff > 0 ? `Hospital Excess: ₹${totalDiff}` : `Bank Excess: ₹${Math.abs(totalDiff)}`);
+      summaryRows.push([]);
+      summaryRows.push(['TOTAL', list.length, totalHosp, totalBank, totalDiff, aggDiffDetail, matchedDays, mismatchDays, totalDiff === 0 ? 'Matched' : 'Discrepancy']);
+
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Month_Wise_Statement');
+
+      // Day-Wise Ledger Sheet (Sheet 2)
+      const totalDiffDetail = totalDiff === 0 ? 'Reconciled (Matched)' : (totalDiff > 0 ? `Hospital Excess: ₹${totalDiff} (Bank Deficit)` : `Bank Excess: ₹${Math.abs(totalDiff)} (Hospital Deficit)`);
+      const ledgerRows = [
+        [`NOOR HOSPITAL - ${mode === 'multiple' ? 'MULTI-MONTH' : 'MONTHLY'} UPI DAILY AUDIT LEDGER`],
+        [`Report: ${reportTitle}`, `Generated: ${new Date().toLocaleString()}`, `Device: ${app.getDeviceId()}`],
+        [],
+        ['SUMMARY KPI', 'VALUE', 'DETAIL'],
+        ['Total Days Reconciled', list.length, ''],
+        ['Hospital Statement UPI Total', totalHosp, ''],
+        ['Bank UPI Statement Total', totalBank, ''],
+        ['Net Difference (Hospital - Bank)', totalDiff, totalDiffDetail],
+        ['Matched Days (₹0 Difference)', matchedDays, ''],
+        ['Discrepancy Days', mismatchDays, ''],
+        [],
+        ['#', 'Date', 'Day', 'Hospital UPI', 'Bank UPI', 'Difference', 'Difference Detail', 'Status', 'Remarks']
+      ];
+
+      list.forEach((r, idx) => {
+        const hosp = Number(r.hospital_upi) || 0;
+        const bank = Number(r.bank_upi) || 0;
+        const diff = Number(r.difference) || 0;
+        const dObj = new Date(r.date + 'T00:00:00');
+        const dayName = isNaN(dObj.getTime()) ? '' : dObj.toLocaleDateString('en-IN', { weekday: 'short' });
+        const rowDiffDetail = diff === 0 ? 'Matched' : (diff > 0 ? `Hospital +₹${diff} (Hospital Excess)` : `Bank +₹${Math.abs(diff)} (Bank Excess)`);
+
+        ledgerRows.push([
+          idx + 1,
+          app.ui.formatDate(r.date),
+          dayName,
+          hosp,
+          bank,
+          diff,
+          rowDiffDetail,
+          diff === 0 ? 'Matched' : (diff > 0 ? 'Hospital Excess' : 'Bank Excess'),
+          r.remarks || ''
+        ]);
+      });
+
+      ledgerRows.push([]);
+      ledgerRows.push([
+        'TOTAL',
+        `${list.length} Days`,
+        '',
+        totalHosp,
+        totalBank,
+        totalDiff,
+        totalDiffDetail,
+        totalDiff === 0 ? 'Matched' : 'Discrepancy',
+        ''
+      ]);
+
+      const wsLedger = XLSX.utils.aoa_to_sheet(ledgerRows);
+      XLSX.utils.book_append_sheet(wb, wsLedger, 'Daily_Ledger');
+
+      XLSX.writeFile(wb, `NoorHospital_UPI_Report_${reportTitle.replace(/[^a-zA-Z0-9_]/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+      app.ui.showToast(`UPI Report for ${reportTitle} exported to Excel!`, 'success');
+    },
+
+    printMonthlyReportPDF() {
+      const mode = app.upiReconciliation.reportMode || 'single';
+      let targetMonths = [];
+      let reportTitle = '';
+
+      if (mode === 'single') {
+        const monthKey = app.upiReconciliation.selectedReportMonth;
+        if (!monthKey) {
+          app.ui.showToast('Please select a month first.', 'warning');
+          return;
+        }
+        targetMonths = [monthKey];
+        const [y, m] = monthKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        reportTitle = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      } else {
+        targetMonths = app.upiReconciliation.selectedReportMonths || [];
+        if (!targetMonths.length) {
+          app.ui.showToast('Please select at least one month.', 'warning');
+          return;
+        }
+        reportTitle = `${targetMonths.length} Months Consolidated (${targetMonths.join(', ')})`;
+      }
+
+      const targetSet = new Set(targetMonths);
+      const list = (app.state.upiReconciliations || [])
+        .filter(r => r.date && targetSet.has(r.date.substring(0, 7)))
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      if (!list.length) {
+        app.ui.showToast(`No reconciliation entries found for ${reportTitle}.`, 'warning');
+        return;
+      }
+
+      const totalHosp = list.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+      const totalBank = list.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+      const totalDiff = Math.round((totalHosp - totalBank) * 100) / 100;
+      const matchedCount = list.filter(r => (Number(r.difference) || 0) === 0).length;
+      const mismatchCount = list.length - matchedCount;
+
+      const w = window.open('', '_blank');
+      if (!w) {
+        app.ui.showToast('Please allow popups to print report.', 'warning');
+        return;
+      }
+
+      // Build month-by-month table HTML (Always displayed for Month-Wise statement)
+      const rows = targetMonths.map(mKey => {
+        const [y, m] = mKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        const mName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+        const mEntries = list.filter(r => r.date && r.date.startsWith(mKey));
+        const mHosp = mEntries.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+        const mBank = mEntries.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+        const mDiff = Math.round((mHosp - mBank) * 100) / 100;
+        const mMatch = mEntries.filter(r => (Number(r.difference) || 0) === 0).length;
+        const mMismatch = mEntries.length - mMatch;
+
+        return `
+          <tr>
+            <td><strong>${mName}</strong></td>
+            <td style="text-align:center;">${mEntries.length}</td>
+            <td style="text-align:right; font-weight:bold; color:#0284c7;">₹${mHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:right; font-weight:bold; color:#8b5cf6;">₹${mBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:center; font-weight:bold; color:${mDiff === 0 ? '#059669' : (mDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+              ${mDiff > 0 ? '+' : ''}₹${mDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+              <div style="font-size:10px; font-weight:600;">${mDiff === 0 ? 'Reconciled' : (mDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</div>
+            </td>
+            <td style="text-align:center;">${mMatch} Matched &bull; ${mMismatch} Disc.</td>
+            <td style="text-align:center;">${mDiff === 0 ? '✓ Reconciled' : (mDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const multiMonthHtml = `
+        <h3 style="margin-top:20px; font-size:14px; text-transform:uppercase; color:#334155;">Month-by-Month Statement Summary</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th style="text-align:center;">Days</th>
+              <th style="text-align:right;">Hospital UPI Total</th>
+              <th style="text-align:right;">Bank UPI Total</th>
+              <th style="text-align:center;">Net Difference</th>
+              <th style="text-align:center;">Reconciliation Status</th>
+              <th style="text-align:center;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>TOTAL (${targetMonths.length} Months)</td>
+              <td style="text-align:center;">${list.length} Days</td>
+              <td style="text-align:right; color:#0284c7;">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+              <td style="text-align:right; color:#8b5cf6;">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+              <td style="text-align:center; color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+                ${totalDiff > 0 ? '+' : ''}₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+                <div style="font-size:10px; font-weight:600;">${totalDiff === 0 ? 'Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</div>
+              </td>
+              <td style="text-align:center;">${matchedCount} Matched &bull; ${mismatchCount} Disc.</td>
+              <td style="text-align:center;">${totalDiff === 0 ? '✓ Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+
+      const rowsHtml = list.map((r, i) => {
+        const hosp = Number(r.hospital_upi) || 0;
+        const bank = Number(r.bank_upi) || 0;
+        const diff = Number(r.difference) || 0;
+        const dObj = new Date(r.date + 'T00:00:00');
+        const weekday = isNaN(dObj.getTime()) ? '' : dObj.toLocaleDateString('en-IN', { weekday: 'short' });
+
+        return `
+          <tr style="${diff !== 0 ? 'background: #fff1f2;' : ''}">
+            <td style="text-align:center;">${i + 1}</td>
+            <td><strong>${app.ui.formatDate(r.date)}</strong> <span style="color:#64748b; font-size:11px;">(${weekday})</span></td>
+            <td style="text-align:right; font-weight:bold; color:#0284c7;">₹${hosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:right; font-weight:bold; color:#8b5cf6;">₹${bank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:center; font-weight:bold; color:${diff === 0 ? '#059669' : '#dc2626'};">
+              ${(diff > 0 ? '+' : '')}₹${diff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+            </td>
+            <td style="text-align:center; font-size:11px; font-weight:600; color:${diff === 0 ? '#059669' : '#dc2626'};">
+              ${diff === 0 ? '✓ Matched' : (diff > 0 ? 'Hospital Excess' : 'Bank Excess')}
+            </td>
+            <td>${r.remarks ? app.ui.escapeHTML(r.remarks) : '<span style="color:#cbd5e1;">-</span>'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      w.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>UPI Statement - ${reportTitle} - Noor Hospital</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 25px; color: #0f172a; font-size: 12px; }
+            .header { text-align: center; border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 18px; }
+            .header h1 { margin: 0; font-size: 24px; color: #0284c7; letter-spacing: -0.02em; }
+            .header h2 { margin: 4px 0 0; font-size: 16px; color: #334155; font-weight: 600; }
+            .header p { margin: 4px 0 0; font-size: 11px; color: #64748b; }
+            .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+            .summary-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center; }
+            .summary-box .val { font-size: 17px; font-weight: 800; font-family: monospace; }
+            .summary-box .lbl { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #cbd5e1; padding: 7px 10px; }
+            th { background: #f1f5f9; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #475569; }
+            tfoot td { background: #f8fafc; font-weight: bold; border-top: 2px solid #0f172a; }
+            @media print {
+              body { padding: 0; }
+              @page { margin: 15mm; size: A4 portrait; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>NOOR HOSPITAL</h1>
+            <h2>${mode === 'multiple' ? 'CONSOLIDATED MULTI-MONTH' : 'MONTHLY'} UPI TRANSACTION RECONCILIATION STATEMENT</h2>
+            <p>Statement Period: <strong>${reportTitle}</strong> &bull; Generated: ${new Date().toLocaleString()} &bull; User: ${app.auth.getUsername()}</p>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-box">
+              <div class="val" style="color:#0284c7;">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+              <div class="lbl">Hospital Statement UPI</div>
+            </div>
+            <div class="summary-box">
+              <div class="val" style="color:#8b5cf6;">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+              <div class="lbl">Bank UPI Statement</div>
+            </div>
+            <div class="summary-box">
+              <div class="val" style="color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+                ${totalDiff > 0 ? '+' : ''}₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+              </div>
+              <div class="lbl">
+                Net Difference: ${totalDiff === 0 ? 'Matched (₹0.00)' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}
+              </div>
+            </div>
+            <div class="summary-box">
+              <div class="val">${list.length} Days</div>
+              <div class="lbl">${matchedCount} Matched &bull; ${mismatchCount} Discrepant</div>
+            </div>
+          </div>
+
+          ${multiMonthHtml}
+
+          <h3 style="margin-top:20px; font-size:14px; text-transform:uppercase; color:#334155;">Itemized Daily Reconciliation Ledger</h3>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30px; text-align:center;">#</th>
+                <th>Date</th>
+                <th style="text-align:right;">Hospital Statement UPI</th>
+                <th style="text-align:right;">Bank UPI Statement</th>
+                <th style="text-align:center;">Difference</th>
+                <th style="text-align:center;">Status</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" style="text-align:left;">TOTAL (${list.length} Days)</td>
+                <td style="text-align:right; color:#0284c7;">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                <td style="text-align:right; color:#8b5cf6;">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+                <td style="text-align:center; color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+                  ${totalDiff > 0 ? '+' : ''}₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+                  <div style="font-size:10px; font-weight:600;">${totalDiff === 0 ? 'Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</div>
+                </td>
+                <td style="text-align:center;">${totalDiff === 0 ? '✓ Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</td>
+                <td>-</td>
+              </tr>
+            </tfoot>
+          </table>
+        </body>
+        </html>
+      `);
 
       w.document.close();
       setTimeout(() => {
@@ -7511,7 +8624,7 @@ tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5p
 tfoot .r{text-align:right;}
 @media print{body{padding:0;}}
 </style></head><body>
-<h1>Muhasib Adv Clear - Batch Detail</h1><div class="sub">Har batch ke bills alag group me • Total: \u20B9${fmt(total)} (${sorted.length} bills)</div><div class="rule"></div>
+<h1>Muhasib Adv Clear - Batch Detail</h1><div class="sub">Bills grouped by batch • Total: \u20B9${fmt(total)} (${sorted.length} bills)</div><div class="rule"></div>
 <table><thead><tr><th class="c" style="width:50px">S.No</th><th>Vendor Name</th><th class="c" style="width:130px">Bill Number</th><th style="width:150px">Head</th><th class="r" style="width:130px">Amount</th></tr></thead>
 <tbody>${html_rows}</tbody>
 <tfoot><tr><td colspan="4" style="text-align:right">Total</td><td class="r">\u20B9${fmt(total)}</td></tr></tfoot></table>

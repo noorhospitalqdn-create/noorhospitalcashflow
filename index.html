@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260912_02">
+  <link rel="stylesheet" href="assets/app.css?v=20260919_02">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260912_01" defer></script>
+  <script src="assets/app.js?v=20260919_05" defer></script>
 </head>
 <body>
 
@@ -1212,6 +1212,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
                 <span>Monthly Comparison</span>
               </button>
+              <button type="button" class="upi-subnav-btn" id="btn-subnav-monthly-report" onclick="app.upiReconciliation.switchSubView('monthly-report')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <span>Selective Monthly Report</span>
+              </button>
             </div>
             <div class="panel-actions" style="display: flex; gap: 0.5rem;">
               <button type="button" class="btn btn-primary" onclick="app.upiReconciliation.openAddModal()">
@@ -1376,6 +1380,191 @@
                   <!-- Javascript populated -->
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- ================= SELECTIVE MONTHLY REPORT VIEW ================= -->
+          <div id="upi-view-monthly-report" style="display: none;">
+            <!-- Selective Month Toolbar -->
+            <div class="upi-report-toolbar card" style="border-left: 3px solid #0284c7; padding: 1rem; margin-bottom: 1.25rem;">
+              <div class="upi-report-toolbar-top" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.85rem;">
+                <div style="font-weight: 800; font-size: 1rem; color: var(--text-main); display: flex; align-items: center; gap: 0.5rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:#0284c7;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  <span>Selective Monthly UPI Statement & Audit</span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.exportMonthlyReportExcel()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 12h8M8 16h8"/></svg>
+                    <span>Export Excel</span>
+                  </button>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="app.upiReconciliation.printMonthlyReportPDF()" style="background:#0284c7;border-color:#0284c7;font-weight:700;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+                    <span>🖨️ Print Monthly Statement</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Mode Switcher: Single Month vs Multiple Months -->
+              <div class="upi-report-mode-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 0.85rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem;">
+                <button type="button" class="btn btn-sm btn-secondary active" id="btn-report-mode-single" onclick="app.upiReconciliation.setReportMode('single')" style="display:flex; align-items:center; gap:0.35rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                  <span>Single Month</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-report-mode-multi" onclick="app.upiReconciliation.setReportMode('multiple')" style="display:flex; align-items:center; gap:0.35rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="m9 16 2 2 4-4"/></svg>
+                  <span>Multiple Months (Multi-Select & Range)</span>
+                </button>
+              </div>
+
+              <!-- SINGLE MONTH CONTROLS -->
+              <div id="upi-report-controls-single" class="upi-report-selectors-row" style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+                <div class="month-select-wrap" style="min-width: 220px; flex: 1;">
+                  <label class="form-label" for="report-upi-month-select" style="margin-bottom:0.25rem; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Select Month:</label>
+                  <select id="report-upi-month-select" class="form-select form-input-sm" onchange="app.upiReconciliation.handleReportMonthChange('dropdown')"></select>
+                </div>
+                <div class="month-select-wrap" style="width: 170px;">
+                  <label class="form-label" for="report-upi-month-picker" style="margin-bottom:0.25rem; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Custom Month:</label>
+                  <input type="month" id="report-upi-month-picker" class="form-input form-input-sm" onchange="app.upiReconciliation.handleReportMonthChange('picker')">
+                </div>
+                <div class="month-select-wrap" style="min-width: 160px;">
+                  <label class="form-label" for="filter-upi-report-status" style="margin-bottom:0.25rem; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">Status Filter:</label>
+                  <select id="filter-upi-report-status" class="form-select form-input-sm" onchange="app.upiReconciliation.renderMonthlyReport()">
+                    <option value="all">All Entries</option>
+                    <option value="matched">Matched Only (₹0)</option>
+                    <option value="mismatched">Discrepancies Only</option>
+                  </select>
+                </div>
+                <div style="display: flex; gap: 0.35rem; align-items: flex-end; padding-top: 1rem;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.setReportMonthQuick('current')" title="Current Month">This Month</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.setReportMonthQuick('previous')" title="Previous Month">Prev Month</button>
+                </div>
+              </div>
+
+              <!-- MULTIPLE MONTHS CONTROLS -->
+              <div id="upi-report-controls-multi" style="display: none; flex-direction: column; gap: 0.75rem;">
+                <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end;">
+                  <!-- Month Range Inputs -->
+                  <div class="month-select-wrap" style="width: 150px;">
+                    <label class="form-label" for="report-upi-range-from" style="margin-bottom:0.25rem; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">From Month:</label>
+                    <input type="month" id="report-upi-range-from" class="form-input form-input-sm">
+                  </div>
+                  <div class="month-select-wrap" style="width: 150px;">
+                    <label class="form-label" for="report-upi-range-to" style="margin-bottom:0.25rem; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">To Month:</label>
+                    <input type="month" id="report-upi-range-to" class="form-input form-input-sm">
+                  </div>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="app.upiReconciliation.applyMonthRange()" style="height: 32px; background: #0284c7; border-color: #0284c7;">Apply Range</button>
+
+                  <!-- Quick Presets -->
+                  <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-left: auto;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.setMultiMonthPreset('all')">Select All</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.setMultiMonthPreset('last3')">Last 3 Months</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.setMultiMonthPreset('last6')">Last 6 Months</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.setMultiMonthPreset('clear')">Clear Selection</button>
+                  </div>
+                </div>
+
+                <!-- Interactive Multi-Month Checkbox Chips -->
+                <div style="margin-top: 0.25rem;">
+                  <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.35rem;">Click Months to Select / Deselect:</div>
+                  <div id="report-upi-months-checkboxes" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    <!-- JS populated chips -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Month Summary KPIs Grid -->
+            <div class="upi-kpi-grid" id="upi-report-kpi-grid">
+              <div class="upi-kpi-card kpi-hosp">
+                <div class="upi-kpi-title" id="kpi-report-month-title">Selected Month</div>
+                <div class="upi-kpi-value" id="kpi-report-hospital" style="color:#0284c7;">₹0.00</div>
+                <div class="upi-kpi-subtitle" id="kpi-report-hospital-sub">Hospital UPI Collection</div>
+              </div>
+              <div class="upi-kpi-card kpi-bank">
+                <div class="upi-kpi-title">Bank UPI Statement</div>
+                <div class="upi-kpi-value" id="kpi-report-bank" style="color:#8b5cf6;">₹0.00</div>
+                <div class="upi-kpi-subtitle" id="kpi-report-bank-sub">Bank UPI Received</div>
+              </div>
+              <div class="upi-kpi-card kpi-diff">
+                <div class="upi-kpi-title">Net Difference</div>
+                <div class="upi-kpi-value" id="kpi-report-diff">₹0.00</div>
+                <div class="upi-kpi-subtitle" id="kpi-report-diff-sub">Hospital − Bank</div>
+              </div>
+              <div class="upi-kpi-card kpi-status">
+                <div class="upi-kpi-title">Reconciliation Health</div>
+                <div class="upi-kpi-value" id="kpi-report-status" style="font-size: 1.15rem; display:flex; align-items:center; gap:0.4rem;">
+                  <span class="badge-matched">✓ 0 Matched</span>
+                </div>
+                <div class="upi-kpi-subtitle" id="kpi-report-status-sub">0 Days Reconciled</div>
+              </div>
+            </div>
+
+            <!-- Month Discrepancy Alert / Highlights Box -->
+            <div id="upi-report-discrepancy-alert" style="margin-bottom: 1.25rem;"></div>
+
+            <!-- Month-Wise Statement Table (Unified for Single & Multiple Months) -->
+            <div class="card overflow-x" style="border-left: 3px solid #0284c7; margin-bottom: 1.25rem;">
+              <div style="padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="font-weight: 800; font-size: 0.95rem; display:flex; align-items:center; gap:0.4rem; color: var(--text-main);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:#0284c7;"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                  <span id="report-table-month-name">Monthly Statement (Month-Wise)</span>
+                  <span class="badge" id="report-table-count-badge" style="background: rgba(2,132,199,0.12); color:#0284c7; font-weight:700;">0 Months</span>
+                </div>
+                <div class="text-xs text-muted" id="report-table-summary-info">Month-by-month reconciliation statement for selected period</div>
+              </div>
+              <table class="data-table" id="table-upi-monthly-report">
+                <thead>
+                  <tr>
+                    <th style="width: 45px;" class="text-center">#</th>
+                    <th>Month</th>
+                    <th class="text-center">Days Reconciled</th>
+                    <th class="text-right">Hospital Statement UPI</th>
+                    <th class="text-right">Bank UPI Statement</th>
+                    <th class="text-center">Net Difference</th>
+                    <th class="text-center">Reconciliation Health</th>
+                    <th class="text-center" style="width: 140px;">Status</th>
+                    <th class="text-center" style="width: 100px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="list-upi-monthly-report">
+                  <!-- Javascript populated with month-wise rows -->
+                </tbody>
+                <tfoot id="foot-upi-monthly-report" style="font-weight: 800; background: var(--bg-app); border-top: 2px solid var(--border-color);">
+                  <!-- Javascript populated footer totals -->
+                </tfoot>
+              </table>
+            </div>
+            <div class="mobile-card-list" id="mobile-list-upi-monthly-report"></div>
+
+            <!-- Optional Day-by-Day Breakdown (Collapsed by default, opens when clicking 'View Days') -->
+            <div class="card overflow-x" id="card-day-wise-breakdown" style="display: none; border-left: 3px solid #64748b; margin-top: 1rem; margin-bottom: 1.25rem;">
+              <div style="padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; gap: 0.4rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;color:#64748b;"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01M9 6h6M9 10h6"/></svg>
+                  <span>Day-by-Day Reconciliation Breakdown:</span>
+                  <span id="day-breakdown-month-label" class="text-primary font-bold">Selected Month</span>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.toggleDayBreakdown(false)">✕ Close Day Breakdown</button>
+              </div>
+              <table class="data-table" id="table-upi-day-breakdown">
+                <thead>
+                  <tr>
+                    <th style="width: 45px;" class="text-center">#</th>
+                    <th>Date</th>
+                    <th class="text-right">Hospital Statement UPI</th>
+                    <th class="text-right">Bank UPI Statement</th>
+                    <th class="text-center">Difference</th>
+                    <th>Remarks</th>
+                    <th class="text-center" style="width: 90px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="list-upi-day-breakdown">
+                  <!-- JS populated when opened -->
+                </tbody>
+                <tfoot id="foot-upi-day-breakdown" style="font-weight: 800; background: var(--bg-app); border-top: 2px solid var(--border-color);">
+                </tfoot>
+              </table>
+              <div class="mobile-card-list" id="mobile-list-upi-day-breakdown"></div>
             </div>
           </div>
         </section>
@@ -1675,7 +1864,7 @@
 
             <div class="card">
               <div class="card-title">Sidebar Custom Colors</div>
-              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Apni marzi se har section ka color set karein. Purple, Green, Yellow etc ya custom color picker se.</p>
+              <p class="text-sm text-muted" style="margin-bottom: 1.5rem;">Customize accent colors for each section using presets or the custom color picker.</p>
               <form id="form-sidebar-colors">
                 <div class="form-group">
                   <label class="form-label" for="color-muhasib">Muhasib Cash, Muhasib Bills &amp; Muhasib Temp Slips</label>
@@ -2808,7 +2997,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
     <div class="modal-header">
       <div class="modal-title-wrap">
         <h3>Move Bills to Adv Clear — Batch</h3>
-        <p class="modal-subtitle">Select kiye gaye bills ek hi batch me clear honge</p>
+        <p class="modal-subtitle">Selected bills will be cleared together in a single batch</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-batch-clear')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -2818,7 +3007,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       <div class="form-group">
         <label class="form-label" for="batch-clear-name">Batch Name / Number *</label>
         <input type="text" id="batch-clear-name" class="form-input" placeholder="e.g. Batch-12, 12-Sep-Match, Imprest-05" list="advance-batch-list" autocomplete="off">
-        <small class="form-hint">Ye naam Adv Clear page me har bill ke sath show hoga taake pata lage ye sare bill is batch ke hein.</small>
+        <small class="form-hint">This batch name will be assigned to all selected bills for reference under Adv Clear.</small>
       </div>
       <div class="batch-summary-card">
         <div class="batch-summary-row"><span>Total Bills</span><strong id="batch-clear-count">0</strong></div>
