@@ -8,8 +8,8 @@ const app = {
   // Database Configuration
   dbConfig: {
     name: 'NoorHospitalCashDB',
-    version: 8,
-    stores: ['settings', 'advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'sync_queue', 'hospital_deposits', 'accounts_register', 'vendors', 'heads']
+    version: 9,
+    stores: ['settings', 'advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'sync_queue', 'hospital_deposits', 'accounts_register', 'vendors', 'heads', 'upi_reconciliations']
   },
 
   // Chart.js instances tracking
@@ -34,6 +34,7 @@ const app = {
     accountsRegister: [],
     vendors: [],
     heads: [],
+    upiReconciliations: [],
     
     // Calculated aggregates
     advanceCashAvailable: 0,
@@ -587,7 +588,7 @@ const app = {
             } catch (itemErr) {
               const msg = String((itemErr && itemErr.message) || itemErr || '');
               const isMissingTable = msg.includes('PGRST205') || msg.includes('schema cache') || msg.includes('Could not find the table');
-              const isVendorConflict = (item.table === 'vendors' || item.table === 'heads') && (msg.includes('duplicate') || msg.includes('already exists') || msg.includes('23505') || msg.includes('unique'));
+              const isVendorConflict = (item.table === 'vendors' || item.table === 'heads' || item.table === 'upi_reconciliations') && (msg.includes('duplicate') || msg.includes('already exists') || msg.includes('23505') || msg.includes('unique'));
               if (isMissingTable || isVendorConflict) {
                 console.warn('Dropping non-blocking queue item (table missing or vendor duplicate):', item, itemErr);
                 try { await app.db.delete('sync_queue', item.id); } catch (_) {}
@@ -636,7 +637,7 @@ const app = {
         localStorage.removeItem('noor_database_reset_pending');
       }
       
-      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads'];
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads', 'upi_reconciliations'];
       
       for (const table of tables) {
         try {
@@ -683,7 +684,7 @@ const app = {
           }
         } catch (err) {
           console.error(`Failed to pull table ${table}:`, err);
-          if (table === 'vendors' || table === 'heads') {
+          if (table === 'vendors' || table === 'heads' || table === 'upi_reconciliations') {
             console.warn(`Supabase ${table} table not configured yet or inaccessible. Preserving local data.`);
             continue;
           }
@@ -707,7 +708,7 @@ const app = {
      * Delete all rows from every Supabase data table (used by Reset Database).
      */
     async wipeRemoteTables() {
-      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads'];
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads', 'upi_reconciliations'];
       for (const table of tables) {
         try {
           // Delete all rows by using a filter that matches every row (id > 0)
@@ -782,6 +783,9 @@ const app = {
           }
           if (!db.objectStoreNames.contains('heads')) {
             db.createObjectStore('heads', { keyPath: 'id', autoIncrement: true });
+          }
+          if (!db.objectStoreNames.contains('upi_reconciliations')) {
+            db.createObjectStore('upi_reconciliations', { keyPath: 'id', autoIncrement: true });
           }
         };
       });
@@ -998,7 +1002,8 @@ const app = {
           bills: await app.db.getAll('bills'),
           transfers: await app.db.getAll('transfers'),
           hospital_deposits: await app.db.getAll('hospital_deposits'),
-          accounts_register: await app.db.getAll('accounts_register')
+          accounts_register: await app.db.getAll('accounts_register'),
+          upi_reconciliations: await app.db.getAll('upi_reconciliations')
         };
         
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -1077,6 +1082,7 @@ const app = {
         await restoreStore('transfers', data.transfers);
         await restoreStore('hospital_deposits', data.hospital_deposits);
         await restoreStore('accounts_register', data.accounts_register);
+        await restoreStore('upi_reconciliations', data.upi_reconciliations);
 
         app.ui.showToast('Database successfully restored from JSON!');
         setTimeout(() => location.reload(), 1500);
@@ -1316,6 +1322,14 @@ const app = {
       } catch (err) {
         console.warn('Could not read vendors from DB, initializing empty:', err);
         app.state.vendors = [];
+      }
+
+      // 2d. Fetch UPI Reconciliations
+      try {
+        app.state.upiReconciliations = await app.db.getAll('upi_reconciliations') || [];
+      } catch (err) {
+        console.warn('Could not read upi_reconciliations from DB, initializing empty:', err);
+        app.state.upiReconciliations = [];
       }
 
       const existingVendorMap = new Map();
@@ -2316,6 +2330,10 @@ const app = {
         if (cc) cc.value = convHeadSel.value;
       });
 
+      if (app.upiReconciliation) {
+        app.upiReconciliation.init();
+      }
+
       // Register report type change
       document.getElementById('report-select-type').addEventListener('change', () => {
         const vGrp = document.getElementById('report-vendor-group');
@@ -2538,6 +2556,7 @@ const app = {
         'advance-cleared': 'bills',
         'accounts': 'ledgers',
         'transfers': 'ledgers',
+        'upi-reconciliation': 'ledgers',
         'bills': 'bills',
         'balance-sheet': 'reports',
         'reports': 'reports',
@@ -2566,6 +2585,7 @@ const app = {
         'bills': 'Hospital Bills Register',
         'accounts': 'Accounts Department Register',
         'transfers': 'Accounts Verification & Transfers',
+        'upi-reconciliation': 'UPI Transaction Reconciliation',
         'balance-sheet': 'Cash Position Balance Sheet',
         'reports': 'Financial Reports Centre',
         'vendors': 'Vendor Directory',
@@ -2580,6 +2600,12 @@ const app = {
         app.reports.renderReportView();
       } else if (panelId === 'balance-sheet') {
         app.ui.renderBalanceSheet();
+      } else if (panelId === 'upi-reconciliation' && app.upiReconciliation) {
+        app.upiReconciliation.renderTable();
+        app.upiReconciliation.renderKPIs();
+        if (app.upiReconciliation.activeTab === 'monthly') {
+          app.upiReconciliation.renderMonthlyComparison();
+        }
       }
 
       // Scroll to top on mobile (panel-container is the scroller, not window)
@@ -3266,6 +3292,13 @@ const app = {
       if (app.heads) {
         app.heads.populateHeadDropdowns();
         app.heads.renderHeadsTable();
+      }
+      if (app.upiReconciliation) {
+        app.upiReconciliation.renderTable();
+        app.upiReconciliation.renderKPIs();
+        if (app.upiReconciliation.activeTab === 'monthly') {
+          app.upiReconciliation.renderMonthlyComparison();
+        }
       }
 
       // 3. Render Balance Sheet Panel
@@ -4744,6 +4777,985 @@ const app = {
       const s = document.getElementById('search-heads');
       if (s) s.value = '';
       app.heads.renderHeadsTable();
+    }
+  },
+
+  // ==========================================
+  // UPI TRANSACTION RECONCILIATION & MONTHLY COMPARISON
+  // ==========================================
+  upiReconciliation: {
+    activeTab: 'daily',
+    selectedMonthA: null,
+    selectedMonthB: null,
+
+    init() {
+      const today = new Date().toISOString().split('T')[0];
+      const qDate = document.getElementById('quick-upi-date');
+      if (qDate && !qDate.value) qDate.value = today;
+      const mDate = document.getElementById('upi-date');
+      if (mDate && !mDate.value) mDate.value = today;
+
+      app.upiReconciliation.setupLiveCalculators();
+
+      const searchInput = document.getElementById('search-upi');
+      if (searchInput) {
+        searchInput.addEventListener('input', () => app.upiReconciliation.renderTable());
+      }
+      const fromInput = document.getElementById('filter-upi-from');
+      if (fromInput) {
+        fromInput.addEventListener('change', () => app.upiReconciliation.renderTable());
+      }
+      const toInput = document.getElementById('filter-upi-to');
+      if (toInput) {
+        toInput.addEventListener('change', () => app.upiReconciliation.renderTable());
+      }
+    },
+
+    setupLiveCalculators() {
+      const qHosp = document.getElementById('quick-upi-hospital');
+      const qBank = document.getElementById('quick-upi-bank');
+      const qDiff = document.getElementById('quick-upi-diff-display');
+      const updateQuickDiff = () => {
+        const hVal = parseFloat(qHosp?.value) || 0;
+        const bVal = parseFloat(qBank?.value) || 0;
+        const diff = Math.round((hVal - bVal) * 100) / 100;
+        if (!qDiff) return;
+        qDiff.className = 'upi-diff-chip';
+        if (hVal === 0 && bVal === 0 && !qHosp?.value && !qBank?.value) {
+          qDiff.innerText = 'Diff: ₹0.00';
+        } else if (diff === 0) {
+          qDiff.classList.add('matched');
+          qDiff.innerText = '✓ Matched (₹0.00)';
+        } else if (diff > 0) {
+          qDiff.classList.add('mismatch-hosp');
+          qDiff.innerText = `Hospital +${app.ui.formatCurrency(diff)}`;
+        } else {
+          qDiff.classList.add('mismatch-bank');
+          qDiff.innerText = `Bank +${app.ui.formatCurrency(Math.abs(diff))}`;
+        }
+      };
+      if (qHosp) qHosp.addEventListener('input', updateQuickDiff);
+      if (qBank) qBank.addEventListener('input', updateQuickDiff);
+
+      const mHosp = document.getElementById('upi-hospital-amount');
+      const mBank = document.getElementById('upi-bank-amount');
+      const mDiff = document.getElementById('modal-upi-diff-display');
+      const updateModalDiff = () => {
+        const hVal = parseFloat(mHosp?.value) || 0;
+        const bVal = parseFloat(mBank?.value) || 0;
+        const diff = Math.round((hVal - bVal) * 100) / 100;
+        if (!mDiff) return;
+        mDiff.className = 'upi-diff-chip';
+        mDiff.style.width = '100%';
+        mDiff.style.justifyContent = 'flex-start';
+        mDiff.style.height = '38px';
+        mDiff.style.fontSize = '0.85rem';
+        if (hVal === 0 && bVal === 0 && !mHosp?.value && !mBank?.value) {
+          mDiff.innerText = 'Diff: ₹0.00';
+        } else if (diff === 0) {
+          mDiff.classList.add('matched');
+          mDiff.innerText = '✓ Matched (₹0.00 Difference)';
+        } else if (diff > 0) {
+          mDiff.classList.add('mismatch-hosp');
+          mDiff.innerText = `⚠️ Hospital Excess: +${app.ui.formatCurrency(diff)}`;
+        } else {
+          mDiff.classList.add('mismatch-bank');
+          mDiff.innerText = `⚠️ Bank Excess: +${app.ui.formatCurrency(Math.abs(diff))}`;
+        }
+      };
+      if (mHosp) mHosp.addEventListener('input', updateModalDiff);
+      if (mBank) mBank.addEventListener('input', updateModalDiff);
+    },
+
+    switchSubView(view) {
+      app.upiReconciliation.activeTab = view;
+      const btnDaily = document.getElementById('btn-subnav-daily');
+      const btnMonthly = document.getElementById('btn-subnav-monthly');
+      const viewDaily = document.getElementById('upi-view-daily');
+      const viewMonthly = document.getElementById('upi-view-monthly');
+
+      if (view === 'daily') {
+        if (btnDaily) btnDaily.classList.add('active');
+        if (btnMonthly) btnMonthly.classList.remove('active');
+        if (viewDaily) viewDaily.style.display = 'block';
+        if (viewMonthly) viewMonthly.style.display = 'none';
+        app.upiReconciliation.renderTable();
+      } else {
+        if (btnDaily) btnDaily.classList.remove('active');
+        if (btnMonthly) btnMonthly.classList.add('active');
+        if (viewDaily) viewDaily.style.display = 'none';
+        if (viewMonthly) viewMonthly.style.display = 'block';
+        app.upiReconciliation.renderMonthlyComparison();
+      }
+    },
+
+    openAddModal(defaultDate = '') {
+      const form = document.getElementById('form-upi-add');
+      if (form) form.reset();
+      const editId = document.getElementById('edit-upi-id');
+      if (editId) editId.value = '';
+      const title = document.getElementById('dialog-upi-title');
+      if (title) title.innerText = 'Add UPI Daily Reconciliation';
+      const btn = document.getElementById('btn-save-upi');
+      if (btn) btn.innerText = 'Save Entry';
+
+      const dateInput = document.getElementById('upi-date');
+      const today = new Date().toISOString().split('T')[0];
+      if (dateInput) dateInput.value = defaultDate || today;
+
+      const mDiff = document.getElementById('modal-upi-diff-display');
+      if (mDiff) {
+        mDiff.className = 'upi-diff-chip';
+        mDiff.style.width = '100%';
+        mDiff.style.justifyContent = 'flex-start';
+        mDiff.style.height = '38px';
+        mDiff.style.fontSize = '0.85rem';
+        mDiff.innerText = 'Diff: ₹0.00';
+      }
+
+      app.ui.openModal('dialog-upi-add');
+      setTimeout(() => {
+        const hospInput = document.getElementById('upi-hospital-amount');
+        if (hospInput) hospInput.focus();
+      }, 120);
+    },
+
+    async initiateEdit(id) {
+      const record = (app.state.upiReconciliations || []).find(r => r.id === id);
+      if (!record) {
+        app.ui.showToast('Reconciliation entry not found.', 'error');
+        return;
+      }
+      document.getElementById('edit-upi-id').value = record.id;
+      document.getElementById('dialog-upi-title').innerText = 'Edit UPI Reconciliation';
+      const btn = document.getElementById('btn-save-upi');
+      if (btn) btn.innerText = 'Update Entry';
+
+      document.getElementById('upi-date').value = record.date || '';
+      document.getElementById('upi-hospital-amount').value = record.hospital_upi !== undefined ? record.hospital_upi : '';
+      document.getElementById('upi-bank-amount').value = record.bank_upi !== undefined ? record.bank_upi : '';
+      document.getElementById('upi-remarks').value = record.remarks || '';
+
+      const mHosp = document.getElementById('upi-hospital-amount');
+      if (mHosp) mHosp.dispatchEvent(new Event('input'));
+
+      app.ui.openModal('dialog-upi-add');
+      setTimeout(() => {
+        if (mHosp) mHosp.focus();
+      }, 120);
+    },
+
+    async quickSaveInline() {
+      const date = document.getElementById('quick-upi-date')?.value;
+      const hospVal = parseFloat(document.getElementById('quick-upi-hospital')?.value);
+      const bankVal = parseFloat(document.getElementById('quick-upi-bank')?.value);
+      const remarks = (document.getElementById('quick-upi-remarks')?.value || '').trim();
+
+      if (!date) {
+        app.ui.showToast('Please select a date.', 'warning');
+        return;
+      }
+      if (isNaN(hospVal) || hospVal < 0) {
+        app.ui.showToast('Please enter a valid Hospital Statement UPI amount.', 'warning');
+        document.getElementById('quick-upi-hospital')?.focus();
+        return;
+      }
+      if (isNaN(bankVal) || bankVal < 0) {
+        app.ui.showToast('Please enter a valid Bank UPI Statement amount.', 'warning');
+        document.getElementById('quick-upi-bank')?.focus();
+        return;
+      }
+
+      await app.upiReconciliation.save({
+        date,
+        hospital_upi: hospVal,
+        bank_upi: bankVal,
+        remarks
+      });
+
+      const qHosp = document.getElementById('quick-upi-hospital');
+      const qBank = document.getElementById('quick-upi-bank');
+      const qRemarks = document.getElementById('quick-upi-remarks');
+      if (qHosp) qHosp.value = '';
+      if (qBank) qBank.value = '';
+      if (qRemarks) qRemarks.value = '';
+      const qDiff = document.getElementById('quick-upi-diff-display');
+      if (qDiff) {
+        qDiff.className = 'upi-diff-chip';
+        qDiff.innerText = 'Diff: ₹0.00';
+      }
+      setTimeout(() => {
+        if (qHosp) qHosp.focus();
+      }, 50);
+    },
+
+    async handleModalSubmit() {
+      const editId = document.getElementById('edit-upi-id')?.value;
+      const date = document.getElementById('upi-date')?.value;
+      const hospVal = parseFloat(document.getElementById('upi-hospital-amount')?.value);
+      const bankVal = parseFloat(document.getElementById('upi-bank-amount')?.value);
+      const remarks = (document.getElementById('upi-remarks')?.value || '').trim();
+
+      if (!date) {
+        app.ui.showToast('Please select a date.', 'warning');
+        return;
+      }
+      if (isNaN(hospVal) || hospVal < 0) {
+        app.ui.showToast('Please enter a valid Hospital Statement UPI amount.', 'warning');
+        return;
+      }
+      if (isNaN(bankVal) || bankVal < 0) {
+        app.ui.showToast('Please enter a valid Bank UPI Statement amount.', 'warning');
+        return;
+      }
+
+      const success = await app.upiReconciliation.save({
+        id: editId ? parseInt(editId, 10) : null,
+        date,
+        hospital_upi: hospVal,
+        bank_upi: bankVal,
+        remarks
+      });
+
+      if (success) {
+        app.ui.closeModal('dialog-upi-add');
+      }
+    },
+
+    async save(data) {
+      const editId = data.id || null;
+      const hospital_upi = Math.round((Number(data.hospital_upi) || 0) * 100) / 100;
+      const bank_upi = Math.round((Number(data.bank_upi) || 0) * 100) / 100;
+      const difference = Math.round((hospital_upi - bank_upi) * 100) / 100;
+      const status = difference === 0 ? 'matched' : 'mismatched';
+      const remarks = (data.remarks || '').trim();
+      const date = data.date;
+
+      try {
+        if (editId) {
+          const existing = (app.state.upiReconciliations || []).find(r => r.id === editId);
+          const updated = {
+            ...existing,
+            date,
+            hospital_upi,
+            bank_upi,
+            difference,
+            status,
+            remarks,
+            updated_at: new Date().toISOString()
+          };
+          await app.db.put('upi_reconciliations', editId, updated);
+          const idx = app.state.upiReconciliations.findIndex(r => r.id === editId);
+          if (idx !== -1) app.state.upiReconciliations[idx] = updated;
+          app.ui.showToast(`Reconciliation for ${app.ui.formatDate(date)} updated!`, 'success');
+        } else {
+          const newRecord = {
+            date,
+            hospital_upi,
+            bank_upi,
+            difference,
+            status,
+            remarks,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          const newId = await app.db.add('upi_reconciliations', newRecord);
+          newRecord.id = newId;
+          if (!app.state.upiReconciliations) app.state.upiReconciliations = [];
+          app.state.upiReconciliations.push(newRecord);
+          app.ui.showToast(`Reconciliation for ${app.ui.formatDate(date)} saved!`, 'success');
+        }
+
+        app.upiReconciliation.renderTable();
+        app.upiReconciliation.renderKPIs();
+        if (app.upiReconciliation.activeTab === 'monthly') {
+          app.upiReconciliation.renderMonthlyComparison();
+        }
+        return true;
+      } catch (err) {
+        console.error('Failed to save UPI reconciliation:', err);
+        app.ui.showToast('Failed to save entry: ' + err.message, 'error');
+        return false;
+      }
+    },
+
+    async delete(id) {
+      const record = (app.state.upiReconciliations || []).find(r => r.id === id);
+      if (!record) return;
+
+      const confirmMsg = `Delete reconciliation entry for ${app.ui.formatDate(record.date)}?\n\nHospital UPI: ${app.ui.formatCurrency(record.hospital_upi)}\nBank UPI: ${app.ui.formatCurrency(record.bank_upi)}`;
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        await app.db.delete('upi_reconciliations', id);
+        app.state.upiReconciliations = (app.state.upiReconciliations || []).filter(r => r.id !== id);
+        app.ui.showToast(`Entry for ${app.ui.formatDate(record.date)} deleted.`, 'info');
+        app.upiReconciliation.renderTable();
+        app.upiReconciliation.renderKPIs();
+        if (app.upiReconciliation.activeTab === 'monthly') {
+          app.upiReconciliation.renderMonthlyComparison();
+        }
+      } catch (err) {
+        console.error('Failed to delete UPI reconciliation:', err);
+        app.ui.showToast('Failed to delete entry: ' + err.message, 'error');
+      }
+    },
+
+    getFilteredList() {
+      let list = [...(app.state.upiReconciliations || [])];
+      const q = (document.getElementById('search-upi')?.value || '').trim().toLowerCase();
+      const from = document.getElementById('filter-upi-from')?.value;
+      const to = document.getElementById('filter-upi-to')?.value;
+      const statusFilter = document.getElementById('filter-upi-status')?.value || 'all';
+      const sortBy = document.getElementById('sort-upi')?.value || 'date_desc';
+
+      if (q) {
+        list = list.filter(r => {
+          const rDate = String(r.date || '').toLowerCase();
+          const rRemarks = String(r.remarks || '').toLowerCase();
+          return rDate.includes(q) || rRemarks.includes(q);
+        });
+      }
+
+      if (from) {
+        list = list.filter(r => r.date >= from);
+      }
+      if (to) {
+        list = list.filter(r => r.date <= to);
+      }
+
+      if (statusFilter === 'matched') {
+        list = list.filter(r => (Number(r.difference) || 0) === 0);
+      } else if (statusFilter === 'mismatched') {
+        list = list.filter(r => (Number(r.difference) || 0) !== 0);
+      }
+
+      list.sort((a, b) => {
+        if (sortBy === 'date_asc') return (a.date || '').localeCompare(b.date || '');
+        if (sortBy === 'date_desc') return (b.date || '').localeCompare(a.date || '');
+        if (sortBy === 'diff_desc') return Math.abs(Number(b.difference) || 0) - Math.abs(Number(a.difference) || 0);
+        if (sortBy === 'hosp_desc') return (Number(b.hospital_upi) || 0) - (Number(a.hospital_upi) || 0);
+        if (sortBy === 'bank_desc') return (Number(b.bank_upi) || 0) - (Number(a.bank_upi) || 0);
+        return (b.date || '').localeCompare(a.date || '');
+      });
+
+      return list;
+    },
+
+    renderTable() {
+      const tbody = document.getElementById('list-upi-reconciliation');
+      const mobileList = document.getElementById('mobile-list-upi-reconciliation');
+      const badge = document.getElementById('total-upi-badge');
+      const list = app.upiReconciliation.getFilteredList();
+
+      if (badge) badge.textContent = `Total: ${list.length} Day(s)`;
+
+      if (!tbody) return;
+
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding: 2.5rem;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:36px;height:36px;opacity:0.5;"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01M9 6h6M9 10h6"/></svg>
+            <span>No reconciliation entries found for the selected criteria.</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.openAddModal()" style="margin-top:0.3rem;">+ Add Daily Entry</button>
+          </div>
+        </td></tr>`;
+        if (mobileList) mobileList.innerHTML = `<div class="text-center text-muted" style="padding:2rem;">No entries found.</div>`;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      if (mobileList) mobileList.innerHTML = '';
+
+      list.forEach((r, idx) => {
+        const hosp = Number(r.hospital_upi) || 0;
+        const bank = Number(r.bank_upi) || 0;
+        const diff = Math.round((hosp - bank) * 100) / 100;
+
+        let diffBadge = '';
+        if (diff === 0) {
+          diffBadge = `<span class="badge-matched">✓ Matched (₹0.00)</span>`;
+        } else if (diff > 0) {
+          diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement has more UPI than bank">Hospital +${app.ui.formatCurrency(diff)}</span>`;
+        } else {
+          diffBadge = `<span class="badge-mismatch-bank" title="Bank statement has more UPI than hospital">Bank +${app.ui.formatCurrency(Math.abs(diff))}</span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx + 1}</td>
+          <td class="font-semibold">${app.ui.formatDate(r.date)}</td>
+          <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(hosp)}</td>
+          <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(bank)}</td>
+          <td class="text-center">${diffBadge}</td>
+          <td class="text-sm text-muted" style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${app.ui.escapeHTML(r.remarks || '')}">
+            ${r.remarks ? app.ui.escapeHTML(r.remarks) : '<span style="opacity:0.35;">-</span>'}
+          </td>
+          <td class="text-center">
+            <div class="table-actions" style="justify-content:center; gap:6px;">
+              <button type="button" class="btn-action-icon" title="Quick Edit" onclick="app.upiReconciliation.initiateEdit(${r.id})" style="width:28px;height:28px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </button>
+              <button type="button" class="btn-action-icon text-error" title="Delete Entry" onclick="app.upiReconciliation.delete(${r.id})" style="width:28px;height:28px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        if (mobileList) {
+          const mCard = document.createElement('div');
+          mCard.className = 'mobile-record-card';
+          mCard.style.borderLeft = diff === 0 ? '4px solid #10b981' : (diff > 0 ? '4px solid #f59e0b' : '4px solid #ef4444');
+          mCard.innerHTML = `
+            <div class="mobile-record-header">
+              <span class="mobile-record-title">${app.ui.formatDate(r.date)}</span>
+              ${diffBadge}
+            </div>
+            <div class="mobile-record-body" style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin:0.5rem 0;">
+              <div>
+                <span class="text-xs text-muted" style="display:block;">Hospital Statement:</span>
+                <span class="font-bold font-mono" style="color:#0284c7;">${app.ui.formatCurrency(hosp)}</span>
+              </div>
+              <div>
+                <span class="text-xs text-muted" style="display:block;">Bank Statement:</span>
+                <span class="font-bold font-mono" style="color:#8b5cf6;">${app.ui.formatCurrency(bank)}</span>
+              </div>
+            </div>
+            ${r.remarks ? `<div class="text-xs text-muted" style="margin-bottom:0.5rem;"><strong>Note:</strong> ${app.ui.escapeHTML(r.remarks)}</div>` : ''}
+            <div class="mobile-record-actions" style="display:flex; justify-content:flex-end; gap:0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.initiateEdit(${r.id})">Edit</button>
+              <button type="button" class="btn btn-secondary btn-sm text-error" onclick="app.upiReconciliation.delete(${r.id})">Delete</button>
+            </div>
+          `;
+          mobileList.appendChild(mCard);
+        }
+      });
+    },
+
+    renderKPIs() {
+      const list = app.state.upiReconciliations || [];
+      const totalHosp = list.reduce((sum, r) => sum + (Number(r.hospital_upi) || 0), 0);
+      const totalBank = list.reduce((sum, r) => sum + (Number(r.bank_upi) || 0), 0);
+      const netDiff = Math.round((totalHosp - totalBank) * 100) / 100;
+
+      const matchedCount = list.filter(r => (Number(r.difference) || 0) === 0).length;
+      const mismatchCount = list.length - matchedCount;
+
+      const elHosp = document.getElementById('kpi-upi-hospital');
+      if (elHosp) elHosp.textContent = app.ui.formatCurrency(totalHosp);
+
+      const elBank = document.getElementById('kpi-upi-bank');
+      if (elBank) elBank.textContent = app.ui.formatCurrency(totalBank);
+
+      const elDiff = document.getElementById('kpi-upi-diff');
+      if (elDiff) {
+        elDiff.textContent = (netDiff > 0 ? '+' : '') + app.ui.formatCurrency(netDiff);
+        elDiff.style.color = netDiff === 0 ? 'var(--success)' : (netDiff > 0 ? '#f59e0b' : '#ef4444');
+      }
+
+      const elStatus = document.getElementById('kpi-upi-status');
+      const elStatusSub = document.getElementById('kpi-upi-status-sub');
+      if (elStatus) {
+        if (!list.length) {
+          elStatus.innerHTML = '<span class="text-muted text-sm">No Entries</span>';
+        } else if (mismatchCount === 0) {
+          elStatus.innerHTML = `<span class="badge-matched">✓ 100% Reconciled</span>`;
+        } else {
+          elStatus.innerHTML = `<span class="badge-mismatch-bank">⚠️ ${mismatchCount} Discrepanc${mismatchCount === 1 ? 'y' : 'ies'}</span>`;
+        }
+      }
+      if (elStatusSub) {
+        elStatusSub.textContent = `${list.length} Day(s) • ${matchedCount} Matched`;
+      }
+
+      const sbBadge = document.getElementById('sidebar-upi-badge');
+      if (sbBadge) {
+        sbBadge.textContent = mismatchCount > 0 ? mismatchCount : list.length;
+        if (mismatchCount > 0) {
+          sbBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+          sbBadge.style.color = '#ef4444';
+          sbBadge.title = `${mismatchCount} Discrepancy Day(s)`;
+        } else {
+          sbBadge.style.background = 'rgba(14, 165, 233, 0.15)';
+          sbBadge.style.color = '#0284c7';
+          sbBadge.title = `${list.length} Reconciled Day(s)`;
+        }
+      }
+    },
+
+    getMonthlyRollup() {
+      const list = app.state.upiReconciliations || [];
+      const groups = {};
+
+      list.forEach(r => {
+        if (!r.date) return;
+        const monthKey = r.date.substring(0, 7);
+        if (!groups[monthKey]) {
+          groups[monthKey] = {
+            monthKey,
+            daysCount: 0,
+            hospital_upi: 0,
+            bank_upi: 0,
+            difference: 0,
+            matchedDays: 0,
+            mismatchedDays: 0
+          };
+        }
+        groups[monthKey].daysCount++;
+        const hosp = Number(r.hospital_upi) || 0;
+        const bank = Number(r.bank_upi) || 0;
+        groups[monthKey].hospital_upi += hosp;
+        groups[monthKey].bank_upi += bank;
+        const diff = Math.round((hosp - bank) * 100) / 100;
+        if (diff === 0) {
+          groups[monthKey].matchedDays++;
+        } else {
+          groups[monthKey].mismatchedDays++;
+        }
+      });
+
+      const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+      const result = sortedKeys.map((k, index) => {
+        const item = groups[k];
+        item.difference = Math.round((item.hospital_upi - item.bank_upi) * 100) / 100;
+
+        if (item.hospital_upi > 0) {
+          item.variancePercent = Math.round(((item.bank_upi - item.hospital_upi) / item.hospital_upi) * 10000) / 100;
+          item.matchRate = Math.max(0, Math.round((1 - (Math.abs(item.difference) / item.hospital_upi)) * 10000) / 100);
+        } else if (item.bank_upi === 0) {
+          item.variancePercent = 0;
+          item.matchRate = 100;
+        } else {
+          item.variancePercent = 100;
+          item.matchRate = 0;
+        }
+
+        const olderMonth = sortedKeys[index + 1] ? groups[sortedKeys[index + 1]] : null;
+        if (olderMonth && olderMonth.hospital_upi > 0) {
+          item.diffVsPrev = Math.round((item.hospital_upi - olderMonth.hospital_upi) * 100) / 100;
+          const hospGrowth = ((item.hospital_upi - olderMonth.hospital_upi) / olderMonth.hospital_upi) * 100;
+          item.momGrowth = Math.round(hospGrowth * 10) / 10;
+        } else {
+          item.diffVsPrev = null;
+          item.momGrowth = null;
+        }
+
+        const [y, m] = k.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        item.monthName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+        return item;
+      });
+
+      return result;
+    },
+
+    renderMonthlyComparison() {
+      const monthlyData = app.upiReconciliation.getMonthlyRollup();
+      const selA = document.getElementById('compare-month-a');
+      const selB = document.getElementById('compare-month-b');
+      const tbody = document.getElementById('list-upi-monthly');
+
+      if (!monthlyData.length) {
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding: 2.5rem;">No monthly data available yet. Please add daily reconciliation records first.</td></tr>`;
+        }
+        const container = document.getElementById('month-compare-results-container');
+        if (container) {
+          container.innerHTML = `<div class="card" style="padding:2rem;text-align:center;color:var(--text-muted);">Please add daily reconciliation records to compare months.</div>`;
+        }
+        return;
+      }
+
+      const currentValA = selA ? selA.value : '';
+      const currentValB = selB ? selB.value : '';
+
+      const optionsHtml = monthlyData.map(m => `<option value="${m.monthKey}">${m.monthName} (${m.daysCount} days)</option>`).join('');
+      if (selA) {
+        selA.innerHTML = optionsHtml;
+        if (currentValA && monthlyData.some(m => m.monthKey === currentValA)) {
+          selA.value = currentValA;
+        } else {
+          selA.value = monthlyData[0].monthKey;
+        }
+      }
+      if (selB) {
+        selB.innerHTML = optionsHtml;
+        if (currentValB && monthlyData.some(m => m.monthKey === currentValB)) {
+          selB.value = currentValB;
+        } else if (monthlyData.length > 1) {
+          selB.value = monthlyData[1].monthKey;
+        } else {
+          selB.value = monthlyData[0].monthKey;
+        }
+      }
+
+      app.upiReconciliation.handleMonthCompareChange();
+
+      if (tbody) {
+        tbody.innerHTML = '';
+        monthlyData.forEach(m => {
+          let statusBadge = '';
+          if (m.difference === 0) {
+            statusBadge = `<span class="badge-matched">✓ Matched</span>`;
+          } else if (m.difference > 0) {
+            statusBadge = `<span class="badge-mismatch-hosp">Hosp +${app.ui.formatCurrency(m.difference)}</span>`;
+          } else {
+            statusBadge = `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(m.difference))}</span>`;
+          }
+
+          let vsPrev = '<span class="text-muted" style="opacity:0.4">-</span>';
+          if (m.diffVsPrev !== null && m.diffVsPrev !== undefined) {
+            if (m.diffVsPrev > 0) {
+              vsPrev = `<span class="month-higher-badge">⬆ +${app.ui.formatCurrency(m.diffVsPrev)} (Higher)</span>`;
+            } else if (m.diffVsPrev < 0) {
+              vsPrev = `<span class="month-lower-badge">⬇ -${app.ui.formatCurrency(Math.abs(m.diffVsPrev))} (Lower)</span>`;
+            } else {
+              vsPrev = `<span class="badge" style="background:var(--bg-app);font-weight:700;">Equal</span>`;
+            }
+          }
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="font-bold">${m.monthName}</td>
+            <td class="text-center font-mono">${m.daysCount}</td>
+            <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(m.hospital_upi)}</td>
+            <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(m.bank_upi)}</td>
+            <td class="num-val text-center font-bold" style="${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#f59e0b;' : 'color:#ef4444;')}">
+              ${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}
+            </td>
+            <td class="text-center">${vsPrev}</td>
+            <td class="text-center">${statusBadge}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+    },
+
+    handleMonthCompareChange() {
+      const selA = document.getElementById('compare-month-a');
+      const selB = document.getElementById('compare-month-b');
+      const container = document.getElementById('month-compare-results-container');
+      if (!container || !selA || !selB) return;
+
+      const monthlyData = app.upiReconciliation.getMonthlyRollup();
+      const monthA = monthlyData.find(m => m.monthKey === selA.value);
+      const monthB = monthlyData.find(m => m.monthKey === selB.value);
+
+      if (!monthA || !monthB) {
+        container.innerHTML = '';
+        return;
+      }
+
+      const diffHosp = Math.round((monthA.hospital_upi - monthB.hospital_upi) * 100) / 100;
+      const absDiffHosp = Math.abs(diffHosp);
+
+      let pctHosp = 0;
+      const baseHosp = Math.min(monthA.hospital_upi, monthB.hospital_upi);
+      if (baseHosp > 0) {
+        pctHosp = Math.round((absDiffHosp / baseHosp) * 1000) / 10;
+      }
+
+      let resultBanner = '';
+      if (monthA.monthKey === monthB.monthKey) {
+        resultBanner = `
+          <div class="month-highlight-banner" style="background: var(--bg-app); border: 1px solid var(--border-color); padding: 0.85rem 1rem;">
+            <div style="font-size: 1.25rem;">ℹ️</div>
+            <div class="month-highlight-text">
+              Please select two different months above to compare.
+            </div>
+          </div>
+        `;
+      } else if (monthA.hospital_upi > monthB.hospital_upi) {
+        resultBanner = `
+          <div class="month-highlight-banner" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.35); padding: 0.85rem 1rem;">
+            <div style="font-size: 1.5rem; line-height: 1;">🟢</div>
+            <div class="month-highlight-text" style="font-size: 0.95rem;">
+              <strong>${monthA.monthName}</strong> has <strong>HIGHER</strong> UPI collection than <strong>${monthB.monthName}</strong> by <strong>+${app.ui.formatCurrency(diffHosp)}</strong>${pctHosp > 0 ? ` (+${pctHosp}%)` : ''}.
+            </div>
+          </div>
+        `;
+      } else if (monthB.hospital_upi > monthA.hospital_upi) {
+        resultBanner = `
+          <div class="month-highlight-banner" style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.35); padding: 0.85rem 1rem;">
+            <div style="font-size: 1.5rem; line-height: 1;">🔵</div>
+            <div class="month-highlight-text" style="font-size: 0.95rem;">
+              <strong>${monthB.monthName}</strong> has <strong>HIGHER</strong> UPI collection than <strong>${monthA.monthName}</strong> by <strong>+${app.ui.formatCurrency(absDiffHosp)}</strong>${pctHosp > 0 ? ` (+${pctHosp}%)` : ''}.
+            </div>
+          </div>
+        `;
+      } else {
+        resultBanner = `
+          <div class="month-highlight-banner" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); padding: 0.85rem 1rem;">
+            <div style="font-size: 1.5rem; line-height: 1;">🟡</div>
+            <div class="month-highlight-text" style="font-size: 0.95rem;">
+              Both <strong>${monthA.monthName}</strong> and <strong>${monthB.monthName}</strong> have the <strong>EXACT SAME</strong> UPI collection (${app.ui.formatCurrency(monthA.hospital_upi)}).
+            </div>
+          </div>
+        `;
+      }
+
+      const cardA = `
+        <div class="month-compare-card" style="border-top: 4px solid #0284c7; background: var(--bg-card);">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+            <div style="font-size: 1.05rem; font-weight: 800; color: #0284c7;">${monthA.monthName}</div>
+            <span class="badge" style="background: rgba(14, 165, 233, 0.12); color:#0284c7; font-weight:700;">${monthA.daysCount} Days</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="text-sm text-muted">Hospital UPI Total:</span>
+              <span class="num-val font-bold" style="font-size: 1.15rem; color: #0284c7;">${app.ui.formatCurrency(monthA.hospital_upi)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="text-sm text-muted">Bank UPI Total:</span>
+              <span class="num-val font-bold" style="font-size: 1.15rem; color: #8b5cf6;">${app.ui.formatCurrency(monthA.bank_upi)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding-top: 0.4rem; border-top: 1px dashed var(--border-color);">
+              <span class="text-sm text-muted font-semibold">Difference:</span>
+              <span>${monthA.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : `<span class="badge-mismatch-bank">Diff: ${app.ui.formatCurrency(monthA.difference)}</span>`}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const cardB = `
+        <div class="month-compare-card" style="border-top: 4px solid #8b5cf6; background: var(--bg-card);">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">
+            <div style="font-size: 1.05rem; font-weight: 800; color: #8b5cf6;">${monthB.monthName}</div>
+            <span class="badge" style="background: rgba(139, 92, 246, 0.12); color:#8b5cf6; font-weight:700;">${monthB.daysCount} Days</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="text-sm text-muted">Hospital UPI Total:</span>
+              <span class="num-val font-bold" style="font-size: 1.15rem; color: #0284c7;">${app.ui.formatCurrency(monthB.hospital_upi)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="text-sm text-muted">Bank UPI Total:</span>
+              <span class="num-val font-bold" style="font-size: 1.15rem; color: #8b5cf6;">${app.ui.formatCurrency(monthB.bank_upi)}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding-top: 0.4rem; border-top: 1px dashed var(--border-color);">
+              <span class="text-sm text-muted font-semibold">Difference:</span>
+              <span>${monthB.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : `<span class="badge-mismatch-bank">Diff: ${app.ui.formatCurrency(monthB.difference)}</span>`}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = `
+        ${resultBanner}
+        <div class="month-compare-cards-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+          ${cardA}
+          ${cardB}
+        </div>
+      `;
+    },
+
+    resetFilters() {
+      const search = document.getElementById('search-upi');
+      if (search) search.value = '';
+      const from = document.getElementById('filter-upi-from');
+      if (from) from.value = '';
+      const to = document.getElementById('filter-upi-to');
+      if (to) to.value = '';
+      const status = document.getElementById('filter-upi-status');
+      if (status) status.value = 'all';
+      const sort = document.getElementById('sort-upi');
+      if (sort) sort.value = 'date_desc';
+      app.upiReconciliation.renderTable();
+    },
+
+    exportExcel(mode = 'daily') {
+      if (typeof XLSX === 'undefined') {
+        app.ui.showToast('Excel library not loaded.', 'error');
+        return;
+      }
+
+      if (mode === 'daily') {
+        const list = app.upiReconciliation.getFilteredList();
+        if (!list.length) {
+          app.ui.showToast('No entries to export.', 'warning');
+          return;
+        }
+
+        const data = list.map((r, i) => ({
+          '#': i + 1,
+          'Date': r.date,
+          'Hospital Statement UPI': Number(r.hospital_upi) || 0,
+          'Bank UPI Statement': Number(r.bank_upi) || 0,
+          'Difference': Number(r.difference) || 0,
+          'Status': r.status === 'matched' ? 'Matched' : 'Discrepancy',
+          'Remarks': r.remarks || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Daily_UPI_Reconciliation');
+        XLSX.writeFile(wb, `NoorHospital_UPI_Reconciliation_${new Date().toISOString().split('T')[0]}.xlsx`);
+        app.ui.showToast('Daily reconciliation exported to Excel!', 'success');
+      } else {
+        const monthly = app.upiReconciliation.getMonthlyRollup();
+        if (!monthly.length) {
+          app.ui.showToast('No monthly data to export.', 'warning');
+          return;
+        }
+
+        const data = monthly.map(m => ({
+          'Month': m.monthName,
+          'Days Reconciled': m.daysCount,
+          'Hospital UPI Total': m.hospital_upi,
+          'Bank UPI Total': m.bank_upi,
+          'Difference': m.difference,
+          'vs Previous Month': m.diffVsPrev !== null ? (m.diffVsPrev > 0 ? `+${m.diffVsPrev} (Higher)` : `${m.diffVsPrev} (Lower)`) : 'N/A',
+          'Status': m.difference === 0 ? 'Matched' : 'Discrepancy'
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Monthly_UPI_Comparison');
+        XLSX.writeFile(wb, `NoorHospital_UPI_Monthly_Comparison_${new Date().toISOString().split('T')[0]}.xlsx`);
+        app.ui.showToast('Monthly comparison exported to Excel!', 'success');
+      }
+    },
+
+    printReport(mode = 'daily') {
+      const w = window.open('', '_blank');
+      if (!w) {
+        app.ui.showToast('Please allow popups to print report.', 'warning');
+        return;
+      }
+
+      if (mode === 'daily') {
+        const list = app.upiReconciliation.getFilteredList();
+        const totalHosp = list.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+        const totalBank = list.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+        const totalDiff = Math.round((totalHosp - totalBank) * 100) / 100;
+
+        const rowsHtml = list.map((r, i) => `
+          <tr>
+            <td style="text-align:center;">${i + 1}</td>
+            <td>${r.date}</td>
+            <td style="text-align:right;">₹${(Number(r.hospital_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:right;">₹${(Number(r.bank_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:center; font-weight:bold; color:${(Number(r.difference)||0)===0 ? '#059669' : '#dc2626'};">
+              ${(Number(r.difference) > 0 ? '+' : '')}₹${(Number(r.difference) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}
+            </td>
+            <td>${r.remarks ? app.ui.escapeHTML(r.remarks) : '-'}</td>
+          </tr>
+        `).join('');
+
+        w.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>UPI Transaction Daily Reconciliation Report - Noor Hospital</title>
+            <style>
+              body { font-family: system-ui, -apple-system, sans-serif; padding: 25px; color: #111; }
+              .header { text-align: center; border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 20px; }
+              .header h1 { margin: 0; font-size: 22px; color: #0284c7; }
+              .header p { margin: 4px 0 0; font-size: 13px; color: #555; }
+              .summary-box { display: flex; justify-content: space-around; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 20px; }
+              .summary-item { text-align: center; }
+              .summary-item .val { font-size: 16px; font-weight: bold; }
+              .summary-item .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px 10px; }
+              th { background: #f1f5f9; text-align: left; }
+              .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>NOOR HOSPITAL</h1>
+              <p>Daily UPI Transaction Reconciliation Report • Generated: ${new Date().toLocaleString()}</p>
+            </div>
+            <div class="summary-box">
+              <div class="summary-item"><div class="val">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</div><div class="lbl">Hospital Statement UPI</div></div>
+              <div class="summary-item"><div class="val">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</div><div class="lbl">Bank UPI Statement</div></div>
+              <div class="summary-item"><div class="val" style="color:${totalDiff === 0 ? '#059669' : '#dc2626'};">₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}</div><div class="lbl">Net Difference</div></div>
+              <div class="summary-item"><div class="val">${list.length} Days</div><div class="lbl">Total Days</div></div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:30px; text-align:center;">#</th>
+                  <th>Date</th>
+                  <th style="text-align:right;">Hospital Statement UPI</th>
+                  <th style="text-align:right;">Bank UPI Statement</th>
+                  <th style="text-align:center;">Difference</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `);
+      } else {
+        const monthly = app.upiReconciliation.getMonthlyRollup();
+        const rowsHtml = monthly.map((m, i) => `
+          <tr>
+            <td><strong>${m.monthName}</strong></td>
+            <td style="text-align:center;">${m.daysCount}</td>
+            <td style="text-align:right;">₹${m.hospital_upi.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:right;">₹${m.bank_upi.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:center; font-weight:bold; color:${m.difference === 0 ? '#059669' : '#dc2626'};">
+              ${m.difference > 0 ? '+' : ''}₹${m.difference.toLocaleString('en-IN', {minimumFractionDigits:2})}
+            </td>
+            <td style="text-align:center;">${m.diffVsPrev !== null ? (m.diffVsPrev > 0 ? `+₹${m.diffVsPrev.toLocaleString('en-IN', {minimumFractionDigits:2})} (Higher)` : `-₹${Math.abs(m.diffVsPrev).toLocaleString('en-IN', {minimumFractionDigits:2})} (Lower)`) : '-'}</td>
+            <td style="text-align:center;">${m.difference === 0 ? '✓ Matched' : 'Discrepancy'}</td>
+          </tr>
+        `).join('');
+
+        w.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>UPI Monthly Comparison Report - Noor Hospital</title>
+            <style>
+              body { font-family: system-ui, -apple-system, sans-serif; padding: 25px; color: #111; }
+              .header { text-align: center; border-bottom: 2px solid #8b5cf6; padding-bottom: 12px; margin-bottom: 20px; }
+              .header h1 { margin: 0; font-size: 22px; color: #8b5cf6; }
+              .header p { margin: 4px 0 0; font-size: 13px; color: #555; }
+              table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 15px; }
+              th, td { border: 1px solid #cbd5e1; padding: 8px 10px; }
+              th { background: #f1f5f9; text-align: left; }
+              .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>NOOR HOSPITAL</h1>
+              <p>Monthly UPI Reconciliation & Comparison Statement • Generated: ${new Date().toLocaleString()}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th style="text-align:center;">Days</th>
+                  <th style="text-align:right;">Hospital UPI Total</th>
+                  <th style="text-align:right;">Bank UPI Total</th>
+                  <th style="text-align:center;">Difference</th>
+                  <th style="text-align:center;">vs Previous Month</th>
+                  <th style="text-align:center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </body>
+          </html>
+        `);
+      }
+
+      w.document.close();
+      setTimeout(() => {
+        w.print();
+      }, 300);
     }
   },
 
