@@ -3286,6 +3286,8 @@ html[data-theme="dark"] .nav-item[data-panel="upi-reconciliation"] .badge {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
+  container-type: inline-size;
+  container-name: upiQuickAdd;
 }
 .upi-quick-add-header {
   display: flex;
@@ -3302,15 +3304,19 @@ html[data-theme="dark"] .nav-item[data-panel="upi-reconciliation"] .badge {
 }
 .upi-quick-add-fields {
   display: grid;
-  grid-template-columns: 140px 150px 150px 170px 1fr auto;
+  grid-template-columns: 140px minmax(130px, 1fr) minmax(130px, 1fr) auto minmax(160px, 1.4fr) auto;
   gap: 0.65rem;
   align-items: center;
+}
+.upi-quick-add-fields > * {
+  min-width: 0;
+  box-sizing: border-box;
 }
 .upi-diff-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.45rem 0.65rem;
+  padding: 0.45rem 0.75rem;
   font-family: var(--font-mono);
   font-size: 0.78rem;
   font-weight: 700;
@@ -3321,6 +3327,11 @@ html[data-theme="dark"] .nav-item[data-panel="upi-reconciliation"] .badge {
   white-space: nowrap;
   height: 36px;
   box-sizing: border-box;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
 }
 .upi-diff-chip.matched {
   background: rgba(16, 185, 129, 0.12);
@@ -3540,18 +3551,88 @@ html[data-theme="dark"] .month-lower-badge {
   color: #f87171;
 }
 
-@media(max-width: 900px) {
+/* Responsive adjustments via Container Queries (adapts to container width on any device & sidebar state) */
+@container upiQuickAdd (max-width: 960px) {
+  .upi-quick-add-fields {
+    grid-template-columns: 140px 1fr 1fr auto;
+    gap: 0.65rem;
+  }
+  .upi-quick-add-fields #quick-upi-remarks {
+    grid-column: 1 / -2;
+  }
+  .upi-quick-add-fields #btn-quick-upi-save {
+    grid-column: -2 / -1;
+  }
+}
+
+@container upiQuickAdd (max-width: 600px) {
   .upi-quick-add-fields {
     grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
   }
-  .upi-quick-add-fields .upi-diff-chip {
-    grid-column: span 2;
+  .upi-quick-add-fields #quick-upi-date {
+    grid-column: 1 / -1;
   }
-  .upi-quick-add-fields input[type="text"] {
-    grid-column: span 2;
+  .upi-quick-add-fields #quick-upi-hospital {
+    grid-column: 1 / 2;
   }
-  .upi-quick-add-fields button {
-    grid-column: span 2;
+  .upi-quick-add-fields #quick-upi-bank {
+    grid-column: 2 / 3;
+  }
+  .upi-quick-add-fields #quick-upi-diff-display {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+  .upi-quick-add-fields #quick-upi-remarks {
+    grid-column: 1 / -1;
+  }
+  .upi-quick-add-fields #btn-quick-upi-save {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Fallback Media Queries for browsers without container query support */
+@media (max-width: 1180px) {
+  .upi-quick-add-fields {
+    grid-template-columns: 140px 1fr 1fr auto;
+    gap: 0.65rem;
+  }
+  .upi-quick-add-fields #quick-upi-remarks {
+    grid-column: 1 / -2;
+  }
+  .upi-quick-add-fields #btn-quick-upi-save {
+    grid-column: -2 / -1;
+  }
+}
+
+@media (max-width: 768px) {
+  .upi-quick-add-fields {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+  }
+  .upi-quick-add-fields #quick-upi-date {
+    grid-column: 1 / -1;
+  }
+  .upi-quick-add-fields #quick-upi-hospital {
+    grid-column: 1 / 2;
+  }
+  .upi-quick-add-fields #quick-upi-bank {
+    grid-column: 2 / 3;
+  }
+  .upi-quick-add-fields #quick-upi-diff-display {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+  .upi-quick-add-fields #quick-upi-remarks {
+    grid-column: 1 / -1;
+  }
+  .upi-quick-add-fields #btn-quick-upi-save {
+    grid-column: 1 / -1;
+    width: 100%;
     justify-content: center;
   }
 }

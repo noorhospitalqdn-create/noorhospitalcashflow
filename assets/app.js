@@ -5238,15 +5238,19 @@ const app = {
         qDiff.className = 'upi-diff-chip';
         if (hVal === 0 && bVal === 0 && !qHosp?.value && !qBank?.value) {
           qDiff.innerText = 'Diff: ₹0.00';
+          qDiff.title = 'Difference Preview';
         } else if (diff === 0) {
           qDiff.classList.add('matched');
-          qDiff.innerText = '✓ Reconciled (Matched)';
+          qDiff.innerText = '✓ Matched (₹0.00)';
+          qDiff.title = 'Reconciled: Hospital and Bank statements match exactly.';
         } else if (diff > 0) {
           qDiff.classList.add('mismatch-hosp');
-          qDiff.innerText = `Hospital +${app.ui.formatCurrency(diff)} (Hospital Excess)`;
+          qDiff.innerText = `Hospital +${app.ui.formatCurrency(diff)}`;
+          qDiff.title = `Hospital statement exceeds bank by ${app.ui.formatCurrency(diff)} (Hospital Excess / Bank Deficit)`;
         } else {
           qDiff.classList.add('mismatch-bank');
-          qDiff.innerText = `Bank +${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess)`;
+          qDiff.innerText = `Bank +${app.ui.formatCurrency(Math.abs(diff))}`;
+          qDiff.title = `Bank statement exceeds hospital by ${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess / Hospital Deficit)`;
         }
       };
       if (qHosp) qHosp.addEventListener('input', updateQuickDiff);
@@ -5402,6 +5406,7 @@ const app = {
       if (qDiff) {
         qDiff.className = 'upi-diff-chip';
         qDiff.innerText = 'Diff: ₹0.00';
+        qDiff.title = 'Difference Preview';
       }
       setTimeout(() => {
         if (qHosp) qHosp.focus();
