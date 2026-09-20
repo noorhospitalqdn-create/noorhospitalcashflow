@@ -182,7 +182,7 @@
         </button>
         <button class="nav-item" data-panel="advance-cleared">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Muhasib Adv Bill Clear</span>
+          <span>Muhasib Bill Sayer</span>
           <span class="badge" style="background:rgba(16,185,129,0.12);color:var(--success);border:1px solid rgba(16,185,129,0.25)" id="sidebar-advance-cleared-badge">0</span>
         </button>
         <button class="nav-item" data-panel="advance-slips">
@@ -201,7 +201,7 @@
         </button>
         <button class="nav-item" data-panel="hospital-cleared">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          <span>Hospital Bill Clear</span>
+          <span>Hospital Bill Sayer</span>
           <span class="badge badge-accent" id="sidebar-hospital-cleared-badge">0</span>
         </button>
         <button class="nav-item" data-panel="temp-slips">
@@ -1049,7 +1049,7 @@
           <div class="mobile-card-list" id="mobile-list-advance-bills"></div>
         </section>
 
-        <!-- 5A2. MUHASIB ADV BILL CLEAR PANEL -->
+        <!-- 5A2. MUHASIB BILL SAYER PANEL -->
         <section class="panel" id="panel-advance-cleared">
           <div class="panel-action-bar">
             <div class="search-box">
@@ -1143,7 +1143,7 @@
             <datalist id="hospital-batch-list"></datalist>
             <button class="btn btn-primary btn-sm" id="btn-hospital-batch-clear" onclick="app.ui.openHospitalBatchClearModal()" disabled style="background:var(--success);border-color:var(--success)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M20 6 9 17l-5-5"/></svg>
-              <span>Move Selected to Bill Clear</span>
+              <span>Move Selected to Bill Sayer</span>
             </button>
             <button class="btn btn-secondary btn-sm" onclick="app.ui.clearHospitalBillSelection()">Unselect</button>
           </div>
@@ -1170,7 +1170,7 @@
           <div class="mobile-card-list" id="mobile-list-bills"></div>
         </section>
 
-        <!-- 5C. HOSPITAL BILL CLEAR PANEL -->
+        <!-- 5C. HOSPITAL BILL SAYER PANEL -->
         <section class="panel" id="panel-hospital-cleared">
           <div class="panel-action-bar">
             <div class="search-box">
@@ -3110,7 +3110,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       <div class="form-group">
         <label class="form-label" for="hospital-batch-clear-name">Batch Name / Number *</label>
         <input type="text" id="hospital-batch-clear-name" class="form-input" placeholder="e.g. HBatch-05, 12-Sep-Match, Amanat-03" list="hospital-batch-list" autocomplete="off">
-        <small class="form-hint">This batch name will be assigned to all selected hospital bills for reference under Hospital Bill Clear.</small>
+        <small class="form-hint">This batch name will be assigned to all selected hospital bills for reference under Hospital Bill Sayer.</small>
       </div>
       <div class="batch-summary-card">
         <div class="batch-summary-row"><span>Total Bills</span><strong id="hospital-batch-clear-count">0</strong></div>
@@ -3120,7 +3120,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-hospital-batch-clear')">Cancel</button>
-      <button type="button" class="btn btn-primary" id="btn-hospital-batch-clear-confirm" onclick="app.ui.confirmHospitalBatchClear()" style="background:var(--success);border-color:var(--success)">Confirm Move to Bill Clear</button>
+      <button type="button" class="btn btn-primary" id="btn-hospital-batch-clear-confirm" onclick="app.ui.confirmHospitalBatchClear()" style="background:var(--success);border-color:var(--success)">Confirm Move to Bill Sayer</button>
     </div>
   </dialog>
 
@@ -3217,7 +3217,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       </button>
       <button class="mobile-submenu-item" data-panel="advance-cleared">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Muhasib Adv Bill Clear</span>
+        <span>Muhasib Bill Sayer</span>
       </button>
       <button class="mobile-submenu-item" data-panel="advance-slips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
@@ -3235,7 +3235,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       </button>
       <button class="mobile-submenu-item" data-panel="hospital-cleared">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Hospital Bill Clear</span>
+        <span>Hospital Bill Sayer</span>
       </button>
       <button class="mobile-submenu-item" data-panel="temp-slips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
@@ -3275,7 +3275,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       </button>
       <button class="mobile-submenu-item" data-panel="advance-cleared">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-        <span>Muhasib Adv Bill Clear</span>
+        <span>Muhasib Bill Sayer</span>
       </button>
       <button class="mobile-submenu-item" data-panel="bills">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
@@ -3307,7 +3307,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
 // Premium hero sync — mirrors dashboard totals into hero banner + panel subtitles (event driven, no lag)
 (function(){
   var map=[["dash-advance-cash","hero-adv-cash"],["dash-hospital-cash","hero-hosp-cash"],["dash-total-pending-bills","hero-pending"]];
-  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-cleared":"Cleared vs advance • Undo available", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "hospital-cleared":"Cleared hospital bills • Batch wise • Undo available", "transfers":"Verification & settlement transfers", "upi-reconciliation":"Daily Hospital UPI vs Bank UPI reconciliation & monthly comparison", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "vendors":"Vendor master • Add / edit", "heads":"Expense heads • Same for Muhasib + Hospital", "settings":"Opening balances, backup & restore"};
+  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-cleared":"Muhasib bill sayer • Undo available", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "hospital-cleared":"Hospital bill sayer • Batch wise • Undo available", "transfers":"Verification & settlement transfers", "upi-reconciliation":"Daily Hospital UPI vs Bank UPI reconciliation & monthly comparison", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "vendors":"Vendor master • Add / edit", "heads":"Expense heads • Same for Muhasib + Hospital", "settings":"Opening balances, backup & restore"};
   function sync(){
     map.forEach(function(p){var a=document.getElementById(p[0]),b=document.getElementById(p[1]);if(a&&b&&a.textContent)b.textContent=a.textContent;});
     var t=document.getElementById("main-panel-title"),s=document.getElementById("main-panel-sub");

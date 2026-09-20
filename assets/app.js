@@ -551,7 +551,15 @@ const app = {
       };
       
       await app.db.add('sync_queue', operation);
-      app.sync.setStatus('offline', 'Offline (Queue Pending)');
+      
+      // If online and configured, immediately process the queue instead of showing offline
+      if (navigator.onLine && app.supabase.isConfigured()) {
+        app.sync.setStatus('syncing', 'Syncing...');
+        // Trigger queue processing without blocking
+        app.sync.processQueue();
+      } else {
+        app.sync.setStatus('offline', 'Offline (Queue Pending)');
+      }
     },
 
     async processQueue() {
@@ -2593,9 +2601,9 @@ const app = {
         'advance-slips': 'Muhasib Temporary Slips Register',
         'temp-slips': 'Hospital Temporary Slips Register',
         'advance-bills': 'Muhasib Bills Register',
-        'advance-cleared': 'Muhasib Adv Bill Clear',
+        'advance-cleared': 'Muhasib Bill Sayer',
         'bills': 'Hospital Bills Register',
-        'hospital-cleared': 'Hospital Bill Clear',
+        'hospital-cleared': 'Hospital Bill Sayer',
         'accounts': 'Accounts Department Register',
         'transfers': 'Accounts Verification & Transfers',
         'upi-reconciliation': 'UPI Transaction Reconciliation',
@@ -7956,16 +7964,30 @@ const app = {
         const slipList = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance'));
         const combined = [];
         advList.forEach(e => combined.push({ date: e.date, type: 'cash', remarks: e.remarks || '-', dr: e.amount, cr: 0, sortDate: e.date }));
-        const totalBillAmt = billList.reduce((s, x) => s + x.amount, 0);
-        if (billList.length) {
+        const billListPending = billList.filter(b => b.status !== 'adv_cleared');
+        const billListSayer = billList.filter(b => b.status === 'adv_cleared');
+        const totalBillPendingAmt = billListPending.reduce((s, x) => s + x.amount, 0);
+        const totalBillSayerAmt = billListSayer.reduce((s, x) => s + x.amount, 0);
+        if (billListPending.length) {
           combined.push({
-            date: billList[billList.length - 1].date,
+            date: billListPending[billListPending.length - 1].date,
             type: 'bill',
-            remarks: `Total Muhasib Bills (${billList.length} bills)`,
+            remarks: `Total Muhasib Bills (${billListPending.length} bills)`,
             dr: 0,
-            cr: totalBillAmt,
-            sortDate: billList[billList.length - 1].date,
+            cr: totalBillPendingAmt,
+            sortDate: billListPending[billListPending.length - 1].date,
             badge: 'Muhasib Bills - Total'
+          });
+        }
+        if (billListSayer.length) {
+          combined.push({
+            date: billListSayer[billListSayer.length - 1].date,
+            type: 'sayer',
+            remarks: `Total Muhasib Bill Sayer (${billListSayer.length} bills)`,
+            dr: 0,
+            cr: totalBillSayerAmt,
+            sortDate: billListSayer[billListSayer.length - 1].date,
+            badge: 'Muhasib Bill Sayer - Total'
           });
         }
         slipList.forEach(s => combined.push({ date: s.date, type: 'slip', remarks: `Temp Slip #${s.tokenNumber || '-'}: ${s.vendor || '-'}${s.remarks ? ' - ' + s.remarks : ''}`, dr: 0, cr: s.amount, sortDate: s.date }));
@@ -7980,7 +8002,9 @@ const app = {
           const drTxt = row.dr ? app.ui.formatCurrency(row.dr) : '-';
           const crTxt = row.cr ? app.ui.formatCurrency(row.cr) : '-';
           let badge = '';
-          if (row.badge) {
+          if (row.badge && row.type === 'sayer') {
+            badge = `<span class="source-tag" style="background:rgba(16,185,129,0.12);color:var(--success);border:1px solid rgba(16,185,129,0.3);font-weight:700;">${row.badge}</span>`;
+          } else if (row.badge) {
             badge = `<span class="source-tag" style="background:var(--error-light);color:var(--error);border:1px solid rgba(239,68,68,0.3);font-weight:700;">${row.badge}</span>`;
           } else if (row.type === 'cash') {
             badge = '<span class="source-tag" style="background:var(--success-light);color:var(--success)">Cash Received</span>';
@@ -8031,8 +8055,12 @@ const app = {
         const combined = [];
         const totalCashAmt = hospCashList.reduce((s,x)=>s+x.amount,0);
         if(hospCashList.length) combined.push({ date: hospCashList[hospCashList.length-1].date, remarks: `Total Cash Collection (${hospCashList.length} entries)`, dr: totalCashAmt, cr: 0, sortDate: hospCashList[hospCashList.length-1].date, badge: 'Cash Collection - Total', badgeColor: 'var(--primary)' });
-        const totalBillAmt = hospBillList.reduce((s,x)=>s+x.amount,0);
-        if(hospBillList.length) combined.push({ date: hospBillList[hospBillList.length-1].date, remarks: `Total Hospital Bills (${hospBillList.length} bills)`, dr: 0, cr: totalBillAmt, sortDate: hospBillList[hospBillList.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
+        const hospBillPending = hospBillList.filter(b => b.status !== 'hosp_cleared');
+        const hospBillSayer = hospBillList.filter(b => b.status === 'hosp_cleared');
+        const totalBillPendingAmt = hospBillPending.reduce((s,x)=>s+x.amount,0);
+        const totalBillSayerAmt = hospBillSayer.reduce((s,x)=>s+x.amount,0);
+        if(hospBillPending.length) combined.push({ date: hospBillPending[hospBillPending.length-1].date, remarks: `Total Hospital Bills (${hospBillPending.length} bills)`, dr: 0, cr: totalBillPendingAmt, sortDate: hospBillPending[hospBillPending.length-1].date, badge: 'Hospital Bills - Total', badgeColor: 'var(--error)' });
+        if(hospBillSayer.length) combined.push({ date: hospBillSayer[hospBillSayer.length-1].date, remarks: `Total Hospital Bill Sayer (${hospBillSayer.length} bills)`, dr: 0, cr: totalBillSayerAmt, sortDate: hospBillSayer[hospBillSayer.length-1].date, badge: 'Hospital Bill Sayer - Total', badgeColor: 'var(--success)' });
         const totalSlipAmt = hospSlipList.reduce((s,x)=>s+x.amount,0);
         if(hospSlipList.length) combined.push({ date: hospSlipList[hospSlipList.length-1].date, remarks: `Total Temp Slips (${hospSlipList.length} slips)`, dr: 0, cr: totalSlipAmt, sortDate: hospSlipList[hospSlipList.length-1].date, badge: 'Temp Slips - Total', badgeColor: 'var(--accent)' });
         const totalDepAmt = depList.reduce((s,x)=>s+x.amount,0);
@@ -8402,7 +8430,10 @@ const app = {
         const comb = [];
         app.state.advanceCashEntries.filter(e=>inRange(e.date)).forEach(e=>comb.push({date:e.date, particulars:e.remarks||'-', vType:'Cash Received', dr:e.amount, cr:0}));
         const _advBills = app.state.bills.filter(b=>b.expenseType==='advance' && inRange(b.date));
-        if(_advBills.length) comb.push({date:_advBills[_advBills.length-1].date, particulars:`Total Muhasib Bills (${_advBills.length} bills)`, vType:'Muhasib Bills - Total', dr:0, cr:_advBills.reduce((s,x)=>s+x.amount,0)});
+        const _advBillsPending = _advBills.filter(b=>b.status!=='adv_cleared');
+        const _advBillsSayer = _advBills.filter(b=>b.status==='adv_cleared');
+        if(_advBillsPending.length) comb.push({date:_advBillsPending[_advBillsPending.length-1].date, particulars:`Total Muhasib Bills (${_advBillsPending.length} bills)`, vType:'Muhasib Bills - Total', dr:0, cr:_advBillsPending.reduce((s,x)=>s+x.amount,0)});
+        if(_advBillsSayer.length) comb.push({date:_advBillsSayer[_advBillsSayer.length-1].date, particulars:`Total Muhasib Bill Sayer (${_advBillsSayer.length} bills)`, vType:'Muhasib Bill Sayer - Total', dr:0, cr:_advBillsSayer.reduce((s,x)=>s+x.amount,0)});
         app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance' && inRange(s.date)).forEach(s=>comb.push({date:s.date, particulars:`Temp Slip #${s.tokenNumber||'-'}: ${s.vendor||'-'}${s.remarks ? ' - ' + s.remarks : ''}`, vType:'Muhasib Temp Slip', dr:0, cr:s.amount}));
         comb.sort((a,b)=> new Date(a.date)-new Date(b.date));
         rows.push(['', 'Opening Balance', '', '', '', bal]);
@@ -8440,7 +8471,10 @@ const app = {
         const _hCash = app.state.hospitalCashEntries.filter(e=>inRange(e.date));
         if(_hCash.length) comb.push({date:_hCash[_hCash.length-1].date, particulars:`Total Cash Collection (${_hCash.length} entries)`, vType:'Cash Collection - Total', dr:_hCash.reduce((s,x)=>s+x.amount,0), cr:0});
         const _hBills = app.state.bills.filter(b=>b.expenseType==='hospital' && inRange(b.date));
-        if(_hBills.length) comb.push({date:_hBills[_hBills.length-1].date, particulars:`Total Hospital Bills (${_hBills.length} bills)`, vType:'Hospital Bills - Total', dr:0, cr:_hBills.reduce((s,x)=>s+x.amount,0)});
+        const _hBillsPending = _hBills.filter(b=>b.status!=='hosp_cleared');
+        const _hBillsSayer = _hBills.filter(b=>b.status==='hosp_cleared');
+        if(_hBillsPending.length) comb.push({date:_hBillsPending[_hBillsPending.length-1].date, particulars:`Total Hospital Bills (${_hBillsPending.length} bills)`, vType:'Hospital Bills - Total', dr:0, cr:_hBillsPending.reduce((s,x)=>s+x.amount,0)});
+        if(_hBillsSayer.length) comb.push({date:_hBillsSayer[_hBillsSayer.length-1].date, particulars:`Total Hospital Bill Sayer (${_hBillsSayer.length} bills)`, vType:'Hospital Bill Sayer - Total', dr:0, cr:_hBillsSayer.reduce((s,x)=>s+x.amount,0)});
         const _hSlips = app.getActiveTemporarySlips().filter(s=>s.expenseType==='hospital' && inRange(s.date));
         if(_hSlips.length) comb.push({date:_hSlips[_hSlips.length-1].date, particulars:`Total Active Temp Slips (${_hSlips.length} slips)`, vType:'Temp Slips - Total', dr:0, cr:_hSlips.reduce((s,x)=>s+x.amount,0)});
         const _hDeps = app.state.hospitalDeposits.filter(d=>inRange(d.date));
@@ -8719,9 +8753,9 @@ const app = {
         sheetName='Muhasib Bills';
       } else if(page==='advance-cleared'){
         const d=filtered(app.state.bills,'advance-cleared').filter(b=>b.expenseType==='advance' && b.status==='adv_cleared');
-        rows=[['Muhasib Adv Cleared Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Batch','Amount (₹)','Cleared At','Remarks']];
+        rows=[['Muhasib Bill Sayer (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Batch','Amount (₹)','Cleared At','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.clearBatch||'-',e.amount,e.clearedAt?app.ui.formatDate(String(e.clearedAt).split('T')[0]):'-',e.remarks||'-']));
-        sheetName='Muhasib Adv Cleared';
+        sheetName='Muhasib Bill Sayer';
       } else if(page==='bills'){
         const d=filtered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
         rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Amount (₹)','Remarks']];
@@ -8729,9 +8763,9 @@ const app = {
         sheetName='Hospital Bills';
       } else if(page==='hospital-cleared'){
         const d=filtered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
-        rows=[['Hospital Cleared Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Batch','Amount (₹)','Cleared At','Remarks']];
+        rows=[['Hospital Bill Sayer (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Batch','Amount (₹)','Cleared At','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.clearBatch||'-',e.amount,e.clearedAt?app.ui.formatDate(String(e.clearedAt).split('T')[0]):'-',e.remarks||'-']));
-        sheetName='Hospital Cleared';
+        sheetName='Hospital Bill Sayer';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
         rows=[['Accounts Register (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date Sent','Bill Type','Amount (₹)','Reference No','Remarks']];
@@ -8830,7 +8864,7 @@ tfoot .r{text-align:right;}
     },
     printHospitalClearedDetail(){
       const list=app.ui.getFiltered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
-      app.reports._printBatchDetailList(list,'Hospital Bill Clear - Batch Detail');
+      app.reports._printBatchDetailList(list,'Hospital Bill Sayer - Batch Detail');
     },
     printAdvanceSlipsDetail(){
       const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance');
