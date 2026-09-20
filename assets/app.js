@@ -1437,7 +1437,11 @@ const app = {
         .reduce((sum, b) => sum + b.amount, 0);
       app.state.advanceClearedAmount = allAdvanceBillsAmount - pendingAdvanceBillsAmount;
       app.state.advanceBillsPending = pendingAdvanceBillsAmount - imprestTransfersAmount;
-      app.state.hospitalBillsPending = allHospitalBillsAmount - amanatTransfersAmount;
+      const pendingHospitalBillsAmount = app.state.bills
+        .filter(b => String(b.expenseType||'').toLowerCase().trim() === 'hospital' && b.status !== 'hosp_cleared')
+        .reduce((sum, b) => sum + b.amount, 0);
+      app.state.hospitalClearedAmount = allHospitalBillsAmount - pendingHospitalBillsAmount;
+      app.state.hospitalBillsPending = pendingHospitalBillsAmount - amanatTransfersAmount;
       app.state.totalPendingBills = app.state.advanceBillsPending + app.state.hospitalBillsPending;
 
       // Available to send to accounts = Total Bills - Already Sent to Accounts
@@ -1485,15 +1489,17 @@ const app = {
       bills:{search:'',from:'',to:'',sort:'date_desc'},
       'advance-bills':{search:'',from:'',to:'',sort:'date_desc'},
       'advance-cleared':{search:'',from:'',to:'',sort:'date_desc'},
+      'hospital-cleared':{search:'',from:'',to:'',sort:'date_desc'},
       accounts:{search:'',from:'',to:'',sort:'date_desc'},
       transfers:{search:'',from:'',to:'',sort:'date_desc'}
     },
     selectedAdvanceBills:new Set(),
+    selectedHospitalBills:new Set(),
     applyFilter(page, patch){
       Object.assign(app.ui.filters[page], patch);
-      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable','advance-slips':'renderAdvanceSlipsTable',bills:'renderBillsTable','advance-bills':'renderAdvanceBillsTable','advance-cleared':'renderAdvanceClearedTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
+      const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable','advance-slips':'renderAdvanceSlipsTable',bills:'renderBillsTable','advance-bills':'renderAdvanceBillsTable','advance-cleared':'renderAdvanceClearedTable','hospital-cleared':'renderHospitalClearedTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
       if(map[page]) app.ui[map[page]]();
-      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards','advance-slips':'renderAdvanceSlipsCards',bills:'renderBillsCards','advance-bills':'renderAdvanceBillsCards','advance-cleared':'renderAdvanceClearedCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
+      const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards','advance-slips':'renderAdvanceSlipsCards',bills:'renderBillsCards','advance-bills':'renderAdvanceBillsCards','advance-cleared':'renderAdvanceClearedCards','hospital-cleared':'renderHospitalClearedCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
       if(app.mobile.isMobile() && app.mobile[mmap[page]]) app.mobile[mmap[page]]();
     },
     clearFilters(page){
@@ -1503,6 +1509,7 @@ const app = {
       const t=document.getElementById('filter-'+page+'-to'); if(t) t.value='';
       const so=document.getElementById('sort-'+page); if(so) so.value='date_desc';
       const bf=document.getElementById('filter-advance-cleared-batch'); if(bf && page==='advance-cleared') bf.value='';
+      const hbf=document.getElementById('filter-hospital-cleared-batch'); if(hbf && page==='hospital-cleared') hbf.value='';
       app.ui.applyFilter(page,{});
     },
     getFiltered(list, page, opts={}){
@@ -1518,12 +1525,16 @@ const app = {
         const bv=document.getElementById('filter-advance-cleared-batch')?.value || '';
         if(bv) out=out.filter(x=>String(x.clearBatch||'')===bv);
       }
+      if(page==='hospital-cleared'){
+        const bv=document.getElementById('filter-hospital-cleared-batch')?.value || '';
+        if(bv) out=out.filter(x=>String(x.clearBatch||'')===bv);
+      }
       if(page==='bills' && opts.billsType!==undefined){
         const bt=document.getElementById('filter-bills-type')?.value;
         if(bt) out=out.filter(b=>b.expenseType===bt);
       }
       const sort=f.sort||'date_desc';
-      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor','advance-slips':'vendor',bills:'vendor','advance-bills':'vendor','advance-cleared':'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
+      const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor','advance-slips':'vendor',bills:'vendor','advance-bills':'vendor','advance-cleared':'vendor','hospital-cleared':'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
       const dateKey= page==='accounts' ? 'dateSent' : 'date';
       out.sort((a,b)=>{
         if(sort==='date_asc') return new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
@@ -1613,7 +1624,7 @@ const app = {
         const so=document.getElementById('sort-'+page);
         if(so) so.addEventListener('change', e=> app.ui.applyFilter(page,{sort:e.target.value}));
       };
-      ['advance','hospital','deposits','slips','bills','advance-bills','advance-cleared','advance-slips','accounts','transfers'].forEach(bindPage);
+      ['advance','hospital','deposits','slips','bills','advance-bills','advance-cleared','hospital-cleared','advance-slips','accounts','transfers'].forEach(bindPage);
 
       // Paid From segmented control <-> hidden select sync (fixes mode not changing)
       const syncBillSegUI = (val) => {
@@ -2554,6 +2565,7 @@ const app = {
         'advance-slips': 'ledgers',
         'advance-bills': 'bills',
         'advance-cleared': 'bills',
+        'hospital-cleared': 'bills',
         'accounts': 'ledgers',
         'transfers': 'ledgers',
         'upi-reconciliation': 'ledgers',
@@ -2583,6 +2595,7 @@ const app = {
         'advance-bills': 'Muhasib Bills Register',
         'advance-cleared': 'Muhasib Adv Bill Clear',
         'bills': 'Hospital Bills Register',
+        'hospital-cleared': 'Hospital Bill Clear',
         'accounts': 'Accounts Department Register',
         'transfers': 'Accounts Verification & Transfers',
         'upi-reconciliation': 'UPI Transaction Reconciliation',
@@ -3252,9 +3265,10 @@ const app = {
 
       setSafeText('sidebar-temp-slips-badge', app.state.hospitalSlipsPending !== undefined ? app.state.hospitalSlipsPending : app.state.temporarySlipsPending);
       setSafeText('sidebar-advance-slips-badge', app.state.advanceSlipsPending || 0);
-      setSafeText('sidebar-bills-badge', app.state.bills.filter(b => b.expenseType==='hospital').length);
+      setSafeText('sidebar-bills-badge', app.state.bills.filter(b => String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').length);
+      setSafeText('sidebar-hospital-cleared-badge', app.state.bills.filter(b => String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').length);
       setSafeText('sidebar-advance-bills-badge', app.state.bills.filter(b => b.expenseType==='advance' && b.status!=='adv_cleared').length);
-      const bb=document.getElementById('bottom-nav-bills-badge'); if(bb) bb.textContent=app.state.bills.filter(b=>b.expenseType==='hospital').length;
+      const bb=document.getElementById('bottom-nav-bills-badge'); if(bb) bb.textContent=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').length;
       const ab=document.getElementById('bottom-nav-advance-bills-badge'); if(ab) ab.textContent=app.state.bills.filter(b=>b.expenseType==='advance' && b.status!=='adv_cleared').length;
 
       // Position math block updates
@@ -3293,6 +3307,7 @@ const app = {
       app.ui.renderAdvanceBillsTable();
       app.ui.renderAdvanceClearedTable();
       app.ui.renderBillsTable();
+      app.ui.renderHospitalClearedTable();
       app.ui.renderAccountsTable();
       app.ui.renderTransfersTable();
 
@@ -3610,6 +3625,11 @@ const app = {
         try{
           bill.expenseType=targetType;
           bill.tokenNumber = app.generateToken(toHospital ? 'hospital_bill' : 'advance_bill');
+          bill.status='pending';
+          bill.clearBatch='';
+          bill.clearedAt=null;
+          if(app.ui.selectedAdvanceBills) app.ui.selectedAdvanceBills.delete(bill.id);
+          if(app.ui.selectedHospitalBills) app.ui.selectedHospitalBills.delete(bill.id);
           await app.db.put('bills',bill.id,bill);
           app.ui.showToast(`Converted to ${targetLabel}! Token: ${bill.tokenNumber}`);
           app.syncState();
@@ -3776,9 +3796,9 @@ const app = {
       const list=document.getElementById('list-bills');
       if(!list) return;
       const allFiltered=app.ui.getFiltered(app.state.bills,'bills');
-      let filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+      let filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
       if(!filtered.length && app.state.bills.length){
-        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
         if(raw.length && !app.ui.filters.bills.search && !app.ui.filters.bills.from && !app.ui.filters.bills.to) filtered=raw;
         else if(raw.length && !filtered.length) filtered=raw;
       }
@@ -3786,7 +3806,8 @@ const app = {
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        try{ app.ui.updateHospitalBatchBar(); }catch(e){}
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -3799,7 +3820,165 @@ const app = {
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
         }
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
-        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act convert" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
+        const isSel=app.ui.selectedHospitalBills && app.ui.selectedHospitalBills.has(bill.id);
+        return `<tr class="${isSel?'row-selected':''}"><td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleHospitalBillSelect(${bill.id},this.checked)" title="Select for batch"></td><td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Move to Hospital Bill Clear" onclick="app.ui.clearHospitalBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
+      }).join('');
+      try{ app.ui.updateHospitalBatchBar(); }catch(e){}
+    },
+    async clearHospitalBill(id){
+      const bill=app.state.bills.find(b=>b.id===id);
+      if(!bill){ app.ui.showToast('Bill not found','error'); return; }
+      if(bill.status==='hosp_cleared'){ app.ui.showToast('Bill already cleared.','warning'); return; }
+      app.ui.selectedHospitalBills = new Set([id]);
+      app.ui.updateHospitalBatchBar();
+      app.ui.openHospitalBatchClearModal();
+    },
+    toggleHospitalBillSelect(id, checked){
+      if(!app.ui.selectedHospitalBills) app.ui.selectedHospitalBills = new Set();
+      if(checked) app.ui.selectedHospitalBills.add(id);
+      else app.ui.selectedHospitalBills.delete(id);
+      app.ui.updateHospitalBatchBar();
+      try{ if(app.mobile && app.mobile.renderBillsCards) app.mobile.renderBillsCards(); }catch(e){}
+    },
+    toggleSelectAllHospitalBills(checked){
+      if(!app.ui.selectedHospitalBills) app.ui.selectedHospitalBills = new Set();
+      const rows = app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
+      if(checked){ rows.forEach(b=>app.ui.selectedHospitalBills.add(b.id)); }
+      else { app.ui.selectedHospitalBills.clear(); }
+      app.ui.renderBillsTable();
+      try{ if(app.mobile && app.mobile.renderBillsCards) app.mobile.renderBillsCards(); }catch(e){}
+      app.ui.updateHospitalBatchBar();
+    },
+    clearHospitalBillSelection(){
+      if(app.ui.selectedHospitalBills) app.ui.selectedHospitalBills.clear();
+      const inline=document.getElementById('hospital-batch-name-inline'); if(inline) inline.value='';
+      app.ui.renderBillsTable();
+      try{ if(app.mobile && app.mobile.renderBillsCards) app.mobile.renderBillsCards(); }catch(e){}
+      app.ui.updateHospitalBatchBar();
+    },
+    getSelectedHospitalBills(){
+      if(!app.ui.selectedHospitalBills) app.ui.selectedHospitalBills = new Set();
+      const ids=[...app.ui.selectedHospitalBills];
+      return ids.map(id=>app.state.bills.find(b=>b.id===id)).filter(b=>b && String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
+    },
+    updateHospitalBatchBar(){
+      const sel=app.ui.getSelectedHospitalBills();
+      const n=sel.length;
+      const total=sel.reduce((s,b)=>s+(Number(b.amount)||0),0);
+      const cEl=document.getElementById('selected-hospital-count');
+      if(cEl) cEl.textContent = n ? `${n} selected` : '0 selected';
+      const tEl=document.getElementById('selected-hospital-total');
+      if(tEl) tEl.textContent = n ? `• ${app.ui.formatCurrency(total)}` : '';
+      const btn=document.getElementById('btn-hospital-batch-clear');
+      if(btn) btn.disabled = !n;
+      ['select-all-hospital-bills','select-all-hospital-bills-head'].forEach(hid=>{
+        const h=document.getElementById(hid); if(!h) return;
+        const all=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
+        h.checked = all.length>0 && n>0 && n>=all.length;
+        h.indeterminate = n>0 && n<all.length;
+      });
+    },
+    suggestHospitalBatchName(){
+      const existing=[...new Set((app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.clearBatch).map(b=>b.clearBatch))];
+      const dl=document.getElementById('hospital-batch-list'); if(dl) dl.innerHTML=existing.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
+      const today=new Date().toISOString().split('T')[0];
+      const nextN=existing.length+1;
+      return `HBatch-${String(nextN).padStart(2,'0')} / ${today}`;
+    },
+    openHospitalBatchClearModal(singleId){
+      if(singleId){ app.ui.selectedHospitalBills = new Set([singleId]); }
+      const sel=app.ui.getSelectedHospitalBills();
+      if(!sel.length){ app.ui.showToast('Please select at least one bill first.','warning'); return; }
+      const nameInput=document.getElementById('hospital-batch-clear-name');
+      const inline=document.getElementById('hospital-batch-name-inline');
+      const preset=(inline && inline.value.trim()) ? inline.value.trim() : app.ui.suggestHospitalBatchName();
+      if(nameInput) nameInput.value = preset;
+      const cEl=document.getElementById('hospital-batch-clear-count'); if(cEl) cEl.textContent=sel.length;
+      const tEl=document.getElementById('hospital-batch-clear-total'); if(tEl) tEl.textContent=app.ui.formatCurrency(sel.reduce((s,b)=>s+(Number(b.amount)||0),0));
+      const lEl=document.getElementById('hospital-batch-clear-list');
+      if(lEl) lEl.innerHTML=sel.map(b=>`<div class="batch-clear-item"><span class="batch-clear-bill">#${app.ui.escapeHTML(String(b.billNumber||'-'))} • ${app.ui.escapeHTML(b.vendor||'-')}</span><span class="batch-clear-amt">${app.ui.formatCurrency(b.amount)}</span><button type="button" class="batch-clear-remove" title="Remove" onclick="app.ui.toggleHospitalBillSelect(${b.id},false);app.ui.renderBillsTable();app.ui.openHospitalBatchClearModal()">✕</button></div>`).join('');
+      app.ui.suggestHospitalBatchName();
+      app.ui.openModal('dialog-hospital-batch-clear');
+      setTimeout(()=>{ const ni=document.getElementById('hospital-batch-clear-name'); if(ni){ ni.focus(); ni.select(); } },120);
+    },
+    async confirmHospitalBatchClear(){
+      const sel=app.ui.getSelectedHospitalBills();
+      if(!sel.length){ app.ui.showToast('No bills selected.','warning'); return; }
+      const nameEl=document.getElementById('hospital-batch-clear-name');
+      const batch=(nameEl?.value||'').trim();
+      if(!batch){ app.ui.showToast('Batch name is required to identify all bills in this batch.','warning'); nameEl?.focus(); return; }
+      const btn=document.getElementById('btn-hospital-batch-clear-confirm'); if(btn) btn.disabled=true;
+      try{
+        const now=new Date().toISOString();
+        for(const b of sel){
+          b.status='hosp_cleared';
+          b.clearBatch=batch;
+          b.clearedAt=now;
+          await app.db.put('bills',b.id,b);
+        }
+        const inline=document.getElementById('hospital-batch-name-inline'); if(inline) inline.value='';
+        app.ui.selectedHospitalBills.clear();
+        app.ui.closeModal('dialog-hospital-batch-clear');
+        app.ui.showToast(`${sel.length} hospital bills cleared in Batch "${batch}"!`);
+        app.syncState();
+      }catch(e){ app.ui.showToast('Batch clear failed: '+(e.message||e),'error'); }
+      if(btn) btn.disabled=false;
+    },
+    async undoHospitalClear(id){
+      const bill=app.state.bills.find(b=>b.id===id);
+      if(!bill){ app.ui.showToast('Bill not found','error'); return; }
+      app.ui.showConfirm('Undo Clear', `Move Hospital Bill #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) back to Hospital Bills?`, async()=>{
+        try{
+          bill.status='pending';
+          bill.clearBatch='';
+          bill.clearedAt=null;
+          await app.db.put('bills',bill.id,bill);
+          app.ui.showToast('Bill moved back to Hospital Bills.');
+          app.syncState();
+        }catch(e){ app.ui.showToast('Undo failed: '+(e.message||e),'error'); }
+      });
+    },
+    async undoHospitalClearBatch(batchName){
+      const items=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared' && String(b.clearBatch||'')===String(batchName));
+      if(!items.length){ app.ui.showToast('No bills found in this batch.','warning'); return; }
+      app.ui.showConfirm('Undo Batch', `Move all ${items.length} bills in batch "${batchName}" back to Hospital Bills?`, async()=>{
+        try{
+          for(const b of items){ b.status='pending'; b.clearBatch=''; b.clearedAt=null; await app.db.put('bills',b.id,b); }
+          app.ui.showToast(`Batch "${batchName}" moved back to Hospital Bills.`);
+          app.syncState();
+        }catch(e){ app.ui.showToast('Undo failed: '+(e.message||e),'error'); }
+      });
+    },
+    renderHospitalClearedTable(){
+      const list=document.getElementById('list-hospital-cleared');
+      if(!list) return;
+      try{
+        const allBatches=[...new Set((app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared' && b.clearBatch).map(b=>b.clearBatch))].sort();
+        const bf=document.getElementById('filter-hospital-cleared-batch');
+        if(bf){ const cur=bf.value; bf.innerHTML='<option value="">All Batches</option>'+allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join(''); if(allBatches.includes(cur)) bf.value=cur; }
+        const dl=document.getElementById('hospital-batch-list'); if(dl) dl.innerHTML=allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
+      }catch(e){}
+      const allFiltered=app.ui.getFiltered(app.state.bills,'hospital-cleared');
+      const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
+      const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
+      const totEl=document.getElementById('total-hospital-cleared'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
+      const navBadge=document.getElementById('sidebar-hospital-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
+      if(!filtered.length){
+        const f=app.ui.filters['hospital-cleared']; const isF=f && (f.search||f.from||f.to);
+        list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
+        return;
+      }
+      list.innerHTML = filtered.map(bill=>{
+        const isDirect=!bill.slipId;
+        const note=isDirect?'Direct':'From Slip';
+        let attachmentHtml='-';
+        if(bill.attachmentUrl){
+          const syncClass=bill.pendingUpload?'pending-sync':'';
+          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
+          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
+        }
+        const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
+        return `<tr><td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${bill.clearBatch?`<span class="batch-badge" title="Batch: ${app.ui.escapeHTML(bill.clearBatch)}">${app.ui.escapeHTML(bill.clearBatch)}</span>`:'<span class="text-muted">-</span>'}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Hospital Bills" onclick="app.ui.undoHospitalClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
       }).join('');
     },
 
@@ -8544,10 +8723,15 @@ const app = {
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.clearBatch||'-',e.amount,e.clearedAt?app.ui.formatDate(String(e.clearedAt).split('T')[0]):'-',e.remarks||'-']));
         sheetName='Muhasib Adv Cleared';
       } else if(page==='bills'){
-        const d=filtered(app.state.bills,'bills').filter(b=>b.expenseType==='hospital');
+        const d=filtered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
         rows=[['Hospital Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Amount (₹)','Remarks']];
         d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.amount,e.remarks||'-']));
         sheetName='Hospital Bills';
+      } else if(page==='hospital-cleared'){
+        const d=filtered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
+        rows=[['Hospital Cleared Bills (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date','Token No','Bill No','Vendor','Head','Batch','Amount (₹)','Cleared At','Remarks']];
+        d.forEach(e=>rows.push([app.ui.formatDate(e.date),e.tokenNumber||'-',e.billNumber,e.vendor,e.head||e.category||'-',e.clearBatch||'-',e.amount,e.clearedAt?app.ui.formatDate(String(e.clearedAt).split('T')[0]):'-',e.remarks||'-']));
+        sheetName='Hospital Cleared';
       } else if(page==='accounts'){
         const d=filtered(app.state.accountsRegister,'accounts');
         rows=[['Accounts Register (Filtered)'],['Export Date',new Date().toLocaleString('en-IN')],['Total',d.reduce((s,e)=>s+e.amount,0),`Records: ${d.length}`],[],['Date Sent','Bill Type','Amount (₹)','Reference No','Remarks']];
@@ -8596,8 +8780,9 @@ tfoot .r{text-align:right;}
 </body></html>`;
       app.reports._printHtmlViaIframe(html);
     },
-    _printBatchDetailList(list){
+    _printBatchDetailList(list, title){
       if(!list.length){ app.ui.showToast('No records to print.','warning'); return; }
+      const heading=title||'Muhasib Adv Clear - Batch Detail';
       const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
       const esc=s2=>app.ui.escapeHTML(s2==null?'':String(s2));
@@ -8624,7 +8809,7 @@ tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5p
 tfoot .r{text-align:right;}
 @media print{body{padding:0;}}
 </style></head><body>
-<h1>Muhasib Adv Clear - Batch Detail</h1><div class="sub">Bills grouped by batch • Total: \u20B9${fmt(total)} (${sorted.length} bills)</div><div class="rule"></div>
+<h1>${heading}</h1><div class="sub">Bills grouped by batch • Total: \u20B9${fmt(total)} (${sorted.length} bills)</div><div class="rule"></div>
 <table><thead><tr><th class="c" style="width:50px">S.No</th><th>Vendor Name</th><th class="c" style="width:130px">Bill Number</th><th style="width:150px">Head</th><th class="r" style="width:130px">Amount</th></tr></thead>
 <tbody>${html_rows}</tbody>
 <tfoot><tr><td colspan="4" style="text-align:right">Total</td><td class="r">\u20B9${fmt(total)}</td></tr></tfoot></table>
@@ -8640,8 +8825,12 @@ tfoot .r{text-align:right;}
       app.reports._printBatchDetailList(list);
     },
     printHospitalBillsDetail(){
-      const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
+      const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
       app.reports._printBillDetailList(list,'Bill Number','Head');
+    },
+    printHospitalClearedDetail(){
+      const list=app.ui.getFiltered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
+      app.reports._printBatchDetailList(list,'Hospital Bill Clear - Batch Detail');
     },
     printAdvanceSlipsDetail(){
       const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance');
@@ -9898,6 +10087,8 @@ tfoot .r{text-align:right;}
           try{ app.mobile.renderAdvanceClearedCards(); }catch(e){}
         } else if (activeId === 'panel-bills') {
           try{ app.mobile.renderBillsCards(); }catch(e){}
+        } else if (activeId === 'panel-hospital-cleared') {
+          try{ app.mobile.renderHospitalClearedCards(); }catch(e){}
         } else if (activeId === 'panel-accounts') {
           try{ app.mobile.renderAccountsCards(); }catch(e){}
         } else if (activeId === 'panel-transfers') {
@@ -9912,6 +10103,7 @@ tfoot .r{text-align:right;}
         try{ app.mobile.renderAdvanceBillsCards(); }catch(e){}
         try{ app.mobile.renderAdvanceClearedCards(); }catch(e){}
         try{ app.mobile.renderBillsCards(); }catch(e){}
+        try{ app.mobile.renderHospitalClearedCards(); }catch(e){}
         try{ app.mobile.renderAccountsCards(); }catch(e){}
         try{ app.mobile.renderTransfersCards(); }catch(e){}
       }
@@ -9948,7 +10140,7 @@ tfoot .r{text-align:right;}
         advSlipsBadge.style.display = mSlipsCount > 0 ? 'inline' : 'none';
       }
       const muhasibCount = app.state.bills.filter(b=>b.expenseType==='advance' && b.status!=='adv_cleared').length;
-      const hospCount = app.state.bills.filter(b=>b.expenseType==='hospital').length;
+      const hospCount = app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').length;
       ['submenu-advance-bills-badge','submenu-advance-bills-badge2'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent=muhasibCount; el.style.display=muhasibCount>0?'inline':'none'; } });
       ['submenu-bills-badge','submenu-bills-badge2'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent=hospCount; el.style.display=hospCount>0?'inline':'none'; } });
     },
@@ -10239,9 +10431,9 @@ tfoot .r{text-align:right;}
       const container=document.getElementById('mobile-list-bills');
       if(!container) return;
       let all=app.ui.getFiltered(app.state.bills,'bills');
-      let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+      let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
       if(!filtered.length && app.state.bills.length){
-        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital');
+        const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
         if(raw.length) filtered = app.ui.filters.bills.search||app.ui.filters.bills.from||app.ui.filters.bills.to ? filtered : raw;
         if(!filtered.length && raw.length) filtered=raw;
       }
@@ -10258,7 +10450,28 @@ tfoot .r{text-align:right;}
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--secondary)"><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card ${app.ui.selectedHospitalBills && app.ui.selectedHospitalBills.has(bill.id)?'card-selected':''}" style="border-left:3px solid var(--secondary)"><div style="display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.7rem;background:var(--bg-app);border-bottom:1px solid var(--border-color);border-radius:8px 8px 0 0"><label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;font-weight:600;cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" style="width:18px;height:18px;accent-color:#16a34a" ${app.ui.selectedHospitalBills && app.ui.selectedHospitalBills.has(bill.id)?'checked':''} onchange="app.ui.toggleHospitalBillSelect(${bill.id},this.checked);app.ui.renderBillsTable()"> Select for Batch</label><button type="button" class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="app.ui.openHospitalBatchClearModal(${bill.id})">Move \u2192</button></div><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Date</span><span class="mobile-card-val">${app.ui.formatDate(bill.date)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Token No</span><span class="mobile-card-val" style="font-size:0.8rem;font-family:monospace">${app.ui.escapeHTML(bill.tokenNumber || '-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Bill No</span><span class="mobile-card-val" style="font-size:0.8rem">${app.ui.escapeHTML(bill.billNumber)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.convertBill(${bill.id})" style="flex:1">→ Muhasib</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+      }).join('');
+    },
+    renderHospitalClearedCards() {
+      const container=document.getElementById('mobile-list-hospital-cleared');
+      if(!container) return;
+      let all=app.ui.getFiltered(app.state.bills,'hospital-cleared');
+      let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
+      if(!filtered.length){
+        const f=app.ui.filters['hospital-cleared']; const isF=f&&(f.search||f.from||f.to);
+        container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No cleared bills yet.'}</div>`;
+        return;
+      }
+      container.innerHTML = filtered.map(bill=>{
+        const note=!bill.slipId?'Direct':'From Slip';
+        let attachmentHtml='';
+        if(bill.attachmentUrl){
+          const syncClass=bill.pendingUpload?'pending-sync':'';
+          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
+          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
+        } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--success)"><div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.7rem;background:#f0fdf4;border-bottom:1px solid #bbf7d0;font-size:0.78rem;font-weight:700;color:#15803d"><span>Batch: ${app.ui.escapeHTML(bill.clearBatch||'-')}</span></div><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span><span class="source-tag" style="background:var(--success-light,#dcfce7);color:var(--success)">✓ Cleared</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.undoAdvanceClear(${bill.id})" style="flex:1">↩ Undo</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
 
@@ -10415,9 +10628,9 @@ tfoot .r{text-align:right;}
 .nav-item[data-panel="advance-cash"], .nav-item[data-panel="advance-bills"], .nav-item[data-panel="advance-cleared"], .nav-item[data-panel="advance-slips"] { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; }
 .nav-item[data-panel="advance-cash"].active, .nav-item[data-panel="advance-bills"].active, .nav-item[data-panel="advance-cleared"].active, .nav-item[data-panel="advance-slips"].active { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-left: 3px solid ${hex(c.muhasib)} !important; }
 .nav-item[data-panel="advance-cash"] .badge, .nav-item[data-panel="advance-bills"] .badge, .nav-item[data-panel="advance-cleared"] .badge, .nav-item[data-panel="advance-slips"] .badge { background: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; }
-.nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"], .nav-item[data-panel="accounts"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
-.nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active, .nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
-.nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge, .nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }
+.nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="hospital-cleared"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"], .nav-item[data-panel="accounts"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
+.nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="hospital-cleared"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active, .nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
+.nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="hospital-cleared"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge, .nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }
 .nav-item[data-panel="transfers"] { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; }
 .nav-item[data-panel="transfers"].active { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-left: 3px solid ${hex(c.transfers)} !important; }
 .nav-item[data-panel="transfers"] .badge { background: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-color: ${hex(c.transfers)}33 !important; }
