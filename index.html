@@ -1357,6 +1357,12 @@
               <div class="search-box" style="max-width: 220px;">
                 <input type="text" placeholder="Search by remarks / date..." class="search-input" id="search-upi">
               </div>
+              <div class="ledger-filter-group" style="display:flex; align-items:center; gap:6px;">
+                <select id="filter-upi-month" class="form-select form-input-sm" style="max-width:160px" onchange="app.upiReconciliation.handleDailyMonthChange(this.value)" title="Filter by Month">
+                  <option value="">All Months</option>
+                </select>
+                <input type="month" id="filter-upi-month-picker" class="form-input form-input-sm" style="max-width:130px;" title="Pick specific month" onchange="app.upiReconciliation.handleDailyMonthChange(this.value)">
+              </div>
               <div class="ledger-filter-group">
                 <input type="date" id="filter-upi-from" class="form-input form-input-sm" title="From date">
                 <span class="filter-sep">to</span>

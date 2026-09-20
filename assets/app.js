@@ -599,6 +599,9 @@ const app = {
               const isVendorConflict = (item.table === 'vendors' || item.table === 'heads' || item.table === 'upi_reconciliations') && (msg.includes('duplicate') || msg.includes('already exists') || msg.includes('23505') || msg.includes('unique'));
               if (isMissingTable || isVendorConflict) {
                 console.warn('Dropping non-blocking queue item (table missing or vendor duplicate):', item, itemErr);
+                if (isVendorConflict && (item.table === 'vendors' || item.table === 'heads') && item.recordId) {
+                  try { await app.db.delete(item.table, item.recordId, true); } catch (_) {}
+                }
                 try { await app.db.delete('sync_queue', item.id); } catch (_) {}
                 continue;
               }
@@ -672,6 +675,21 @@ const app = {
               remote.tokenNumber = local.tokenNumber;
             }
             if (!local) {
+              if (table === 'vendors' && remote.name) {
+                const normRemote = String(remote.name).trim().toLowerCase();
+                const localSameName = localRecords.find(l => l && l.name && String(l.name).trim().toLowerCase() === normRemote);
+                if (localSameName && String(localSameName.id) !== String(remote.id)) {
+                  await app.db.delete('vendors', localSameName.id, true);
+                  localMap.delete(localSameName.id);
+                }
+              } else if (table === 'heads' && remote.name) {
+                const normRemote = String(remote.name).trim().toLowerCase();
+                const localSameName = localRecords.find(l => l && l.name && String(l.name).trim().toLowerCase() === normRemote);
+                if (localSameName && String(localSameName.id) !== String(remote.id)) {
+                  await app.db.delete('heads', localSameName.id, true);
+                  localMap.delete(localSameName.id);
+                }
+              }
               await app.db.put(table, null, remote, true); // localOnly = true
             } else {
               const localUpdatedAt = new Date(local.updated_at || 0).getTime();
@@ -688,6 +706,33 @@ const app = {
           for (const local of localRecords) {
             if (!remoteIds.has(String(local.id)) && !queuedInserts.has(String(local.id))) {
               await app.db.delete(table, local.id, true); // localOnly = true
+            }
+          }
+
+          // Defensive cleanup: Ensure no duplicate vendor or head names linger in IndexedDB
+          if (table === 'vendors') {
+            const allDbVendors = await app.db.getAll('vendors');
+            const seenVendorNames = new Set();
+            for (const v of allDbVendors) {
+              if (!v || !v.name) continue;
+              const n = String(v.name).trim().toLowerCase();
+              if (seenVendorNames.has(n)) {
+                await app.db.delete('vendors', v.id, true);
+              } else {
+                seenVendorNames.add(n);
+              }
+            }
+          } else if (table === 'heads') {
+            const allDbHeads = await app.db.getAll('heads');
+            const seenHeadNames = new Set();
+            for (const h of allDbHeads) {
+              if (!h || !h.name) continue;
+              const n = String(h.name).trim().toLowerCase();
+              if (seenHeadNames.has(n)) {
+                await app.db.delete('heads', h.id, true);
+              } else {
+                seenHeadNames.add(n);
+              }
             }
           }
         } catch (err) {
@@ -1227,7 +1272,14 @@ const app = {
   // ==========================================
   // STATE CALCULATIONS & DATA PIPELINE
   // ==========================================
+  _isSyncingState: false,
+  _pendingSyncState: false,
   async syncState() {
+    if (app._isSyncingState) {
+      app._pendingSyncState = true;
+      return;
+    }
+    app._isSyncingState = true;
     try {
       // 1. Fetch opening balances & settings
       app.state.openingAdvanceCash = parseFloat(await app.db.getSetting('openingAdvanceCash', 0)) || 0;
@@ -1295,9 +1347,21 @@ const app = {
         }
       }
 
-      // 2b. Fetch Heads & seed defaults (same for Muhasib + Hospital)
+      // 2b. Fetch Heads & seed defaults (Strictly deduplicated)
       try {
-        app.state.heads = await app.db.getAll('heads') || [];
+        const rawHeads = await app.db.getAll('heads') || [];
+        const uniqueHeadMap = new Map();
+        for (const h of rawHeads) {
+          if (!h || !h.name) continue;
+          const norm = String(h.name).trim().toLowerCase();
+          if (!norm) continue;
+          if (!uniqueHeadMap.has(norm)) {
+            uniqueHeadMap.set(norm, { ...h, name: h.name.trim() });
+          } else if (h.id) {
+            try { await app.db.delete('heads', h.id, true); } catch (_) {}
+          }
+        }
+        app.state.heads = Array.from(uniqueHeadMap.values());
       } catch (err) {
         console.warn('Could not read heads from DB, initializing empty:', err);
         app.state.heads = [];
@@ -1324,9 +1388,34 @@ const app = {
         if (b.head && !b.category) { b.category = b.head; }
       }
 
-      // 2c. Fetch Vendors & Auto-Migrate from historical bills / slips
+      // 2c. Fetch Vendors & Auto-Migrate from historical bills / slips (Strictly deduplicated)
       try {
-        app.state.vendors = await app.db.getAll('vendors') || [];
+        const rawVendors = await app.db.getAll('vendors') || [];
+        const uniqueVendorMap = new Map();
+        const duplicateVendorIds = [];
+
+        for (const v of rawVendors) {
+          if (!v || !v.name) continue;
+          const norm = String(v.name).trim().toLowerCase();
+          if (!norm) continue;
+          if (!uniqueVendorMap.has(norm)) {
+            uniqueVendorMap.set(norm, { ...v, name: v.name.trim() });
+          } else {
+            // Found duplicate vendor record in DB: merge any richer fields
+            const existing = uniqueVendorMap.get(norm);
+            if (!existing.phone && v.phone) existing.phone = v.phone;
+            if ((!existing.category || existing.category === 'General') && v.category && v.category !== 'General') existing.category = v.category;
+            if ((!existing.remarks || existing.remarks.includes('Auto-migrated')) && v.remarks && !v.remarks.includes('Auto-migrated')) existing.remarks = v.remarks;
+            if (v.id) duplicateVendorIds.push(v.id);
+          }
+        }
+
+        // Clean up duplicate vendor IDs from IndexedDB
+        for (const dupId of duplicateVendorIds) {
+          try { await app.db.delete('vendors', dupId, true); } catch (_) {}
+        }
+
+        app.state.vendors = Array.from(uniqueVendorMap.values());
       } catch (err) {
         console.warn('Could not read vendors from DB, initializing empty:', err);
         app.state.vendors = [];
@@ -1342,7 +1431,7 @@ const app = {
 
       const existingVendorMap = new Map();
       (app.state.vendors || []).forEach(v => {
-        if (v && v.name) existingVendorMap.set(v.name.trim().toLowerCase(), v);
+        if (v && v.name && v.name.trim()) existingVendorMap.set(v.name.trim().toLowerCase(), v);
       });
 
       const discoveredVendors = new Set();
@@ -1481,6 +1570,12 @@ const app = {
     } catch (err) {
       console.error(err);
       app.ui.showToast(`Error synchronizing database calculations: ${err.message || err}`, 'error');
+    } finally {
+      app._isSyncingState = false;
+      if (app._pendingSyncState) {
+        app._pendingSyncState = false;
+        app.syncState();
+      }
     }
   },
 
@@ -4521,6 +4616,26 @@ const app = {
   vendors: {
     _returnContext: null,
 
+    getUniqueVendors() {
+      const uniqueMap = new Map();
+      (app.state.vendors || []).forEach(v => {
+        if (!v || !v.name) return;
+        const norm = String(v.name).trim().toLowerCase();
+        if (!norm) return;
+        if (!uniqueMap.has(norm)) {
+          uniqueMap.set(norm, { ...v, name: v.name.trim() });
+        } else {
+          const existing = uniqueMap.get(norm);
+          if (!existing.phone && v.phone) existing.phone = v.phone;
+          if ((!existing.category || existing.category === 'General') && v.category && v.category !== 'General') existing.category = v.category;
+          if ((!existing.remarks || existing.remarks.includes('Auto-migrated')) && v.remarks && !v.remarks.includes('Auto-migrated')) {
+            existing.remarks = v.remarks;
+          }
+        }
+      });
+      return Array.from(uniqueMap.values());
+    },
+
     openAddVendorModal(initialName = '', returnContext = null) {
       app.vendors._returnContext = returnContext;
       const form = document.getElementById('form-vendor-add');
@@ -4565,8 +4680,9 @@ const app = {
       }
       const editId = formData.id ? parseInt(formData.id, 10) : null;
 
-      // Case-insensitive duplicate check
-      const duplicate = (app.state.vendors || []).find(v => 
+      // Case-insensitive duplicate check against clean unique list
+      const cleanList = app.vendors.getUniqueVendors();
+      const duplicate = cleanList.find(v => 
         v.name && v.name.trim().toLowerCase() === name.toLowerCase() && v.id !== editId
       );
       if (duplicate) {
@@ -4616,6 +4732,7 @@ const app = {
         };
         const newId = await app.db.add('vendors', newVendor);
         newVendor.id = newId;
+        app.state.vendors = (app.state.vendors || []).filter(v => (v.name || '').trim().toLowerCase() !== name.toLowerCase());
         app.state.vendors.push(newVendor);
         app.ui.showToast(`Vendor "${name}" registered successfully!`, 'success');
       }
@@ -4640,7 +4757,7 @@ const app = {
       app.vendors._returnContext = null;
 
       const badge = document.getElementById('nav-vendors-badge');
-      if (badge) badge.textContent = app.state.vendors.length;
+      if (badge) badge.textContent = app.vendors.getUniqueVendors().length;
 
       return true;
     },
@@ -4667,7 +4784,7 @@ const app = {
         app.vendors.populateVendorDropdowns();
         app.vendors.renderVendorsTable();
         const badge = document.getElementById('nav-vendors-badge');
-        if (badge) badge.textContent = app.state.vendors.length;
+        if (badge) badge.textContent = app.vendors.getUniqueVendors().length;
         app.ui.showToast(`Vendor "${vendor.name}" deleted.`, 'info');
       } catch (err) {
         console.error(err);
@@ -4676,7 +4793,7 @@ const app = {
     },
 
     populateVendorDropdowns(selectedVendor = '') {
-      const sorted = [...(app.state.vendors || [])].sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+      const sorted = app.vendors.getUniqueVendors().sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
       // 1. Bill Vendor Select
       const billSel = document.getElementById('bill-vendor');
@@ -4717,7 +4834,7 @@ const app = {
       const q = (document.getElementById('search-vendors')?.value || '').trim().toLowerCase();
       const sortVal = document.getElementById('sort-vendors')?.value || 'name_asc';
 
-      let list = [...(app.state.vendors || [])];
+      let list = app.vendors.getUniqueVendors();
 
       // Calculate aggregates for each vendor
       const vendorStats = new Map();
@@ -4855,6 +4972,20 @@ const app = {
 
   heads: {
     _returnContext: null,
+
+    getUniqueHeads() {
+      const uniqueMap = new Map();
+      (app.state.heads || []).forEach(h => {
+        if (!h || !h.name) return;
+        const norm = String(h.name).trim().toUpperCase();
+        if (!norm) return;
+        if (!uniqueMap.has(norm)) {
+          uniqueMap.set(norm, { ...h, name: h.name.trim() });
+        }
+      });
+      return Array.from(uniqueMap.values());
+    },
+
     openAddHeadModal(initialName = '', returnContext = null) {
       app.heads._returnContext = returnContext;
       const form = document.getElementById('form-head-add');
@@ -4885,7 +5016,8 @@ const app = {
       const name = (formData.name || '').trim().toUpperCase();
       if (!name) { app.ui.showToast('Head name is required.', 'warning'); return false; }
       const editId = formData.id ? parseInt(formData.id, 10) : null;
-      const duplicate = (app.state.heads || []).find(h => h.name && h.name.trim().toUpperCase() === name && h.id !== editId);
+      const cleanList = app.heads.getUniqueHeads();
+      const duplicate = cleanList.find(h => h.name && h.name.trim().toUpperCase() === name && h.id !== editId);
       if (duplicate) { app.ui.showToast(`Head "${name}" already exists!`, 'error'); return false; }
       if (editId) {
         const existing = (app.state.heads || []).find(h => h.id === editId);
@@ -4908,6 +5040,7 @@ const app = {
         const rec = { name, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
         const newId = await app.db.add('heads', rec);
         rec.id = newId;
+        app.state.heads = (app.state.heads || []).filter(h => (h.name || '').trim().toUpperCase() !== name);
         app.state.heads.push(rec);
         app.ui.showToast(`Head "${name}" added!`, 'success');
       }
@@ -4940,7 +5073,7 @@ const app = {
       } catch (err) { app.ui.showToast('Failed to delete head.', 'error'); }
     },
     populateHeadDropdowns(selected = '') {
-      const sorted = [...(app.state.heads || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      const sorted = app.heads.getUniqueHeads().sort((a,b) => (a.name||'').localeCompare(b.name||''));
       const opts = '<option value="">-- Select Head --</option>' + sorted.map(h => `<option value="${String(h.name).replace(/"/g,'&quot;')}">${String(h.name).replace(/</g,'&lt;')}</option>`).join('');
       const billSel = document.getElementById('bill-head');
       if (billSel) {
@@ -4961,12 +5094,12 @@ const app = {
       const tbody = document.getElementById('list-heads');
       if (!tbody) return;
       const q = (document.getElementById('search-heads')?.value || '').trim().toLowerCase();
-      let list = [...(app.state.heads || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      let list = app.heads.getUniqueHeads().sort((a,b) => (a.name||'').localeCompare(b.name||''));
       if (q) list = list.filter(h => (h.name||'').toLowerCase().includes(q));
       const badge = document.getElementById('kpi-total-heads-badge');
       if (badge) badge.textContent = `Total: ${list.length} Heads`;
       const nb = document.getElementById('nav-heads-badge');
-      if (nb) nb.textContent = (app.state.heads||[]).length;
+      if (nb) nb.textContent = app.heads.getUniqueHeads().length;
       if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted" style="padding:2rem;">No heads found. Click "+ Add New Head".</td></tr>`;
         return;
@@ -5010,6 +5143,7 @@ const app = {
       if (mDate && !mDate.value) mDate.value = today;
 
       app.upiReconciliation.setupLiveCalculators();
+      app.upiReconciliation.populateDailyMonthDropdown();
 
       const searchInput = document.getElementById('search-upi');
       if (searchInput) {
@@ -5023,6 +5157,73 @@ const app = {
       if (toInput) {
         toInput.addEventListener('change', () => app.upiReconciliation.renderTable());
       }
+    },
+
+    populateDailyMonthDropdown() {
+      const select = document.getElementById('filter-upi-month');
+      if (!select) return;
+
+      const currentVal = select.value || document.getElementById('filter-upi-month-picker')?.value || '';
+      const list = app.state.upiReconciliations || [];
+      const monthsSet = new Set();
+
+      list.forEach(r => {
+        if (r.date && r.date.length >= 7) {
+          monthsSet.add(r.date.substring(0, 7));
+        }
+      });
+
+      const currentMonthKey = new Date().toISOString().substring(0, 7);
+      monthsSet.add(currentMonthKey);
+      if (currentVal && currentVal.length === 7) monthsSet.add(currentVal);
+
+      const sortedMonths = Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
+      const newSignature = sortedMonths.map(mKey => `${mKey}:${list.filter(r => r.date && r.date.startsWith(mKey)).length}`).join('|');
+
+      if (select._lastSignature === newSignature && select.value === currentVal) {
+        return;
+      }
+      select._lastSignature = newSignature;
+
+      let html = '<option value="">All Months</option>';
+      sortedMonths.forEach(mKey => {
+        const [y, m] = mKey.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+        const mName = dateObj.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+        const count = list.filter(r => r.date && r.date.startsWith(mKey)).length;
+        html += `<option value="${mKey}">${mName}${count > 0 ? ` (${count})` : ''}</option>`;
+      });
+
+      select.innerHTML = html;
+      select.value = currentVal;
+    },
+
+    handleDailyMonthChange(val) {
+      const select = document.getElementById('filter-upi-month');
+      const picker = document.getElementById('filter-upi-month-picker');
+      if (select) {
+        if ([...select.options].some(o => o.value === val)) {
+          select.value = val;
+        } else if (!val) {
+          select.value = '';
+        } else {
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          select.appendChild(opt);
+          select.value = val;
+        }
+      }
+      if (picker) {
+        picker.value = val || '';
+      }
+      if (val) {
+        const fromInput = document.getElementById('filter-upi-from');
+        const toInput = document.getElementById('filter-upi-to');
+        if (fromInput) fromInput.value = '';
+        if (toInput) toInput.value = '';
+      }
+      app.upiReconciliation.renderTable();
     },
 
     setupLiveCalculators() {
@@ -5326,6 +5527,7 @@ const app = {
     getFilteredList() {
       let list = [...(app.state.upiReconciliations || [])];
       const q = (document.getElementById('search-upi')?.value || '').trim().toLowerCase();
+      const month = document.getElementById('filter-upi-month')?.value || document.getElementById('filter-upi-month-picker')?.value || '';
       const from = document.getElementById('filter-upi-from')?.value;
       const to = document.getElementById('filter-upi-to')?.value;
       const statusFilter = document.getElementById('filter-upi-status')?.value || 'all';
@@ -5337,6 +5539,10 @@ const app = {
           const rRemarks = String(r.remarks || '').toLowerCase();
           return rDate.includes(q) || rRemarks.includes(q);
         });
+      }
+
+      if (month) {
+        list = list.filter(r => r.date && r.date.startsWith(month));
       }
 
       if (from) {
@@ -5365,6 +5571,7 @@ const app = {
     },
 
     renderTable() {
+      app.upiReconciliation.populateDailyMonthDropdown();
       const tbody = document.getElementById('list-upi-reconciliation');
       const mobileList = document.getElementById('mobile-list-upi-reconciliation');
       const badge = document.getElementById('total-upi-badge');
@@ -5793,6 +6000,10 @@ const app = {
     resetFilters() {
       const search = document.getElementById('search-upi');
       if (search) search.value = '';
+      const month = document.getElementById('filter-upi-month');
+      if (month) month.value = '';
+      const monthPicker = document.getElementById('filter-upi-month-picker');
+      if (monthPicker) monthPicker.value = '';
       const from = document.getElementById('filter-upi-from');
       if (from) from.value = '';
       const to = document.getElementById('filter-upi-to');
@@ -8225,7 +8436,8 @@ const app = {
         } else {
           // Master Vendor Summary Table
           titleDisplay.innerText = 'Master Vendor Financial Summary';
-          metaDisplay.innerText = `${(app.state.vendors || []).length} Registered Vendors • All Ledgers (Hospital & Muhasib)`;
+          const sorted = app.vendors.getUniqueVendors().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+          metaDisplay.innerText = `${sorted.length} Registered Vendors • All Ledgers (Hospital & Muhasib)`;
 
           thead.innerHTML = `
             <tr>
@@ -8240,7 +8452,6 @@ const app = {
           tbody.innerHTML = '';
 
           let gHosp = 0, gMu = 0, gSlips = 0, gAll = 0;
-          const sorted = [...(app.state.vendors || [])].sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
           sorted.forEach(v => {
             const norm = (v.name || '').trim().toLowerCase();
@@ -8416,7 +8627,7 @@ const app = {
             [],
             ['Vendor Name', 'Phone', 'Hospital Bills (₹)', 'Muhasib Bills (₹)', 'Temp Slips (₹)', 'Total Volume (₹)']
           ];
-          (app.state.vendors || []).forEach(v => {
+          app.vendors.getUniqueVendors().forEach(v => {
             const vName = (v.name || '').trim().toLowerCase();
             const hAmt = (app.state.bills || []).filter(b => b.expenseType === 'hospital' && (b.vendor || '').trim().toLowerCase() === vName && inRange(b.date)).reduce((s,x)=>s+x.amount, 0);
             const mAmt = (app.state.bills || []).filter(b => b.expenseType === 'advance' && (b.vendor || '').trim().toLowerCase() === vName && inRange(b.date)).reduce((s,x)=>s+x.amount, 0);
