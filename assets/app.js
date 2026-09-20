@@ -1588,6 +1588,22 @@ const app = {
       if (mobileCloseBtn) mobileCloseBtn.addEventListener('click', closeSidebar);
       if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', closeSidebar);
 
+      // Desktop Sidebar Collapse Toggle
+      const collapseBtn = document.getElementById('sidebar-collapse-btn');
+      const appLayout = document.querySelector('.app-layout');
+      if (collapseBtn && appLayout) {
+        // Restore saved state
+        if (localStorage.getItem('noor_sidebar_collapsed') === 'true') {
+          appLayout.classList.add('sidebar-collapsed');
+          collapseBtn.title = 'Expand sidebar';
+        }
+        collapseBtn.addEventListener('click', () => {
+          const isCollapsed = appLayout.classList.toggle('sidebar-collapsed');
+          localStorage.setItem('noor_sidebar_collapsed', isCollapsed);
+          collapseBtn.title = isCollapsed ? 'Expand sidebar' : 'Collapse sidebar';
+        });
+      }
+
       // Mobile Theme Button Listener
       const mobileThemeBtn = document.getElementById('mobile-theme-btn');
       if (mobileThemeBtn) {
