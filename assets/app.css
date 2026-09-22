@@ -824,6 +824,36 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
 }
 .formula-info { font-family: var(--font-mono); font-size: 0.66rem; }
 
+/* ---------- 8B. DASHBOARD GROUPED SECTIONS (Muhasib | Hospital | UPI | Overall) ---------- */
+.dash-groups { display: flex; flex-direction: column; gap: 16px; }
+.dash-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px 14px 16px;
+  box-shadow: var(--shadow-sm);
+  border-top: 4px solid var(--text-muted);
+}
+.dash-group-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 0 2px; }
+.dash-group-dot { width: 12px; height: 12px; border-radius: 999px; flex-shrink: 0; background: var(--text-muted); box-shadow: 0 0 0 4px rgba(128,128,128,0.15); }
+.dash-group-title { font-size: 0.95rem; font-weight: 800; letter-spacing: 0.01em; color: var(--text-main); }
+.dash-group-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+/* Group accent colors */
+.dash-group-muhasib { border-top-color: #a855f7; }
+.dash-group-muhasib .dash-group-dot { background: #a855f7; box-shadow: 0 0 0 4px rgba(168,85,247,0.18); }
+.dash-group-muhasib .dash-group-title { color: #a855f7; }
+.dash-group-hospital { border-top-color: #0284c7; }
+.dash-group-hospital .dash-group-dot { background: #0284c7; box-shadow: 0 0 0 4px rgba(2,132,199,0.18); }
+.dash-group-hospital .dash-group-title { color: #0284c7; }
+.dash-group-upi { border-top-color: #f59e0b; }
+.dash-group-upi .dash-group-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,0.20); }
+.dash-group-upi .dash-group-title { color: #b45309; }
+.dash-group-overall { border-top-color: #10b981; }
+.dash-group-overall .dash-group-dot { background: #10b981; box-shadow: 0 0 0 4px rgba(16,185,129,0.18); }
+.dash-group-overall .dash-group-title { color: #059669; }
+[data-theme="dark"] .dash-group-upi .dash-group-title { color: #fbbf24; }
+[data-theme="dark"] .dash-group-overall .dash-group-title { color: #34d399; }
+
 /* ---------- 9. CHARTS & RECONCILIATION ---------- */
 .charts-section { margin-top: 18px; display: flex; flex-direction: column; gap: 16px; }
 .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

@@ -3376,6 +3376,25 @@ const app = {
       setSafeText('dash-total-transferred', app.ui.formatCurrency(app.state.totalTransferred));
       setSafeText('dash-total-sent-to-accounts', app.ui.formatCurrency(app.state.totalSentToAccounts));
       setSafeText('dash-awaiting-transfer', app.ui.formatCurrency(app.state.totalAwaitingTransfer));
+
+      // Dashboard UPI summary (Bank UPI + Hospital UPI) — same source as UPI Reconciliation KPIs
+      try {
+        const upiList = app.state.upiReconciliations || [];
+        const upiHosp = upiList.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+        const upiBank = upiList.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+        const upiDiff = Math.round((upiHosp - upiBank) * 100) / 100;
+        setSafeText('dash-upi-hospital', app.ui.formatCurrency(upiHosp));
+        setSafeText('dash-upi-bank', app.ui.formatCurrency(upiBank));
+        setSafeText('dash-upi-diff', app.ui.formatCurrency(upiDiff));
+        const dashDiffSub = document.getElementById('dash-upi-diff-sub');
+        if (dashDiffSub) {
+          if (upiDiff === 0) dashDiffSub.textContent = upiList.length ? `Reconciled • ${upiList.length} day(s)` : 'Hospital UPI − Bank UPI';
+          else if (upiDiff > 0) dashDiffSub.textContent = 'Hospital excess • Bank deficit';
+          else dashDiffSub.textContent = 'Bank excess • Hospital deficit';
+        }
+        const dashDiffEl = document.getElementById('dash-upi-diff');
+        if (dashDiffEl) dashDiffEl.style.color = upiDiff === 0 ? 'var(--success)' : (upiDiff > 0 ? '#0284c7' : '#8b5cf6');
+      } catch (e) { /* dashboard UPI optional — never block render */ }
       
       setSafeText('dash-temp-slips-total', app.ui.formatCurrency(app.state.temporarySlipsPendingAmount));
       
@@ -4306,24 +4325,34 @@ const app = {
       const hasChartJs = typeof Chart !== 'undefined';
 
       if (hasChartJs) {
-        // Show canvases, hide fallbacks
+        // Show canvases, hide fallbacks (guard: Cash Sources + Bills Status charts removed from dashboard)
+        const sourcesCanvas = document.getElementById('chart-cash-sources');
+        const sourcesFallback = document.getElementById('fallback-cash-sources');
+        const hasSourcesChart = !!sourcesCanvas;
+        const statusCanvas = document.getElementById('chart-bills-status');
+        const statusFallback = document.getElementById('fallback-bills-status');
+        const hasStatusChart = !!statusCanvas;
         document.getElementById('chart-financial-position').classList.remove('hidden');
         document.getElementById('fallback-financial-position').classList.add('hidden');
-        document.getElementById('chart-cash-sources').classList.remove('hidden');
-        document.getElementById('fallback-cash-sources').classList.add('hidden');
-        document.getElementById('chart-bills-status').classList.remove('hidden');
-        document.getElementById('fallback-bills-status').classList.add('hidden');
+        if (sourcesCanvas) sourcesCanvas.classList.remove('hidden');
+        if (sourcesFallback) sourcesFallback.classList.add('hidden');
+        if (statusCanvas) statusCanvas.classList.remove('hidden');
+        if (statusFallback) statusFallback.classList.add('hidden');
 
         // If chart instances already exist, update datasets in-place without rebuilding
-        if (app.charts.position && app.charts.sources && app.charts.status) {
+        if (app.charts.position && (!hasStatusChart || app.charts.status) && (!hasSourcesChart || app.charts.sources)) {
           app.charts.position.data.datasets[0].data = [dataPosition.cash, dataPosition.pending, dataPosition.amanat, dataPosition.imprest];
           app.charts.position.update('none');
 
-          app.charts.sources.data.datasets[0].data = [dataSources.advance, dataSources.hospital];
-          app.charts.sources.update('none');
+          if (hasSourcesChart && app.charts.sources) {
+            app.charts.sources.data.datasets[0].data = [dataSources.advance, dataSources.hospital];
+            app.charts.sources.update('none');
+          }
 
-          app.charts.status.data.datasets[0].data = [dataStatus.advancePending, dataStatus.hospitalPending, dataStatus.transferred];
-          app.charts.status.update('none');
+          if (hasStatusChart && app.charts.status) {
+            app.charts.status.data.datasets[0].data = [dataStatus.advancePending, dataStatus.hospitalPending, dataStatus.transferred];
+            app.charts.status.update('none');
+          }
           return;
         }
 
@@ -4405,8 +4434,10 @@ const app = {
           }
         });
 
-        // 2. Cash Sources Chart (Doughnut Chart)
-        const ctxSources = document.getElementById('chart-cash-sources').getContext('2d');
+        // 2. Cash Sources Chart (Doughnut Chart) — skipped if removed from dashboard
+        const ctxSourcesEl = document.getElementById('chart-cash-sources');
+        if (ctxSourcesEl) {
+        const ctxSources = ctxSourcesEl.getContext('2d');
         app.charts.sources = new Chart(ctxSources, {
           type: 'doughnut',
           data: {
@@ -4445,13 +4476,16 @@ const app = {
             cutout: '65%'
           }
         });
+        } // end if (ctxSourcesEl) — Cash Sources chart removed from dashboard
 
-        // 3. Bills Status Chart (Doughnut Chart)
-        const ctxStatus = document.getElementById('chart-bills-status').getContext('2d');
+        // 3. Bills Status Chart (Doughnut Chart) — skipped if removed from dashboard
+        const ctxStatusEl = document.getElementById('chart-bills-status');
+        if (ctxStatusEl) {
+        const ctxStatus = ctxStatusEl.getContext('2d');
         app.charts.status = new Chart(ctxStatus, {
           type: 'doughnut',
           data: {
-            labels: ['Advance Bills Pending', 'Hospital Bills Pending', 'Total Transferred Back'],
+            labels: ['Muhasib Bills Pending', 'Hospital Bills Pending', 'Total Transferred Back'],
             datasets: [{
               label: 'Status',
               data: [dataStatus.advancePending, dataStatus.hospitalPending, dataStatus.transferred],
@@ -4486,18 +4520,23 @@ const app = {
             cutout: '65%'
           }
         });
+        } // end if (ctxStatusEl) — Bills Status chart removed from dashboard
 
       } else {
         // Fallback Mode (Offline & script did not load)
         console.warn('Chart.js library not loaded. Rendering HTML fallback visualization.');
 
-        // Hide canvases, show fallback divs
+        // Hide canvases, show fallback divs (guard: removed dashboard elements)
         document.getElementById('chart-financial-position').classList.add('hidden');
         document.getElementById('fallback-financial-position').classList.remove('hidden');
-        document.getElementById('chart-cash-sources').classList.add('hidden');
-        document.getElementById('fallback-cash-sources').classList.remove('hidden');
-        document.getElementById('chart-bills-status').classList.add('hidden');
-        document.getElementById('fallback-bills-status').classList.remove('hidden');
+        const fbSourcesCanvas = document.getElementById('chart-cash-sources');
+        if (fbSourcesCanvas) fbSourcesCanvas.classList.add('hidden');
+        const fbSources = document.getElementById('fallback-cash-sources');
+        if (fbSources) fbSources.classList.remove('hidden');
+        const fbStatusCanvas = document.getElementById('chart-bills-status');
+        if (fbStatusCanvas) fbStatusCanvas.classList.add('hidden');
+        const fbStatus = document.getElementById('fallback-bills-status');
+        if (fbStatus) fbStatus.classList.remove('hidden');
 
         // Render Fallback 1: Financial Position Bar List
         const maxVal = Math.max(dataPosition.cash, dataPosition.pending, dataPosition.amanat, dataPosition.imprest, 1);
@@ -4545,7 +4584,9 @@ const app = {
           </div>
         `;
 
-        // Render Fallback 2: Cash Sources Doughnut (Conic-Gradient)
+        // Render Fallback 2: Cash Sources Doughnut (Conic-Gradient) — only if element exists
+        const fbSourcesEl = document.getElementById('fallback-cash-sources');
+        if (fbSourcesEl) {
         const sourcesTotal = dataSources.advance + dataSources.hospital;
         let sPct1 = 50, sPct2 = 50;
         if (sourcesTotal > 0) {
@@ -4572,8 +4613,11 @@ const app = {
             </div>
           </div>
         `;
+        } // end if (fbSourcesEl)
 
-        // Render Fallback 3: Bills Status Doughnut (Conic-Gradient)
+        // Render Fallback 3: Bills Status Doughnut (Conic-Gradient) — only if element exists
+        const fbStatusEl = document.getElementById('fallback-bills-status');
+        if (fbStatusEl) {
         const statusTotal = dataStatus.advancePending + dataStatus.hospitalPending + dataStatus.transferred;
         let p1 = 33.3, p2 = 33.3, p3 = 33.4;
         if (statusTotal > 0) {
@@ -4606,6 +4650,7 @@ const app = {
             </div>
           </div>
         `;
+        } // end if (fbStatusEl)
       }
     }
   },
@@ -5730,6 +5775,25 @@ const app = {
           sbBadge.title = `${list.length} Reconciled Day(s)`;
         }
       }
+
+      // Keep Overview Dashboard UPI cards in sync whenever UPI KPIs update
+      try {
+        const dH = document.getElementById('dash-upi-hospital');
+        if (dH) dH.textContent = app.ui.formatCurrency(totalHosp);
+        const dB = document.getElementById('dash-upi-bank');
+        if (dB) dB.textContent = app.ui.formatCurrency(totalBank);
+        const dD = document.getElementById('dash-upi-diff');
+        if (dD) {
+          dD.textContent = app.ui.formatCurrency(netDiff);
+          dD.style.color = netDiff === 0 ? 'var(--success)' : (netDiff > 0 ? '#0284c7' : '#8b5cf6');
+        }
+        const dDS = document.getElementById('dash-upi-diff-sub');
+        if (dDS) {
+          if (netDiff === 0) dDS.textContent = list.length ? `Reconciled • ${list.length} day(s)` : 'Hospital UPI − Bank UPI';
+          else if (netDiff > 0) dDS.textContent = 'Hospital excess • Bank deficit';
+          else dDS.textContent = 'Bank excess • Hospital deficit';
+        }
+      } catch (e) { /* dashboard sync optional */ }
     },
 
     getMonthlyRollup() {
@@ -8529,7 +8593,7 @@ const app = {
               <div class="card" style="padding: 14px; background: var(--bg-card); border: 1px solid var(--border-color);">
                 <h3 style="font-size: 0.9rem; font-weight: 800; color: var(--text-main); border-bottom: 1px solid var(--border-color); padding-bottom: 6px; margin-bottom: 8px;">Bills Position</h3>
                 <div class="balance-item" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem;">
-                  <span>Advance Bills Pending</span>
+                  <span>Muhasib Bills Pending</span>
                   <span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span>
                 </div>
                 <div class="balance-item border-bottom-subtle" style="display:flex; justify-content:space-between; padding:5px 0; font-size:0.85rem; border-bottom:1px dashed var(--border-color);">
@@ -8762,9 +8826,9 @@ const app = {
         ['Hospital Cash Available', app.state.hospitalCashAvailable, 'Opening Hospital + Collections - Hospital Expenses - Deposits to Muhasib - Sent To Accounts (Hospital)'],
         ['Total Cash With Me', app.state.totalCashWithMe, 'Muhasib Cash Available + Hospital Cash Available'],
         [],
-        ['Advance Bills Pending', app.state.advanceBillsPending, 'Advance Bills - Imprest Transfers'],
+        ['Muhasib Bills Pending', app.state.advanceBillsPending, 'Muhasib Bills - Imprest Transfers'],
         ['Hospital Bills Pending', app.state.hospitalBillsPending, 'Hospital Bills - Amanat Transfers'],
-        ['Total Pending Bills', app.state.totalPendingBills, 'Advance Bills Pending + Hospital Bills Pending'],
+        ['Total Pending Bills', app.state.totalPendingBills, 'Muhasib Bills Pending + Hospital Bills Pending'],
         [],
         ['Amanat Received', app.state.amanatReceived, 'Transferred / Settled Hospital Bills'],
         ['Imprest Received', app.state.imprestReceived, 'Transferred / Settled Advance Bills'],
@@ -8884,7 +8948,7 @@ const app = {
         ['Cash Position', 'Hospital Cash Available', app.state.hospitalCashAvailable],
         ['Cash Position', 'Total Cash With Me', app.state.totalCashWithMe],
         [],
-        ['Bills Position', 'Advance Bills Pending', app.state.advanceBillsPending],
+        ['Bills Position', 'Muhasib Bills Pending', app.state.advanceBillsPending],
         ['Bills Position', 'Hospital Bills Pending', app.state.hospitalBillsPending],
         ['Bills Position', 'Total Pending Bills', app.state.totalPendingBills],
         [],
@@ -9444,7 +9508,7 @@ tfoot .r{text-align:right;}
           </div>
           <div class="bs-summary-card">
             <h4>Bills Position</h4>
-            <div class="row"><span>Advance Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span></div>
+            <div class="row"><span>Muhasib Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.advanceBillsPending)}</span></div>
             <div class="row"><span>Hospital Bills Pending:</span><span class="num-val">${app.ui.formatCurrency(app.state.hospitalBillsPending)}</span></div>
             <div class="row total" style="color:#d97706;"><span>Total Pending Bills:</span><span class="num-val">${app.ui.formatCurrency(app.state.totalPendingBills)}</span></div>
           </div>
@@ -9576,7 +9640,7 @@ tfoot .r{text-align:right;}
         ['Cash Position', 'Muhasib Cash Available in Hand', app.state.advanceCashAvailable || 0],
         ['Cash Position', 'Hospital Cash Collections in Hand', app.state.hospitalCashAvailable || 0],
         ['Cash Position', 'Total Cash With Me', app.state.totalCashWithMe || 0],
-        ['Bills Position', 'Advance Bills Pending Settlement', app.state.advanceBillsPending || 0],
+        ['Bills Position', 'Muhasib Bills Pending Settlement', app.state.advanceBillsPending || 0],
         ['Bills Position', 'Hospital Bills Pending Settlement', app.state.hospitalBillsPending || 0],
         ['Bills Position', 'Total Pending Bills', app.state.totalPendingBills || 0],
         ['Settlement Position', 'Amanat Received (Hospital)', app.state.amanatReceived || 0],
@@ -10908,10 +10972,10 @@ tfoot .r{text-align:right;}
 .metric-card:has(#dash-hospital-cash) .card-metric-value, .metric-card:has(#dash-total-hospital-collected) .card-metric-value, .metric-card:has(#dash-total-hospital-deposited) .card-metric-value, .metric-card:has(#dash-amanat-received) .card-metric-value, .metric-card:has(#dash-hospital-bills-pending) .card-metric-value { color: ${hex(c.hospital)} !important; }
 .metric-card:has(#dash-hospital-cash) .card-metric-header span, .metric-card:has(#dash-total-hospital-collected) .card-metric-header span, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header span, .metric-card:has(#dash-amanat-received) .card-metric-header span, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header span, .metric-card:has(#dash-hospital-cash) .card-metric-header, .metric-card:has(#dash-total-hospital-collected) .card-metric-header, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header, .metric-card:has(#dash-amanat-received) .card-metric-header, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header { color: ${hex(c.hospital)} !important; }
 .metric-card:has(#dash-hospital-cash) .metric-icon, .metric-card:has(#dash-total-hospital-collected) .metric-icon, .metric-card:has(#dash-total-hospital-deposited) .metric-icon, .metric-card:has(#dash-amanat-received) .metric-icon, .metric-card:has(#dash-hospital-bills-pending) .metric-icon { color: ${hex(c.hospital)} !important; opacity:1 !important; }
-.metric-card:has(#dash-total-sent-to-accounts), .metric-card:has(#dash-awaiting-transfer) { border-left: 4px solid ${hex(c.hospital)} !important; background: ${light(hex(c.hospital))} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .card-metric-value, .metric-card:has(#dash-awaiting-transfer) .card-metric-value { color: ${hex(c.hospital)} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .card-metric-header span, .metric-card:has(#dash-awaiting-transfer) .card-metric-header span, .metric-card:has(#dash-total-sent-to-accounts) .card-metric-header, .metric-card:has(#dash-awaiting-transfer) .card-metric-header { color: ${hex(c.hospital)} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .metric-icon, .metric-card:has(#dash-awaiting-transfer) .metric-icon { color: ${hex(c.hospital)} !important; opacity:1 !important; }
+.metric-card:has(#dash-total-sent-to-accounts), .metric-card:has(#dash-awaiting-transfer), .metric-card:has(#dash-total-pending-bills) { border-left: 4px solid ${hex(c.transfers)} !important; background: ${light(hex(c.transfers))} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .card-metric-value, .metric-card:has(#dash-awaiting-transfer) .card-metric-value, .metric-card:has(#dash-total-pending-bills) .card-metric-value { color: ${hex(c.transfers)} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .card-metric-header span, .metric-card:has(#dash-awaiting-transfer) .card-metric-header span, .metric-card:has(#dash-total-pending-bills) .card-metric-header span, .metric-card:has(#dash-total-sent-to-accounts) .card-metric-header, .metric-card:has(#dash-awaiting-transfer) .card-metric-header, .metric-card:has(#dash-total-pending-bills) .card-metric-header { color: ${hex(c.transfers)} !important; }
+.metric-card:has(#dash-total-sent-to-accounts) .metric-icon, .metric-card:has(#dash-awaiting-transfer) .metric-icon, .metric-card:has(#dash-total-pending-bills) .metric-icon { color: ${hex(c.transfers)} !important; opacity:1 !important; }
 .metric-card:has(#dash-total-transferred), .metric-card:has(#dash-total-cash-me) { border-left: 4px solid ${hex(c.transfers)} !important; background: ${light(hex(c.transfers))} !important; }
 .metric-card:has(#dash-total-transferred) .card-metric-value, .metric-card:has(#dash-total-cash-me) .card-metric-value { color: ${hex(c.transfers)} !important; }
 .metric-card:has(#dash-total-transferred) .card-metric-header span, .metric-card:has(#dash-total-cash-me) .card-metric-header span, .metric-card:has(#dash-total-transferred) .card-metric-header, .metric-card:has(#dash-total-cash-me) .card-metric-header { color: ${hex(c.transfers)} !important; }
