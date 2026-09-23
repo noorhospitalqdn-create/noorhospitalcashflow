@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260922_05">
+  <link rel="stylesheet" href="assets/app.css?v=20260922_06">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260922_05" defer></script>
+  <script src="assets/app.js?v=20260922_06" defer></script>
 </head>
 <body>
 
@@ -369,7 +369,7 @@
                 </div>
               </div>
               <div class="metrics-grid">
-                <div class="card metric-card card-gradient-primary">
+                <div class="card metric-card card-gradient-primary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-cash\']').click()">
                   <div class="card-metric-header">
                     <span>Current Muhasib Cash Available</span>
                     <span class="metric-icon">
@@ -382,7 +382,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-imprest">
+                <div class="card metric-card card-imprest" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-cash\']').click()">
                   <div class="card-metric-header">
                     <span>Total Muhasib Cash Received</span>
                     <span class="metric-icon">
@@ -395,7 +395,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-pending">
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-bills\']').click()">
                   <div class="card-metric-header text-muted">
                     <span>Muhasib Bills Pending</span>
                   </div>
@@ -417,7 +417,7 @@
                 </div>
               </div>
               <div class="metrics-grid">
-                <div class="card metric-card card-gradient-secondary">
+                <div class="card metric-card card-gradient-secondary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-cash\']').click()">
                   <div class="card-metric-header">
                     <span>Current Hospital Cash Available</span>
                     <span class="metric-icon">
@@ -430,7 +430,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-gradient-primary">
+                <div class="card metric-card card-gradient-primary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-cash\']').click()">
                   <div class="card-metric-header">
                     <span>Total Hospital Cash Collected</span>
                     <span class="metric-icon">
@@ -443,7 +443,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-gradient-primary">
+                <div class="card metric-card card-gradient-primary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-deposits\']').click()">
                   <div class="card-metric-header">
                     <span>Total Deposited To Muhasib</span>
                     <span class="metric-icon">
@@ -456,7 +456,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-pending">
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'bills\']').click()">
                   <div class="card-metric-header text-muted">
                     <span>Hospital Bills Pending</span>
                   </div>
@@ -529,7 +529,7 @@
                 </div>
               </div>
               <div class="metrics-grid">
-                <div class="card metric-card card-gradient-accent">
+                <div class="card metric-card card-gradient-accent" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'balance-sheet\']').click()">
                   <div class="card-metric-header">
                     <span>Total Cash With Me</span>
                     <span class="metric-icon">
@@ -542,7 +542,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-gradient-secondary">
+                <div class="card metric-card card-gradient-secondary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'accounts\']').click()">
                   <div class="card-metric-header">
                     <span>Total Sent To Accounts</span>
                     <span class="metric-icon">
@@ -555,7 +555,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-gradient-accent">
+                <div class="card metric-card card-gradient-accent" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'accounts\']').click()">
                   <div class="card-metric-header">
                     <span>Awaiting Transfer</span>
                     <span class="metric-icon">
@@ -568,7 +568,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-pending">
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'balance-sheet\']').click()">
                   <div class="card-metric-header text-muted">
                     <span>Total Pending Bills</span>
                   </div>
