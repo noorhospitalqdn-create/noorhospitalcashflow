@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260922_07">
+  <link rel="stylesheet" href="assets/app.css?v=20260922_09">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260922_07" defer></script>
+  <script src="assets/app.js?v=20260922_09" defer></script>
 </head>
 <body>
 
@@ -414,6 +414,16 @@
                     <span id="dash-advance-slips-count">0 slips • Click to open register</span>
                   </div>
                 </div>
+
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-cleared\']').click()">
+                  <div class="card-metric-header text-muted">
+                    <span>Muhasib Bill Sayer</span>
+                  </div>
+                  <div class="card-metric-value value-muted" id="dash-advance-cleared-total">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span id="dash-advance-cleared-count">0 bills • Click to open register</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -473,6 +483,26 @@
                   <div class="card-metric-value value-muted" id="dash-hospital-bills-pending">₹0.00</div>
                   <div class="card-metric-footer">
                     <span>Hospital Bills - Amanat Transfers</span>
+                  </div>
+                </div>
+
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'temp-slips\']').click()">
+                  <div class="card-metric-header text-muted">
+                    <span>Hospital Advance Slip</span>
+                  </div>
+                  <div class="card-metric-value value-muted" id="dash-hospital-slips-total">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span id="dash-hospital-slips-count">0 slips • Click to open register</span>
+                  </div>
+                </div>
+
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-cleared\']').click()">
+                  <div class="card-metric-header text-muted">
+                    <span>Hospital Bill Sayer</span>
+                  </div>
+                  <div class="card-metric-value value-muted" id="dash-hospital-cleared-total">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span id="dash-hospital-cleared-count">0 bills • Click to open register</span>
                   </div>
                 </div>
               </div>
