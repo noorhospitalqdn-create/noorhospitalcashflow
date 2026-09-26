@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260922_06">
+  <link rel="stylesheet" href="assets/app.css?v=20260922_07">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260922_06" defer></script>
+  <script src="assets/app.js?v=20260922_07" defer></script>
 </head>
 <body>
 
@@ -190,7 +190,7 @@
         </button>
         <button class="nav-item" data-panel="advance-slips">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
-          <span>Muhasib Temp Slips</span>
+          <span>Muhasib Advance Slip</span>
           <span class="badge" style="background:var(--tertiary-light);color:var(--tertiary);border:1px solid rgba(168,85,247,0.2)" id="sidebar-advance-slips-badge">0</span>
         </button>
         <button class="nav-item" data-panel="hospital-cash">
@@ -209,7 +209,7 @@
         </button>
         <button class="nav-item" data-panel="temp-slips">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-          <span>Hospital Temp Slips</span>
+          <span>Hospital Advance Slip</span>
           <span class="badge" id="sidebar-temp-slips-badge">0</span>
         </button>
         <button class="nav-item" data-panel="hospital-deposits">
@@ -402,6 +402,16 @@
                   <div class="card-metric-value value-muted" id="dash-advance-bills-pending">₹0.00</div>
                   <div class="card-metric-footer">
                     <span>Muhasib Bills - Imprest Transfers</span>
+                  </div>
+                </div>
+
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-slips\']').click()">
+                  <div class="card-metric-header text-muted">
+                    <span>Muhasib Advance Slip</span>
+                  </div>
+                  <div class="card-metric-value value-muted" id="dash-advance-slips-total">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span id="dash-advance-slips-count">0 slips • Click to open register</span>
                   </div>
                 </div>
               </div>
@@ -3156,7 +3166,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       </button>
       <button class="mobile-submenu-item" data-panel="advance-slips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
-        <span>Muhasib Temp Slips</span>
+        <span>Muhasib Advance Slip</span>
         <span class="submenu-badge" id="submenu-advance-slips-badge" style="background:var(--tertiary-light);color:var(--tertiary)">0</span>
       </button>
       <button class="mobile-submenu-item" data-panel="hospital-cash">
@@ -3174,7 +3184,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       </button>
       <button class="mobile-submenu-item" data-panel="temp-slips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-        <span>Hospital Temp Slips</span>
+        <span>Hospital Advance Slip</span>
         <span class="submenu-badge" id="submenu-slips-badge">0</span>
       </button>
       <button class="mobile-submenu-item" data-panel="hospital-deposits">

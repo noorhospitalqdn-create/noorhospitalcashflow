@@ -2709,8 +2709,8 @@ const app = {
         'advance-cash': 'Muhasib Cash Ledger',
         'hospital-cash': 'Hospital Cash Collection Ledger',
         'hospital-deposits': 'Hospital Cash Deposits Ledger',
-        'advance-slips': 'Muhasib Temporary Slips Register',
-        'temp-slips': 'Hospital Temporary Slips Register',
+        'advance-slips': 'Muhasib Advance Slip Register',
+        'temp-slips': 'Hospital Advance Slip Register',
         'advance-bills': 'Muhasib Bills Register',
         'advance-cleared': 'Muhasib Bill Sayer',
         'bills': 'Hospital Bills Register',
@@ -3397,6 +3397,10 @@ const app = {
       } catch (e) { /* dashboard UPI optional — never block render */ }
       
       setSafeText('dash-temp-slips-total', app.ui.formatCurrency(app.state.temporarySlipsPendingAmount));
+
+      // Dashboard Muhasib section: Muhasib Advance Slip total (amount + count)
+      setSafeText('dash-advance-slips-total', app.ui.formatCurrency(app.state.advanceSlipsPendingAmount || 0));
+      setSafeText('dash-advance-slips-count', `${app.state.advanceSlipsPending || 0} slip${(app.state.advanceSlipsPending || 0) !== 1 ? 's' : ''} • Click to open register`);
       
       const slipBadgeVal = `${app.state.temporarySlipsPending} slip${app.state.temporarySlipsPending !== 1 ? 's' : ''}`;
       setSafeText('dash-temp-slips-badge', slipBadgeVal);
@@ -10964,10 +10968,10 @@ tfoot .r{text-align:right;}
 .nav-item[data-panel="transfers"] { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; }
 .nav-item[data-panel="transfers"].active { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-left: 3px solid ${hex(c.transfers)} !important; }
 .nav-item[data-panel="transfers"] .badge { background: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-color: ${hex(c.transfers)}33 !important; }
-.metric-card:has(#dash-advance-cash), .metric-card:has(#dash-total-advance-received), .metric-card:has(#dash-imprest-received), .metric-card:has(#dash-advance-bills-pending) { border-left: 4px solid ${hex(c.muhasib)} !important; background: ${light(hex(c.muhasib))} !important; }
-.metric-card:has(#dash-advance-cash) .card-metric-value, .metric-card:has(#dash-total-advance-received) .card-metric-value, .metric-card:has(#dash-imprest-received) .card-metric-value, .metric-card:has(#dash-advance-bills-pending) .card-metric-value { color: ${hex(c.muhasib)} !important; }
-.metric-card:has(#dash-advance-cash) .card-metric-header span, .metric-card:has(#dash-total-advance-received) .card-metric-header span, .metric-card:has(#dash-imprest-received) .card-metric-header span, .metric-card:has(#dash-advance-bills-pending) .card-metric-header span, .metric-card:has(#dash-advance-cash) .card-metric-header, .metric-card:has(#dash-total-advance-received) .card-metric-header, .metric-card:has(#dash-imprest-received) .card-metric-header, .metric-card:has(#dash-advance-bills-pending) .card-metric-header { color: ${hex(c.muhasib)} !important; }
-.metric-card:has(#dash-advance-cash) .metric-icon, .metric-card:has(#dash-total-advance-received) .metric-icon, .metric-card:has(#dash-imprest-received) .metric-icon, .metric-card:has(#dash-advance-bills-pending) .metric-icon { color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; opacity:1 !important; }
+.metric-card:has(#dash-advance-cash), .metric-card:has(#dash-total-advance-received), .metric-card:has(#dash-imprest-received), .metric-card:has(#dash-advance-bills-pending), .metric-card:has(#dash-advance-slips-total) { border-left: 4px solid ${hex(c.muhasib)} !important; background: ${light(hex(c.muhasib))} !important; }
+.metric-card:has(#dash-advance-cash) .card-metric-value, .metric-card:has(#dash-total-advance-received) .card-metric-value, .metric-card:has(#dash-imprest-received) .card-metric-value, .metric-card:has(#dash-advance-bills-pending) .card-metric-value, .metric-card:has(#dash-advance-slips-total) .card-metric-value { color: ${hex(c.muhasib)} !important; }
+.metric-card:has(#dash-advance-cash) .card-metric-header span, .metric-card:has(#dash-total-advance-received) .card-metric-header span, .metric-card:has(#dash-imprest-received) .card-metric-header span, .metric-card:has(#dash-advance-bills-pending) .card-metric-header span, .metric-card:has(#dash-advance-slips-total) .card-metric-header span, .metric-card:has(#dash-advance-cash) .card-metric-header, .metric-card:has(#dash-total-advance-received) .card-metric-header, .metric-card:has(#dash-imprest-received) .card-metric-header, .metric-card:has(#dash-advance-bills-pending) .card-metric-header, .metric-card:has(#dash-advance-slips-total) .card-metric-header { color: ${hex(c.muhasib)} !important; }
+.metric-card:has(#dash-advance-cash) .metric-icon, .metric-card:has(#dash-total-advance-received) .metric-icon, .metric-card:has(#dash-imprest-received) .metric-icon, .metric-card:has(#dash-advance-bills-pending) .metric-icon, .metric-card:has(#dash-advance-slips-total) .metric-icon { color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; opacity:1 !important; }
 .metric-card:has(#dash-hospital-cash), .metric-card:has(#dash-total-hospital-collected), .metric-card:has(#dash-total-hospital-deposited), .metric-card:has(#dash-amanat-received), .metric-card:has(#dash-hospital-bills-pending) { border-left: 4px solid ${hex(c.hospital)} !important; background: ${light(hex(c.hospital))} !important; }
 .metric-card:has(#dash-hospital-cash) .card-metric-value, .metric-card:has(#dash-total-hospital-collected) .card-metric-value, .metric-card:has(#dash-total-hospital-deposited) .card-metric-value, .metric-card:has(#dash-amanat-received) .card-metric-value, .metric-card:has(#dash-hospital-bills-pending) .card-metric-value { color: ${hex(c.hospital)} !important; }
 .metric-card:has(#dash-hospital-cash) .card-metric-header span, .metric-card:has(#dash-total-hospital-collected) .card-metric-header span, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header span, .metric-card:has(#dash-amanat-received) .card-metric-header span, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header span, .metric-card:has(#dash-hospital-cash) .card-metric-header, .metric-card:has(#dash-total-hospital-collected) .card-metric-header, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header, .metric-card:has(#dash-amanat-received) .card-metric-header, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header { color: ${hex(c.hospital)} !important; }
