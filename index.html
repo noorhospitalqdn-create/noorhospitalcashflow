@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260922_09">
+  <link rel="stylesheet" href="assets/app.css?v=20260927_03">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260922_09" defer></script>
+  <script src="assets/app.js?v=20260927_03" defer></script>
 </head>
 <body>
 
@@ -1807,7 +1807,7 @@
         <section class="panel" id="panel-vendors">
           <div class="panel-action-bar">
             <div class="search-box">
-              <input type="text" placeholder="Search vendors by name, phone, or remarks..." class="search-input" id="search-vendors" oninput="app.vendors.renderVendorsTable()">
+              <input type="text" placeholder="Search vendors by name, ID, phone, or remarks..." class="search-input" id="search-vendors" oninput="app.vendors.renderVendorsTable()">
             </div>
             <button type="button" class="btn btn-primary" onclick="app.vendors.openAddVendorModal()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
@@ -1841,6 +1841,7 @@
                 <tr>
                   <th style="width: 44px;" class="text-center">#</th>
                   <th>Vendor / Party Name</th>
+                  <th>Vendor ID</th>
                   <th>Contact Phone</th>
                   <th class="text-right">Total Bills</th>
                   <th class="text-right">Active Slips</th>
@@ -2885,6 +2886,50 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
     </form>
   </dialog>
 
+  <!-- MODAL: Bill Payment Request - Print Options -->
+  <dialog id="dialog-print-options" closedby="any" class="modal-dialog modal-dialog-sm">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3>Bill Payment Request Form</h3>
+        <p class="modal-subtitle">Print header options — defaults already filled</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-print-options')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-print-options" onsubmit="return app.reports.confirmBillPrintOptions(event)">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="print-dept-name">Dept Name</label>
+          <input type="text" id="print-dept-name" class="form-input" value="NOOR HOSPITAL" required>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="print-budget-id">Dept Budget ID</label>
+            <input type="text" id="print-budget-id" class="form-input font-mono" value="73" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="print-mode">Mode</label>
+            <select id="print-mode" class="form-select" required>
+              <option value="Online">Online</option>
+              <option value="Cash" selected>Cash</option>
+              <option value="Cash Advance Settlement">Cash Advance Settlement</option>
+              <option value="IND/VENDOR">IND/VENDOR</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="print-detail-note">Detail of Payment <span style="font-weight:400;color:var(--text-muted)">(Optional)</span></label>
+          <textarea id="print-detail-note" class="form-textarea" rows="3" placeholder="Yahan note likhen... (khali chhor sakte hain)"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-print-options')">Cancel</button>
+        <button type="submit" class="btn btn-primary">🖨️ Print / PDF</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- MODAL: Add Verification & Transfer -->
   <dialog id="dialog-transfer-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
@@ -2951,6 +2996,10 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
         <div class="form-group">
           <label class="form-label" for="vendor-name">Vendor / Supplier Name <span class="text-error">*</span></label>
           <input type="text" id="vendor-name" class="form-input" placeholder="e.g. Apex Surgicals, Al-Shifa Pharmacy" required autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="vendor-code">Vendor ID <span style="font-weight:400;color:var(--text-muted)">(Optional)</span></label>
+          <input type="text" id="vendor-code" class="form-input font-mono" placeholder="e.g. V-001" autocomplete="off">
         </div>
         <input type="hidden" id="vendor-category-input" value="General">
         <div class="form-group">

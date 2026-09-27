@@ -398,6 +398,13 @@ const app = {
           const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
           return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
         }
+        // Vendors: vendorCode column may not exist yet — retry without it so old DB keeps working
+        if (clone.vendorCode !== undefined && String(err.message || '').toLowerCase().includes('vendorcode')) {
+          const fallbackClone = { ...clone };
+          delete fallbackClone.vendorCode;
+          const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
+          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
+        }
         throw err;
       }
     },
@@ -420,6 +427,12 @@ const app = {
         if (clone.head !== undefined && String(err.message || '').toLowerCase().includes('head')) {
           const fallbackClone = { ...clone };
           delete fallbackClone.head;
+          const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
+          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
+        }
+        if (clone.vendorCode !== undefined && String(err.message || '').toLowerCase().includes('vendorcode')) {
+          const fallbackClone = { ...clone };
+          delete fallbackClone.vendorCode;
           const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
           return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
         }
@@ -2427,6 +2440,7 @@ const app = {
           const vendorData = {
             id: document.getElementById('edit-vendor-id')?.value,
             name: document.getElementById('vendor-name')?.value,
+            vendorCode: document.getElementById('vendor-code')?.value,
             category: document.getElementById('vendor-category-input')?.value,
             phone: document.getElementById('vendor-phone')?.value,
             remarks: document.getElementById('vendor-remarks')?.value
@@ -4694,6 +4708,7 @@ const app = {
         } else {
           const existing = uniqueMap.get(norm);
           if (!existing.phone && v.phone) existing.phone = v.phone;
+          if (!existing.vendorCode && (v.vendorCode || v.code)) existing.vendorCode = v.vendorCode || v.code;
           if ((!existing.category || existing.category === 'General') && v.category && v.category !== 'General') existing.category = v.category;
           if ((!existing.remarks || existing.remarks.includes('Auto-migrated')) && v.remarks && !v.remarks.includes('Auto-migrated')) {
             existing.remarks = v.remarks;
@@ -4701,6 +4716,14 @@ const app = {
         }
       });
       return Array.from(uniqueMap.values());
+    },
+
+    getVendorCodeByName(vendorName) {
+      if (!vendorName) return '';
+      const norm = String(vendorName).trim().toLowerCase();
+      if (!norm) return '';
+      const found = (app.state.vendors || []).find(v => String(v.name || '').trim().toLowerCase() === norm);
+      return found ? String(found.vendorCode || found.code || '').trim() : '';
     },
 
     openAddVendorModal(initialName = '', returnContext = null) {
@@ -4715,6 +4738,8 @@ const app = {
       if (btn) btn.innerText = 'Save Vendor';
       const nameInput = document.getElementById('vendor-name');
       if (nameInput) nameInput.value = initialName || '';
+      const codeInput = document.getElementById('vendor-code');
+      if (codeInput) codeInput.value = '';
       app.ui.openModal('dialog-vendor-add');
       setTimeout(() => {
         if (nameInput) nameInput.focus();
@@ -4733,6 +4758,8 @@ const app = {
       const btn = document.getElementById('btn-save-vendor');
       if (btn) btn.innerText = 'Update Vendor';
       document.getElementById('vendor-name').value = vendor.name || '';
+      const vcEl = document.getElementById('vendor-code');
+      if (vcEl) vcEl.value = vendor.vendorCode || vendor.code || '';
       document.getElementById('vendor-category-input').value = vendor.category || 'General';
       document.getElementById('vendor-phone').value = vendor.phone || '';
       document.getElementById('vendor-remarks').value = vendor.remarks || '';
@@ -4746,15 +4773,25 @@ const app = {
         return false;
       }
       const editId = formData.id ? parseInt(formData.id, 10) : null;
+      const vendorCode = (formData.vendorCode || '').trim();
 
       // Case-insensitive duplicate check against clean unique list
       const cleanList = app.vendors.getUniqueVendors();
-      const duplicate = cleanList.find(v => 
+      const duplicate = cleanList.find(v =>
         v.name && v.name.trim().toLowerCase() === name.toLowerCase() && v.id !== editId
       );
       if (duplicate) {
         app.ui.showToast(`A vendor named "${name}" is already registered!`, 'error');
         return false;
+      }
+      if (vendorCode) {
+        const dupCode = cleanList.find(v =>
+          String(v.vendorCode || v.code || '').trim().toLowerCase() === vendorCode.toLowerCase() && v.id !== editId
+        );
+        if (dupCode) {
+          app.ui.showToast(`Vendor ID "${vendorCode}" already used by "${dupCode.name}"!`, 'error');
+          return false;
+        }
       }
 
       if (editId) {
@@ -4763,6 +4800,7 @@ const app = {
         const updated = {
           ...existing,
           name: name,
+          vendorCode: vendorCode,
           category: formData.category || 'General',
           phone: formData.phone || '',
           remarks: formData.remarks || '',
@@ -4791,6 +4829,7 @@ const app = {
       } else {
         const newVendor = {
           name: name,
+          vendorCode: vendorCode,
           category: formData.category || 'General',
           phone: formData.phone || '',
           remarks: formData.remarks || '',
@@ -4861,13 +4900,18 @@ const app = {
 
     populateVendorDropdowns(selectedVendor = '') {
       const sorted = app.vendors.getUniqueVendors().sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+      const optLabel = v => {
+        const code = String(v.vendorCode || v.code || '').trim();
+        const nm = app.ui.escapeHTML(v.name || '');
+        return code ? `${nm} (${app.ui.escapeHTML(code)})` : nm;
+      };
 
       // 1. Bill Vendor Select
       const billSel = document.getElementById('bill-vendor');
       if (billSel) {
         const currVal = selectedVendor || billSel.value;
-        billSel.innerHTML = '<option value="">-- Select Registered Vendor --</option>' + 
-          sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}</option>`).join('');
+        billSel.innerHTML = '<option value="">-- Select Registered Vendor --</option>' +
+          sorted.map(v => `<option value="${String(v.name || '').replace(/"/g, '&quot;')}">${optLabel(v)}</option>`).join('');
         if (currVal) billSel.value = currVal;
       }
 
@@ -4875,8 +4919,8 @@ const app = {
       const slipSel = document.getElementById('slip-vendor');
       if (slipSel) {
         const currVal = selectedVendor || slipSel.value;
-        slipSel.innerHTML = '<option value="">-- Select Registered Vendor --</option>' + 
-          sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}</option>`).join('');
+        slipSel.innerHTML = '<option value="">-- Select Registered Vendor --</option>' +
+          sorted.map(v => `<option value="${String(v.name || '').replace(/"/g, '&quot;')}">${optLabel(v)}</option>`).join('');
         if (currVal) slipSel.value = currVal;
       }
 
@@ -4884,8 +4928,8 @@ const app = {
       const reportSel = document.getElementById('report-vendor-select');
       if (reportSel) {
         const currVal = reportSel.value;
-        reportSel.innerHTML = '<option value="">-- All Registered Vendors --</option>' + 
-          sorted.map(v => `<option value="${v.name.replace(/"/g, '&quot;')}">${v.name}</option>`).join('');
+        reportSel.innerHTML = '<option value="">-- All Registered Vendors --</option>' +
+          sorted.map(v => `<option value="${String(v.name || '').replace(/"/g, '&quot;')}">${optLabel(v)}</option>`).join('');
         if (currVal) reportSel.value = currVal;
       }
 
@@ -4945,10 +4989,11 @@ const app = {
       const kpiTotalSpend = document.getElementById('kpi-vendors-total-spend-text');
       if (kpiTotalSpend) kpiTotalSpend.textContent = app.ui.formatCurrency(totalSpendAll);
 
-      // Filtering (Search query on name, phone, remarks)
+      // Filtering (Search query on name, vendor ID, phone, remarks)
       if (q) {
-        list = list.filter(v => 
+        list = list.filter(v =>
           (v.name || '').toLowerCase().includes(q) ||
+          String(v.vendorCode || v.code || '').toLowerCase().includes(q) ||
           (v.phone || '').toLowerCase().includes(q) ||
           (v.remarks || '').toLowerCase().includes(q)
         );
@@ -4967,13 +5012,14 @@ const app = {
 
       tbody.innerHTML = '';
       if (!list.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding: 2.5rem;">No vendors found matching your criteria. Click "+ Add New Vendor" to register one.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding: 2.5rem;">No vendors found matching your criteria. Click "+ Add New Vendor" to register one.</td></tr>`;
         return;
       }
 
       list.forEach((v, idx) => {
         const stats = vendorStats.get(v.id) || { totalBillsCount: 0, totalBillsAmt: 0, slipsCount: 0, slipAmt: 0, totalSpend: 0 };
-        
+        const vCode = String(v.vendorCode || v.code || '').trim();
+
         tbody.innerHTML += `
           <tr>
             <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx + 1}</td>
@@ -4982,6 +5028,9 @@ const app = {
                 <span class="vendor-name-title">${app.ui.escapeHTML(v.name)}</span>
                 ${v.remarks ? `<span class="vendor-remarks-sub">${app.ui.escapeHTML(v.remarks)}</span>` : ''}
               </div>
+            </td>
+            <td class="font-mono text-xs" style="font-weight:700;">
+              ${vCode ? app.ui.escapeHTML(vCode) : '<span class="text-muted" style="opacity:0.4">-</span>'}
             </td>
             <td class="font-mono text-xs text-muted">
               ${v.phone ? app.ui.escapeHTML(v.phone) : '<span style="opacity:0.4">-</span>'}
@@ -9102,97 +9151,177 @@ const app = {
       app.ui.showToast(`${sheetName} exported (${rows.length-5} rows)`);
     },
 
-    _printBillDetailList(list,numLabel,headLabel){
-      if(!list.length){ app.ui.showToast('No records to print.','warning'); return; }
-      const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
-      const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+    _billPrintPendingType: null,
+    _getBillPrintOpts(){
+      const g=id=>{ const el=document.getElementById(id); return el?String(el.value||'').trim():''; };
+      return {
+        deptName: g('print-dept-name') || 'NOOR HOSPITAL',
+        budgetId: g('print-budget-id') || '73',
+        mode: g('print-mode') || 'Cash',
+        detailNote: g('print-detail-note') || ''
+      };
+    },
+    _billPrintHeaderHtml(opts, subLine){
       const esc=s=>app.ui.escapeHTML(s==null?'':String(s));
-      const showHead=!!headLabel;
-      const rows=list.map((b,i)=>`<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(b.num||'-')}</td>${showHead?`<td>${esc(b.head||'-')}</td>`:''}<td class="r">₹${fmt(Number(b.amount)||0)}</td></tr>`).join('');
-      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Detail</title><style>
-@page{size:A4 portrait;margin:12mm 14mm;}
+      const printDate=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+      return `<h1>BILL PAYMENT REQUEST FORM</h1>`
+      + (subLine?`<div class="sub">${esc(subLine)}</div>`:'')
+      + `<div class="rule"></div>`
+      + `<div class="meta-grid">`
+      + `<div class="meta-box"><span class="meta-label">Dept Name</span><span class="meta-val">${esc(opts.deptName)}</span></div>`
+      + `<div class="meta-box"><span class="meta-label">Dept Budget ID</span><span class="meta-val">${esc(opts.budgetId)}</span></div>`
+      + `<div class="meta-box"><span class="meta-label">Mode</span><span class="meta-val">${esc(opts.mode)}</span></div>`
+      + `<div class="meta-box"><span class="meta-label">Date</span><span class="meta-val">${esc(printDate)}</span></div>`
+      + `</div>`;
+    },
+    _billPrintFooterHtml(opts){
+      const esc=s=>app.ui.escapeHTML(s==null?'':String(s)).replace(/\n/g,'<br>');
+      const noteHtml=opts.detailNote?esc(opts.detailNote):'<span class="empty-hint">&nbsp;</span>';
+      return `<div class="pay-note"><div class="pay-note-title">Detail of Payment</div><div class="pay-note-box">${noteHtml}</div></div>`
+      + `<div class="sign-row">`
+      + `<div class="sign-box"><div class="sign-line"></div><div class="sign-label">Signature of Nazir / Office with Stamp</div></div>`
+      + `<div class="sign-box"><div class="sign-line"></div><div class="sign-label">Signature of Naib Nazir / Senior Karkun</div></div>`
+      + `</div>`;
+    },
+    _billPrintCss(){
+      return `@page{size:A4 portrait;margin:12mm 14mm;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
 body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:24px 10px;}
-h1{font-size:26px;font-weight:800;text-align:center;letter-spacing:.02em;margin-bottom:6px;color:#111;}
-.rule{height:2px;background:#111;margin:0 auto 18px;max-width:100%;}
+h1{font-size:24px;font-weight:800;text-align:center;letter-spacing:.02em;margin-bottom:4px;color:#111;text-transform:uppercase;}
+.sub{text-align:center;color:#555;margin-bottom:8px;font-size:13px;}
+.rule{height:2px;background:#111;margin:0 auto 14px;max-width:100%;}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+.meta-box{border:1px solid #111;padding:7px 10px;background:#f8fafc;}
+.meta-label{display:block;font-size:10.5px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}
+.meta-val{display:block;font-size:14px;font-weight:800;color:#111;}
 table{width:100%;border-collapse:collapse;font-size:13.5px;}
 thead th{background:#111!important;color:#fff!important;font-weight:700;font-size:13px;padding:10px 12px;border:1px solid #111;text-align:left;}
 thead th.c,tbody td.c{text-align:center;}
 thead th.r,tbody td.r{text-align:right;}
 tbody td{border:1px solid #d1d5db;padding:9px 12px;color:#111;}
 tbody tr:nth-child(even){background:#f8fafc;}
+tbody tr.batch-row td{background:#ede9fe!important;font-weight:800;border:1px solid #8b5cf6;color:#5b21b6;}
 tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5px;background:#f1f5f9;}
 tfoot .r{text-align:right;}
-@media print{body{padding:0;}}
-</style></head><body>
-<h1>Bill Detail</h1><div class="rule"></div>
-<table><thead><tr><th class="c" style="width:55px">S.No</th><th>Vendor Name</th><th class="c" style="width:150px">${numLabel}</th>${showHead?'<th style="width:170px">Head</th>':''}<th class="r" style="width:150px">Amount</th></tr></thead>
-<tbody>${rows}</tbody>
-<tfoot><tr><td colspan="${showHead?4:3}" style="text-align:right">Total</td><td class="r">₹${fmt(total)}</td></tr></tfoot></table>
-</body></html>`;
+.pay-note{margin-top:16px;}
+.pay-note-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+.pay-note-box{border:1px solid #111;min-height:80px;padding:10px 12px;font-size:13.5px;white-space:pre-wrap;background:#fff;}
+.sign-row{display:flex;justify-content:space-between;gap:40px;margin-top:56px;}
+.sign-box{flex:1;text-align:center;}
+.sign-line{border-top:1.5px solid #111;margin-bottom:8px;height:1px;}
+.sign-label{font-size:12px;font-weight:700;color:#111;}
+@media print{body{padding:0;}.meta-box{background:#f8fafc!important;}}</style>`;
+    },
+    _resolvePrintVendorId(vendorName, fallback){
+      if (fallback && String(fallback).trim()) return String(fallback).trim();
+      try {
+        const c = app.vendors.getVendorCodeByName(vendorName);
+        return c || '-';
+      } catch (_) { return '-'; }
+    },
+    _printBillDetailList(list,numLabel,headLabel,opts){
+      if(!list.length){ app.ui.showToast('No records to print.','warning'); return; }
+      const o=opts||app.reports._getBillPrintOpts();
+      const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
+      const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+      const esc=s=>app.ui.escapeHTML(s==null?'':String(s));
+      const showHead=!!headLabel;
+      const rows=list.map((b,i)=>{
+        const vid=app.reports._resolvePrintVendorId(b.vendor, b.vendorId);
+        return `<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(vid)}</td><td class="c">${esc(b.num||'-')}</td>${showHead?`<td>${esc(b.head||'-')}</td>`:''}<td class="r">₹${fmt(Number(b.amount)||0)}</td></tr>`;
+      }).join('');
+      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Payment Request Form</title><style>`
+      + app.reports._billPrintCss()
+      + `</head><body>`
+      + app.reports._billPrintHeaderHtml(o, `Total: ₹${fmt(total)} (${list.length} bills)`)
+      + `<table><thead><tr><th class="c" style="width:50px">S.No</th><th>Vendor Name</th><th class="c" style="width:110px">Vendor ID</th><th class="c" style="width:140px">${esc(numLabel||'Bill Number')}</th>${showHead?'<th style="width:160px">Head</th>':''}<th class="r" style="width:140px">Amount</th></tr></thead>`
+      + `<tbody>${rows}</tbody>`
+      + `<tfoot><tr><td colspan="${showHead?5:4}" style="text-align:right">Total</td><td class="r">₹${fmt(total)}</td></tr></tfoot></table>`
+      + app.reports._billPrintFooterHtml(o)
+      + `</body></html>`;
       app.reports._printHtmlViaIframe(html);
     },
-    _printBatchDetailList(list, title){
+    _printBatchDetailList(list, title, opts){
       if(!list.length){ app.ui.showToast('No records to print.','warning'); return; }
-      const heading=title||'Muhasib Adv Clear - Batch Detail';
+      const o=opts||app.reports._getBillPrintOpts();
       const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
       const esc=s2=>app.ui.escapeHTML(s2==null?'':String(s2));
       let lastBatch=null; let html_rows='';
       const sorted=[...list].sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||'')));
       sorted.forEach((b,i)=>{
-        if(String(b.batch)!==String(lastBatch)){ lastBatch=b.batch; html_rows+=`<tr class="batch-row"><td colspan="5">Batch: ${esc(lastBatch||'-')}</td></tr>`; }
-        html_rows+=`<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(b.num||'-')}</td><td>${esc(b.head||'-')}</td><td class="r">\u20B9${fmt(Number(b.amount)||0)}</td></tr>`;
+        if(String(b.batch)!==String(lastBatch)){ lastBatch=b.batch; html_rows+=`<tr class="batch-row"><td colspan="6">Batch: ${esc(lastBatch||'-')}</td></tr>`; }
+        const vid=app.reports._resolvePrintVendorId(b.vendor, b.vendorId);
+        html_rows+=`<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(vid)}</td><td class="c">${esc(b.num||'-')}</td><td>${esc(b.head||'-')}</td><td class="r">\u20B9${fmt(Number(b.amount)||0)}</td></tr>`;
       });
-      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Adv Cleared - Batch Detail</title><style>
-@page{size:A4 portrait;margin:12mm 14mm;}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:24px 10px;}
-h1{font-size:24px;font-weight:800;text-align:center;margin-bottom:4px;}
-.sub{text-align:center;color:#555;margin-bottom:8px;font-size:13px;}
-.rule{height:2px;background:#111;margin:0 auto 14px;}
-table{width:100%;border-collapse:collapse;font-size:13.5px;}
-thead th{background:#111!important;color:#fff!important;font-weight:700;font-size:13px;padding:10px 12px;border:1px solid #111;text-align:left;}
-thead th.c,tbody td.c{text-align:center;} thead th.r,tbody td.r{text-align:right;}
-tbody td{border:1px solid #d1d5db;padding:9px 12px;color:#111;}
-tbody tr.batch-row td{background:#ede9fe!important;font-weight:800;border:1px solid #8b5cf6;color:#5b21b6;}
-tbody tr:nth-child(even){background:#f8fafc;}
-tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5px;background:#f1f5f9;}
-tfoot .r{text-align:right;}
-@media print{body{padding:0;}}
-</style></head><body>
-<h1>${heading}</h1><div class="sub">Bills grouped by batch • Total: \u20B9${fmt(total)} (${sorted.length} bills)</div><div class="rule"></div>
-<table><thead><tr><th class="c" style="width:50px">S.No</th><th>Vendor Name</th><th class="c" style="width:130px">Bill Number</th><th style="width:150px">Head</th><th class="r" style="width:130px">Amount</th></tr></thead>
-<tbody>${html_rows}</tbody>
-<tfoot><tr><td colspan="4" style="text-align:right">Total</td><td class="r">\u20B9${fmt(total)}</td></tr></tfoot></table>
-</body></html>`;
+      const subTitle=title||'Batch Detail';
+      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Payment Request Form</title><style>`
+      + app.reports._billPrintCss()
+      + `</head><body>`
+      + app.reports._billPrintHeaderHtml(o, `${subTitle} • Bills grouped by batch • Total: \u20B9${fmt(total)} (${sorted.length} bills)`)
+      + `<table><thead><tr><th class="c" style="width:50px">S.No</th><th>Vendor Name</th><th class="c" style="width:110px">Vendor ID</th><th class="c" style="width:130px">Bill Number</th><th style="width:140px">Head</th><th class="r" style="width:130px">Amount</th></tr></thead>`
+      + `<tbody>${html_rows}</tbody>`
+      + `<tfoot><tr><td colspan="5" style="text-align:right">Total</td><td class="r">\u20B9${fmt(total)}</td></tr></tfoot></table>`
+      + app.reports._billPrintFooterHtml(o)
+      + `</body></html>`;
       app.reports._printHtmlViaIframe(html);
     },
+    openBillPrintOptions(type){
+      app.reports._billPrintPendingType=type;
+      const dn=document.getElementById('print-dept-name'); if(dn && !dn.value) dn.value='NOOR HOSPITAL';
+      const bi=document.getElementById('print-budget-id'); if(bi && !bi.value) bi.value='73';
+      try{ app.ui.openModal('dialog-print-options'); }
+      catch(e){ const d=document.getElementById('dialog-print-options'); if(d && d.showModal){ try{d.showModal();}catch(_){} } }
+    },
+    confirmBillPrintOptions(ev){
+      if(ev) ev.preventDefault();
+      const type=app.reports._billPrintPendingType;
+      const opts=app.reports._getBillPrintOpts();
+      try{ app.ui.closeModal('dialog-print-options'); }catch(_){}
+      app.reports._executeBillPrint(type, opts);
+      return false;
+    },
+    _executeBillPrint(type, opts){
+      const vIdOf=name=>{ try{ return app.vendors.getVendorCodeByName(name) || '-'; }catch(_){ return '-'; } };
+      if(type==='advance-bills'){
+        const list=app.ui.getFiltered(app.state.bills,'advance-bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
+        app.reports._printBillDetailList(list,'Bill Number','Head',opts);
+      } else if(type==='advance-cleared'){
+        const list=app.ui.getFiltered(app.state.bills,'advance-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
+        app.reports._printBatchDetailList(list,'Muhasib Bill Sayer - Batch Detail',opts);
+      } else if(type==='hospital-bills'){
+        const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
+        app.reports._printBillDetailList(list,'Bill Number','Head',opts);
+      } else if(type==='hospital-cleared'){
+        const list=app.ui.getFiltered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
+        app.reports._printBatchDetailList(list,'Hospital Bill Sayer - Batch Detail',opts);
+      } else if(type==='advance-slips'){
+        const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance');
+        const list=app.ui.getFiltered(active,'advance-slips').map(s=>({vendor:s.vendor,vendorId:s.vendorId||vIdOf(s.vendor),num:s.tokenNumber,amount:s.amount}));
+        app.reports._printBillDetailList(list,'Token No',null,opts);
+      } else if(type==='hospital-slips'){
+        const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='hospital');
+        const list=app.ui.getFiltered(active,'slips').map(s=>({vendor:s.vendor,vendorId:s.vendorId||vIdOf(s.vendor),num:s.tokenNumber,amount:s.amount}));
+        app.reports._printBillDetailList(list,'Token No',null,opts);
+      }
+    },
     printAdvanceBillsDetail(){
-      const list=app.ui.getFiltered(app.state.bills,'advance-bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
-      app.reports._printBillDetailList(list,'Bill Number','Head');
+      app.reports.openBillPrintOptions('advance-bills');
     },
     printAdvanceClearedDetail(){
-      const list=app.ui.getFiltered(app.state.bills,'advance-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
-      app.reports._printBatchDetailList(list);
+      app.reports.openBillPrintOptions('advance-cleared');
     },
     printHospitalBillsDetail(){
-      const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
-      app.reports._printBillDetailList(list,'Bill Number','Head');
+      app.reports.openBillPrintOptions('hospital-bills');
     },
     printHospitalClearedDetail(){
-      const list=app.ui.getFiltered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').map(b=>({vendor:b.vendor,num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
-      app.reports._printBatchDetailList(list,'Hospital Bill Sayer - Batch Detail');
+      app.reports.openBillPrintOptions('hospital-cleared');
     },
     printAdvanceSlipsDetail(){
-      const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance');
-      const list=app.ui.getFiltered(active,'advance-slips').map(s=>({vendor:s.vendor,num:s.tokenNumber,amount:s.amount}));
-      app.reports._printBillDetailList(list,'Token No');
+      app.reports.openBillPrintOptions('advance-slips');
     },
     printHospitalSlipsDetail(){
-      const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='hospital');
-      const list=app.ui.getFiltered(active,'slips').map(s=>({vendor:s.vendor,num:s.tokenNumber,amount:s.amount}));
-      app.reports._printBillDetailList(list,'Token No');
+      app.reports.openBillPrintOptions('hospital-slips');
     },
 
     _previewHtml: '',
