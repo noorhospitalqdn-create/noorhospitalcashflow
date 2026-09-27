@@ -30,14 +30,14 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20260927_03">
+  <link rel="stylesheet" href="assets/app.css?v=20260927_05">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20260927_03" defer></script>
+  <script src="assets/app.js?v=20260927_05" defer></script>
 </head>
 <body>
 
@@ -2576,48 +2576,46 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
             <span class="detail-badge-val" id="convert-slip-vendor-display">-</span>
           </div>
           <div class="detail-badge">
-            <span class="detail-badge-label">Original Amount</span>
+            <span class="detail-badge-label">Slip Amount</span>
             <span class="detail-badge-val" id="convert-slip-amount-display">₹0.00</span>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="convert-bill-token">Token Number (Auto-Generated)</label>
-          <input type="text" id="convert-bill-token" class="form-input" style="font-family:monospace;letter-spacing:1px;font-weight:600;background:var(--bg-elevated);color:var(--primary)" readonly>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="convert-bill-exptype">Bill Register Destination</label>
-          <select id="convert-bill-exptype" class="form-select" required>
-            <option value="hospital" selected>Hospital Bills (Against Hospital Cash Collection)</option>
-            <option value="advance">Muhasib Bills (Against Muhasib Advance Float)</option>
+          <label class="form-label" for="convert-bill-exptype">Destination (kahan convert karna hai)</label>
+          <select id="convert-bill-exptype" class="form-select" required onchange="app.ui.onConvertDestinationChange()">
+            <option value="hospital_bill" selected>Hospital Bills (Against Hospital Cash Collection)</option>
+            <option value="advance_bill">Muhasib Bills (Against Muhasib Advance Float)</option>
+            <option value="hospital_slip">Hospital Adv Slip (Move to Hospital Advance)</option>
+            <option value="advance_slip">Muhasib Adv Slip (Move to Muhasib Advance)</option>
           </select>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="convert-bill-number">Vendor Bill / Invoice Number</label>
-          <input type="text" id="convert-bill-number" class="form-input" placeholder="e.g. NH-98273" required>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="convert-bill-date">Date (sab new entries par same)</label>
+            <input type="date" id="convert-bill-date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Split Total vs Slip</label>
+            <div class="detail-badge" style="margin:0;">
+              <span class="detail-badge-label">Split Total / Baqi</span>
+              <span class="detail-badge-val" id="convert-split-total-display">₹0.00 / ₹0.00</span>
+            </div>
+          </div>
         </div>
+
         <div class="form-group">
-          <label class="form-label" for="convert-bill-date">Bill Date</label>
-          <input type="date" id="convert-bill-date" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="convert-bill-amount">Final Bill Amount (₹)</label>
-          <input type="number" step="0.01" min="0.01" id="convert-bill-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
+          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label" style="margin-bottom:0;">Split Bills — har group / vendor ke liye ek row <span class="text-error">*</span></label>
+            <button type="button" class="btn-vendor-quick-add" onclick="app.ui.addConvertSplitRow()">+ Add Bill Row</button>
+          </div>
+          <div id="convert-split-rows" style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem;"></div>
+          <p class="text-muted" style="font-size:0.75rem; margin-top:0.4rem;">Bill destination par har row me alag vendor / bill no / head (example: 500 slip → 100 + 100 + 200 + 100). Slip destination par sirf vendor + amount use hoga. Total slip se zyada nahi ho sakta.</p>
         </div>
         <input type="hidden" id="convert-bill-category" value="General">
         <div class="form-group">
-          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <label class="form-label" for="convert-bill-head" style="margin-bottom:0;">Head <span class="text-error">*</span></label>
-            <button type="button" class="btn-vendor-quick-add" onclick="app.heads.openAddHeadModal('', 'bill')">+ New Head</button>
-          </div>
-          <select id="convert-bill-head" class="form-select" required>
-            <option value="">-- Select Head --</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="convert-bill-remarks">Remarks</label>
+          <label class="form-label" for="convert-bill-remarks">Remarks (all split bills par lagega, optional)</label>
           <textarea id="convert-bill-remarks" class="form-textarea" placeholder="Final bill adjustments..." rows="2"></textarea>
         </div>
         <div class="form-group">
@@ -2665,7 +2663,7 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-slip-convert')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Finalize Bill</button>
+        <button type="submit" class="btn btn-primary" id="btn-convert-finalize">Finalize Bills</button>
       </div>
     </form>
   </dialog>

@@ -3723,4 +3723,23 @@ html[data-theme="dark"] .upi-month-chip.active {
   background: rgba(56, 189, 248, 0.16) !important;
 }
 
+/* ---------- 12. WIDE ENTRY DIALOGS (Bill + Convert) ---------- */
+dialog#dialog-bill-add,
+dialog#dialog-slip-convert {
+  max-width: 760px;
+  width: calc(100vw - 48px);
+  height: min(92vh, 780px);
+  height: min(92dvh, 780px);
+}
+dialog#dialog-slip-convert.slip-mode .convert-split-row-bill {
+  display: none;
+}
+@media (max-width: 920px) {
+  dialog#dialog-bill-add[open],
+  dialog#dialog-slip-convert[open] {
+    max-width: 700px !important;
+    width: calc(100vw - 20px) !important;
+  }
+}
+
 

@@ -2103,15 +2103,44 @@ const app = {
         }
       });
 
-      // Form: Convert Temporary Slip to Final Bill
+      // Form: Convert Temporary Slip to Final Bills/Slips (SPLIT — 1 slip se N entries, alag vendor/amount)
       document.getElementById('form-slip-convert').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
-          const slipId = parseInt(document.getElementById('convert-slip-id').value);
-          const expenseType = document.getElementById('convert-bill-exptype')?.value || document.getElementById('convert-slip-exptype')?.value || 'hospital';
-          const originalVendor = document.getElementById('convert-slip-vendor-display').innerText;
+          const slipIdRaw = document.getElementById('convert-slip-id').value;
+          const slipId = parseInt(slipIdRaw, 10);
+          const destInfo = app.ui._convertDestInfo();
+          // Legacy values ('advance'/'hospital') ko bill destination samjho
+          const isSlipDest = !!destInfo.isSlip;
+          const expenseType = destInfo.exp;
+          const destLabel = destInfo.label;
 
-          const slip = app.state.temporarySlips.find(s => s.id === slipId);
+          const slip = app.state.temporarySlips.find(s => String(s.id) === String(isNaN(slipId) ? slipIdRaw : slipId));
+          const slipAmount = slip ? Number(slip.amount) || 0 : 0;
+          const rows = app.ui.getConvertSplitRows();
+          const kindWord = isSlipDest ? 'slip row' : 'bill row';
+          if (!rows.length) { app.ui.showToast(`Kam se kam 1 ${kindWord} chahiye.`, 'warning'); return; }
+          for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r.vendor) { app.ui.showToast(`Row ${i + 1}: vendor select karo.`, 'warning'); return; }
+            if (!isSlipDest && !r.billNumber) { app.ui.showToast(`Row ${i + 1}: bill / invoice number likho.`, 'warning'); return; }
+            if (!isSlipDest && !r.head) { app.ui.showToast(`Row ${i + 1}: head select karo.`, 'warning'); return; }
+            if (!(r.amount > 0)) { app.ui.showToast(`Row ${i + 1}: amount 0 se zyada likho.`, 'warning'); return; }
+            if (isSlipDest) {
+              const ok = (app.state.vendors || []).some(v => v.name && v.name.trim().toLowerCase() === String(r.vendor).trim().toLowerCase());
+              if (!ok) { app.ui.showToast(`Row ${i + 1}: vendor "${r.vendor}" registered nahi hai. Pehle vendor banao.`, 'error'); return; }
+            }
+          }
+          const splitTotal = rows.reduce((s, r) => s + r.amount, 0);
+          if (splitTotal - slipAmount > 0.009) {
+            app.ui.showToast(`Split total (${app.ui.formatCurrency(splitTotal)}) slip amount (${app.ui.formatCurrency(slipAmount)}) se zyada hai!`, 'error');
+            return;
+          }
+          const remaining = slipAmount - splitTotal;
+          if (remaining > 0.009) {
+            const ok = confirm(`Split total ${app.ui.formatCurrency(splitTotal)} hai, slip ${app.ui.formatCurrency(slipAmount)} thi.\nBaqi ${app.ui.formatCurrency(remaining)} chhut jayegi (cash wapas/adjust samjha jayega).\n\nContinue karen?`);
+            if (!ok) return;
+          }
           
           let attachmentProps = {};
           
@@ -2158,46 +2187,74 @@ const app = {
             }
           }
 
-          const bill = {
-            date: document.getElementById('convert-bill-date').value,
-            billNumber: document.getElementById('convert-bill-number').value,
-            vendor: originalVendor, // carried over
-            amount: parseFloat(document.getElementById('convert-bill-amount').value),
-            expenseType: expenseType, // Hospital Bill (or chosen destination)
-            category: ((document.getElementById('convert-bill-head')?.value || document.getElementById('convert-bill-category')?.value || '').trim().toUpperCase() || 'General'),
-            head: ((document.getElementById('convert-bill-head')?.value || document.getElementById('convert-bill-category')?.value || '').trim().toUpperCase() || 'General'),
-            remarks: document.getElementById('convert-bill-remarks').value,
-            slipId: slipId, // references parent slip
-            status: 'pending', // pending / transferred
-            tokenNumber: document.getElementById('convert-bill-token')?.value || app.generateToken(expenseType === 'advance' ? 'advance_bill' : 'hospital_bill'),
-            ...attachmentProps
-          };
+          const entryDate = document.getElementById('convert-bill-date').value;
+          if (!entryDate) { app.ui.showToast('Date select karo.', 'warning'); return; }
+          const commonRemarks = document.getElementById('convert-bill-remarks').value || '';
+          const parentSlipId = isNaN(slipId) ? slipIdRaw : slipId;
 
           // Immediately mark converted in memory so no stale render can ever show it
           if (slip) {
             slip.status = 'converted';
           }
-          app.state.temporarySlips = (app.state.temporarySlips || []).filter(s => String(s.id) !== String(slipId));
+          app.state.temporarySlips = (app.state.temporarySlips || []).filter(s => String(s.id) !== String(parentSlipId));
 
-          // Save bill entry
-          await app.db.add('bills', bill);
+          let created = 0;
+          if (isSlipDest) {
+            // Build N slips — pehli slip purani attachment carry karegi
+            const slipTokenType = expenseType === 'advance' ? 'advance_slip' : 'hospital_slip';
+            for (let idx = 0; idx < rows.length; idx++) {
+              const r = rows[idx];
+              await app.db.add('temporary_slips', {
+                date: entryDate,
+                vendor: r.vendor,
+                amount: r.amount,
+                expenseType: expenseType,
+                remarks: commonRemarks,
+                status: 'pending',
+                tokenNumber: app.generateToken(slipTokenType),
+                ...(idx === 0 ? attachmentProps : {})
+              });
+              created++;
+            }
+          } else {
+            // Build N bills — first bill carries slip attachment, rest without
+            const billTokenType = expenseType === 'advance' ? 'advance_bill' : 'hospital_bill';
+            for (let idx = 0; idx < rows.length; idx++) {
+              const r = rows[idx];
+              await app.db.add('bills', {
+                date: entryDate,
+                billNumber: r.billNumber,
+                vendor: r.vendor,
+                amount: r.amount,
+                expenseType: expenseType,
+                category: (r.head || 'General').trim().toUpperCase() || 'General',
+                head: (r.head || 'General').trim().toUpperCase() || 'General',
+                remarks: commonRemarks,
+                slipId: parentSlipId,
+                status: 'pending',
+                tokenNumber: app.generateToken(billTokenType),
+                ...(idx === 0 ? attachmentProps : {})
+              });
+              created++;
+            }
+          }
 
-          // When converted to bill, completely delete the slip from temporary_slips store
-          await app.db.delete('temporary_slips', slipId);
-          if (typeof slipId === 'string' && !isNaN(parseInt(slipId, 10))) {
-            try { await app.db.delete('temporary_slips', parseInt(slipId, 10)); } catch (_) {}
-          } else if (typeof slipId === 'number') {
-            try { await app.db.delete('temporary_slips', String(slipId)); } catch (_) {}
+          // Original slip ko temporary_slips se poori tarah delete karo
+          const delId = parentSlipId;
+          await app.db.delete('temporary_slips', delId);
+          if (typeof delId === 'string' && !isNaN(parseInt(delId, 10))) {
+            try { await app.db.delete('temporary_slips', parseInt(delId, 10)); } catch (_) {}
+          } else if (typeof delId === 'number') {
+            try { await app.db.delete('temporary_slips', String(delId)); } catch (_) {}
           }
 
           app.attachments.clearStagedFile('convert');
           app.ui.closeModal('dialog-slip-convert');
-          const destLabel = expenseType === 'hospital' ? 'Hospital Bills' : 'Muhasib Bills';
-          app.ui.showToast(`Temporary slip converted to ${destLabel}! Removed from Temp Slips.`);
+          app.ui.showToast(`${created} ${isSlipDest ? 'slip(s)' : 'bill(s)'} ${destLabel} me ban gaye! Slip converted.`);
           await app.syncState();
         } catch (err) {
           console.error(err);
-          app.ui.showToast('Failed to convert temporary slip to bill.', 'error');
+          app.ui.showToast('Failed to convert temporary slip.', 'error');
         }
       });
 
@@ -3271,6 +3328,114 @@ const app = {
     /**
      * UI conversion triggers.
      */
+    _convertSplitVendorOptions(selected = '') {
+      const sorted = app.vendors.getUniqueVendors().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      return '<option value="">-- Vendor --</option>' + sorted.map(v => {
+        const code = String(v.vendorCode || v.code || '').trim();
+        const label = code ? `${app.ui.escapeHTML(v.name)} (${app.ui.escapeHTML(code)})` : app.ui.escapeHTML(v.name);
+        const val = String(v.name || '').replace(/"/g, '&quot;');
+        return `<option value="${val}"${v.name === selected ? ' selected' : ''}>${label}</option>`;
+      }).join('');
+    },
+    _convertSplitHeadOptions(selected = '') {
+      const sorted = app.heads.getUniqueHeads().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      return '<option value="">-- Head --</option>' + sorted.map(h => {
+        const val = String(h.name || '').replace(/"/g, '&quot;');
+        return `<option value="${val}"${h.name === selected ? ' selected' : ''}>${app.ui.escapeHTML(h.name)}</option>`;
+      }).join('');
+    },
+    addConvertSplitRow(vendorPrefill = '', amountPrefill = '') {
+      const wrap = document.getElementById('convert-split-rows');
+      if (!wrap) return;
+      const idx = wrap.children.length + 1;
+      const row = document.createElement('div');
+      row.className = 'convert-split-row';
+      row.style.cssText = 'border:1px solid var(--border-color);border-radius:10px;padding:0.6rem;background:var(--bg-elevated);display:flex;flex-direction:column;gap:0.5rem;';
+      row.innerHTML = `<div style="display:flex;align-items:center;gap:0.5rem;">`
+        + `<strong style="font-size:0.8rem;">Bill ${idx}</strong>`
+        + `<button type="button" class="btn btn-secondary btn-xs" style="margin-left:auto;" onclick="app.ui.removeConvertSplitRow(this)">✕ Remove</button>`
+        + `</div>`
+        + `<div class="grid-2">`
+        + `<div class="form-group" style="margin:0;"><label class="form-label">Vendor *</label><select class="form-select convert-split-vendor" required>${app.ui._convertSplitVendorOptions(vendorPrefill)}</select></div>`
+        + `<div class="form-group" style="margin:0;"><label class="form-label">Amount (₹) *</label><input type="number" step="0.01" min="0.01" class="form-input convert-split-amount" inputmode="decimal" placeholder="0.00" value="${amountPrefill}" required></div>`
+        + `</div>`
+        + `<div class="grid-2 convert-split-row-bill">`
+        + `<div class="form-group" style="margin:0;"><label class="form-label">Bill / Invoice # *</label><input type="text" class="form-input font-mono convert-split-billno" placeholder="INV-1002" required></div>`
+        + `<div class="form-group" style="margin:0;"><label class="form-label">Head *</label><select class="form-select convert-split-head" required>${app.ui._convertSplitHeadOptions()}</select></div>`
+        + `</div>`;
+      wrap.appendChild(row);
+      row.querySelector('.convert-split-amount').addEventListener('input', () => app.ui.recalcConvertSplitTotal());
+      app.ui.recalcConvertSplitTotal();
+      app.ui._renumberConvertSplitRows();
+    },
+    removeConvertSplitRow(btn) {
+      const wrap = document.getElementById('convert-split-rows');
+      const row = btn.closest('.convert-split-row');
+      if (wrap && row) {
+        if (wrap.children.length <= 1) { app.ui.showToast('Kam se kam 1 row rakho.', 'warning'); return; }
+        row.remove();
+        app.ui.recalcConvertSplitTotal();
+        app.ui._renumberConvertSplitRows();
+      }
+    },
+    _convertDestInfo() {
+      const dest = document.getElementById('convert-bill-exptype')?.value || 'hospital_bill';
+      const isSlip = String(dest).endsWith('_slip');
+      const exp = String(dest).startsWith('advance') ? 'advance' : 'hospital';
+      const label = isSlip
+        ? (exp === 'advance' ? 'Muhasib Adv Slip' : 'Hospital Adv Slip')
+        : (exp === 'advance' ? 'Muhasib Bills' : 'Hospital Bills');
+      return { dest, isSlip, exp, label };
+    },
+    onConvertDestinationChange() {
+      const info = app.ui._convertDestInfo();
+      const dlg = document.getElementById('dialog-slip-convert');
+      if (dlg) dlg.classList.toggle('slip-mode', info.isSlip);
+      const wrap = document.getElementById('convert-split-rows');
+      if (wrap) {
+        Array.from(wrap.querySelectorAll('.convert-split-billno, .convert-split-head')).forEach(el => {
+          if (info.isSlip) el.removeAttribute('required');
+          else el.setAttribute('required', '');
+        });
+      }
+      const titleEl = document.getElementById('dialog-convert-title');
+      if (titleEl) titleEl.innerText = `Convert to ${info.label} (Split)`;
+      app.ui._renumberConvertSplitRows();
+    },
+    _renumberConvertSplitRows() {
+      const wrap = document.getElementById('convert-split-rows');
+      if (!wrap) return;
+      const info = app.ui._convertDestInfo();
+      const kind = info.isSlip ? 'Slip' : 'Bill';
+      Array.from(wrap.children).forEach((row, i) => {
+        const t = row.querySelector('strong');
+        if (t) t.textContent = `${kind} ${i + 1}`;
+      });
+      const btn = document.getElementById('btn-convert-finalize');
+      if (btn) btn.innerHTML = `<span>Finalize ${wrap.children.length} ${kind}(s) → ${info.label}</span>`;
+    },
+    getConvertSplitRows() {
+      const wrap = document.getElementById('convert-split-rows');
+      if (!wrap) return [];
+      return Array.from(wrap.querySelectorAll('.convert-split-row')).map(row => ({
+        vendor: row.querySelector('.convert-split-vendor')?.value?.trim() || '',
+        billNumber: row.querySelector('.convert-split-billno')?.value?.trim() || '',
+        head: row.querySelector('.convert-split-head')?.value?.trim() || '',
+        amount: parseFloat(row.querySelector('.convert-split-amount')?.value) || 0
+      }));
+    },
+    recalcConvertSplitTotal() {
+      const slipId = document.getElementById('convert-slip-id')?.value;
+      const slip = (app.state.temporarySlips || []).find(s => String(s.id) === String(slipId));
+      const slipAmount = slip ? Number(slip.amount) || 0 : 0;
+      const total = app.ui.getConvertSplitRows().reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const el = document.getElementById('convert-split-total-display');
+      if (el) {
+        const rem = slipAmount - total;
+        el.innerText = `${app.ui.formatCurrency(total)} / ${app.ui.formatCurrency(rem)}`;
+        el.style.color = rem < -0.009 ? 'var(--error)' : '';
+      }
+    },
     initiateSlipConversion(id, vendor, amount, expenseType) {
       document.getElementById('convert-slip-id').value = id;
       const targetExp = (expenseType === 'advance' || expenseType === 'hospital') ? expenseType : 'hospital';
@@ -3279,30 +3444,23 @@ const app = {
       }
       const convertExpEl = document.getElementById('convert-bill-exptype');
       if (convertExpEl) {
-        if (targetExp === 'advance') {
-          convertExpEl.innerHTML = '<option value="advance" selected>Muhasib Bills (Against Muhasib Advance Float)</option>';
-        } else {
-          convertExpEl.innerHTML = '<option value="hospital" selected>Hospital Bills (Against Hospital Cash Collection)</option>';
-        }
-        convertExpEl.value = targetExp;
-        convertExpEl.style.pointerEvents = 'none';
-        convertExpEl.style.background = 'var(--bg-elevated)';
-        convertExpEl.style.cursor = 'not-allowed';
+        convertExpEl.innerHTML = '<option value="hospital_bill">Hospital Bills (Against Hospital Cash Collection)</option>'
+          + '<option value="advance_bill">Muhasib Bills (Against Muhasib Advance Float)</option>'
+          + '<option value="hospital_slip">Hospital Adv Slip (Move to Hospital Advance)</option>'
+          + '<option value="advance_slip">Muhasib Adv Slip (Move to Muhasib Advance)</option>';
+        convertExpEl.value = targetExp === 'advance' ? 'advance_bill' : 'hospital_bill';
+        convertExpEl.style.pointerEvents = '';
+        convertExpEl.style.background = '';
+        convertExpEl.style.cursor = '';
       }
-      const titleEl = document.getElementById('dialog-convert-title');
-      if (titleEl) {
-        titleEl.innerText = targetExp === 'advance' ? 'Convert to Muhasib Final Bill' : 'Convert to Hospital Final Bill';
-      }
-      const convertTokenEl = document.getElementById('convert-bill-token');
-      if (convertTokenEl) {
-        convertTokenEl.value = app.generateToken(targetExp === 'advance' ? 'advance_bill' : 'hospital_bill');
-      }
+      const dlg0 = document.getElementById('dialog-slip-convert');
+      if (dlg0) dlg0.classList.remove('slip-mode');
       document.getElementById('convert-slip-vendor-display').innerText = vendor;
       document.getElementById('convert-slip-amount-display').innerText = app.ui.formatCurrency(amount);
-      
-      // Pre-populate final bill inputs
-      document.getElementById('convert-bill-amount').value = amount;
-      document.getElementById('convert-bill-number').value = '';
+
+      // Split rows: pehli row slip vendor + full amount se prefill
+      const wrap = document.getElementById('convert-split-rows');
+      if (wrap) wrap.innerHTML = '';
       if (document.getElementById('convert-bill-date')) {
         document.getElementById('convert-bill-date').value = new Date().toISOString().split('T')[0];
       }
@@ -3353,8 +3511,10 @@ const app = {
       }
 
       if (app.heads) app.heads.populateHeadDropdowns();
-      const convHeadEl = document.getElementById('convert-bill-head');
-      if (convHeadEl) convHeadEl.value = '';
+      app.ui.addConvertSplitRow(vendor, amount);
+      const remEl = document.getElementById('convert-bill-remarks');
+      if (remEl) remEl.value = '';
+      app.ui.onConvertDestinationChange();
 
       app.ui.openModal('dialog-slip-convert');
     },
@@ -4933,7 +5093,15 @@ const app = {
         if (currVal) reportSel.value = currVal;
       }
 
-      // 4. Update sidebar badge
+      // 4. Split-convert rows vendor selects (open dialog me values bachate hue)
+      document.querySelectorAll('.convert-split-vendor').forEach(sel => {
+        const cur = selectedVendor || sel.value || '';
+        sel.innerHTML = '<option value="">-- Vendor --</option>' +
+          sorted.map(v => `<option value="${String(v.name || '').replace(/"/g, '&quot;')}">${optLabel(v)}</option>`).join('');
+        if (cur) sel.value = cur;
+      });
+
+      // 5. Update sidebar badge
       const badge = document.getElementById('nav-vendors-badge');
       if (badge) badge.textContent = sorted.length;
     },
@@ -5203,6 +5371,11 @@ const app = {
         convSel.innerHTML = opts;
         if (cur2) convSel.value = cur2;
       }
+      document.querySelectorAll('.convert-split-head').forEach(sel => {
+        const cur = sel.value || '';
+        sel.innerHTML = '<option value="">-- Head --</option>' + sorted.map(h => `<option value="${String(h.name).replace(/"/g, '&quot;')}">${String(h.name).replace(/</g, '&lt;')}</option>`).join('');
+        if (cur) sel.value = cur;
+      });
       const badge = document.getElementById('nav-heads-badge');
       if (badge) badge.textContent = sorted.length;
     },
