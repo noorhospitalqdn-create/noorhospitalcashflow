@@ -374,70 +374,48 @@ const app = {
       return await app.supabase.request(table, 'GET');
     },
 
+    /**
+     * POST/PATCH with automatic recovery when the remote Supabase table is
+     * missing a newer column (e.g. tokenNumber, head, vendorCode, attachment
+     * fields). Retries without the unknown column so old remote schemas keep
+     * working; the dropped field simply stays local-only.
+     */
+    async requestWithColumnFallback(table, method, payload, queryParams = {}) {
+      const body = { ...payload };
+      for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+          return await app.supabase.request(table, method, body, queryParams);
+        } catch (err) {
+          const msg = String((err && err.message) || err || '');
+          const colMatch = msg.match(/Could not find the '([^']+)' column/i) || msg.match(/column "?([A-Za-z0-9_]+)"? does not exist/i);
+          if (colMatch && colMatch[1] && (colMatch[1] in body)) {
+            console.warn(`Supabase table "${table}" lacks column "${colMatch[1]}" — retrying without it (field stays local-only).`);
+            delete body[colMatch[1]];
+            continue;
+          }
+          throw err;
+        }
+      }
+    },
+
     async insert(table, record) {
       // Exclude id for auto-increment columns if it is a temporary local id
       const clone = { ...record };
       delete clone.id;
-      
-      try {
-        const results = await app.supabase.request(table, 'POST', clone);
-        return results && results.length > 0 ? results[0] : null;
-      } catch (err) {
-        // If Supabase table doesn't have tokenNumber column yet, retry without tokenNumber
-        if (clone.tokenNumber && String(err.message || '').includes('tokenNumber')) {
-          console.warn(`Supabase table "${table}" does not have tokenNumber column yet. Retrying payload without tokenNumber.`);
-          const fallbackClone = { ...clone };
-          delete fallbackClone.tokenNumber;
-          const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
-          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
-        }
-        // Bills: head column may not exist yet in Supabase — category always syncs, retry without head
-        if (clone.head !== undefined && String(err.message || '').toLowerCase().includes('head')) {
-          const fallbackClone = { ...clone };
-          delete fallbackClone.head;
-          const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
-          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
-        }
-        // Vendors: vendorCode column may not exist yet — retry without it so old DB keeps working
-        if (clone.vendorCode !== undefined && String(err.message || '').toLowerCase().includes('vendorcode')) {
-          const fallbackClone = { ...clone };
-          delete fallbackClone.vendorCode;
-          const fallbackResults = await app.supabase.request(table, 'POST', fallbackClone);
-          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
-        }
-        throw err;
-      }
+      // localAttachmentData is a local-only (often huge base64) blob — never upload it.
+      // The file itself syncs separately through the storage upload queue.
+      delete clone.localAttachmentData;
+
+      const results = await app.supabase.requestWithColumnFallback(table, 'POST', clone);
+      return results && results.length > 0 ? results[0] : null;
     },
 
     async update(table, id, record) {
       const clone = { ...record };
       delete clone.id; // Id should not be in the patch payload body
-      try {
-        const results = await app.supabase.request(table, 'PATCH', clone, { id: `eq.${id}` });
-        return results && results.length > 0 ? results[0] : null;
-      } catch (err) {
-        // If Supabase table doesn't have tokenNumber column yet, retry without tokenNumber
-        if (clone.tokenNumber && String(err.message || '').includes('tokenNumber')) {
-          console.warn(`Supabase table "${table}" does not have tokenNumber column yet. Retrying update without tokenNumber.`);
-          const fallbackClone = { ...clone };
-          delete fallbackClone.tokenNumber;
-          const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
-          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
-        }
-        if (clone.head !== undefined && String(err.message || '').toLowerCase().includes('head')) {
-          const fallbackClone = { ...clone };
-          delete fallbackClone.head;
-          const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
-          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
-        }
-        if (clone.vendorCode !== undefined && String(err.message || '').toLowerCase().includes('vendorcode')) {
-          const fallbackClone = { ...clone };
-          delete fallbackClone.vendorCode;
-          const fallbackResults = await app.supabase.request(table, 'PATCH', fallbackClone, { id: `eq.${id}` });
-          return fallbackResults && fallbackResults.length > 0 ? fallbackResults[0] : null;
-        }
-        throw err;
-      }
+      delete clone.localAttachmentData;
+      const results = await app.supabase.requestWithColumnFallback(table, 'PATCH', clone, { id: `eq.${id}` });
+      return results && results.length > 0 ? results[0] : null;
     },
 
     async delete(table, id) {
@@ -480,10 +458,34 @@ const app = {
   sync: {
     status: 'offline',
     isProcessingQueue: false,
+    lastError: null,
 
     init() {
       app.sync.checkConnection();
-      
+
+      // Tap the status pill to see the exact sync problem and force a retry
+      try {
+        const indicator = document.getElementById('sync-status-indicator');
+        if (indicator && !indicator._syncDiagBound) {
+          indicator._syncDiagBound = true;
+          indicator.style.cursor = 'pointer';
+          indicator.title = 'Tap to view sync details / retry';
+          indicator.addEventListener('click', () => {
+            const err = app.sync.lastError;
+            if (app.sync.status === 'error' && err && err.message) {
+              app.ui.showToast(`Sync blocked (${err.table || 'connection'}): ${String(err.message).slice(0, 160)}`, 'error');
+            } else if (app.sync.status === 'synced') {
+              app.ui.showToast('Online & synced — checking again...', 'success');
+            } else {
+              app.ui.showToast(`Status: ${app.sync.status} — checking connection...`, 'info');
+            }
+            app.sync.checkConnection().then(online => {
+              if (online) app.sync.processQueue();
+            });
+          });
+        }
+      } catch (e) { console.error(e); }
+            
       window.addEventListener('online', () => {
         app.ui.showToast('Network restored. Syncing database & files...', 'info');
         app.sync.checkConnection().then(online => {
@@ -544,7 +546,8 @@ const app = {
           app.sync.setStatus('synced', 'Online & Synced');
           return true;
         } else {
-          app.sync.setStatus('error', 'Sync Error');
+          app.sync.lastError = { message: `Supabase rejected the connection check (HTTP ${response.status}) — API key or table permissions may be wrong`, table: 'settings', time: new Date().toISOString() };
+          app.sync.setStatus('error', 'Sync Error — tap for details');
           return false;
         }
       } catch (err) {
@@ -619,7 +622,8 @@ const app = {
                 continue;
               }
               console.error('Failed to sync queue item:', item, itemErr);
-              app.sync.setStatus('error', 'Sync Error');
+              app.sync.lastError = { message: msg || 'Unknown sync error', table: item.table, time: new Date().toISOString() };
+              app.sync.setStatus('error', 'Sync Error — tap for details');
               return;
             }
           }
@@ -627,11 +631,13 @@ const app = {
         
         // Always pull latest data from remote and refresh local states when online
         await app.sync.pullAllData();
+        app.sync.lastError = null;
         app.sync.setStatus('synced', 'Online & Synced');
         await app.syncState();
       } catch (err) {
         console.error('Sync queue processing error:', err);
-        app.sync.setStatus('error', 'Sync Error');
+        app.sync.lastError = { message: String((err && err.message) || err || 'Unknown sync error'), table: 'sync', time: new Date().toISOString() };
+        app.sync.setStatus('error', 'Sync Error — tap for details');
       } finally {
         app.sync.isProcessingQueue = false;
       }
@@ -750,10 +756,13 @@ const app = {
           }
         } catch (err) {
           console.error(`Failed to pull table ${table}:`, err);
-          if (table === 'vendors' || table === 'heads' || table === 'upi_reconciliations') {
+          const pullMsg = String((err && err.message) || err || '');
+          const isMissingTable = pullMsg.includes('PGRST205') || pullMsg.includes('schema cache') || pullMsg.includes('Could not find the table');
+          if (table === 'vendors' || table === 'heads' || table === 'upi_reconciliations' || isMissingTable) {
             console.warn(`Supabase ${table} table not configured yet or inaccessible. Preserving local data.`);
             continue;
           }
+          app.sync.lastError = { message: pullMsg || 'Unknown pull error', table, time: new Date().toISOString() };
           throw err;
         }
       }
@@ -5864,8 +5873,43 @@ const app = {
       return list;
     },
 
+    renderMonthSummary() {
+      const box = document.getElementById('upi-month-summary');
+      if (!box) return;
+      const month = document.getElementById('filter-upi-month')?.value || document.getElementById('filter-upi-month-picker')?.value || '';
+      if (!month || month.length !== 7) {
+        box.style.display = 'none';
+        box.innerHTML = '';
+        return;
+      }
+      const rows = (app.state.upiReconciliations || []).filter(r => r.date && r.date.startsWith(month));
+      const hosp = rows.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
+      const bank = rows.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
+      const diff = Math.round((hosp - bank) * 100) / 100;
+      const matched = rows.filter(r => Math.round(((Number(r.hospital_upi) || 0) - (Number(r.bank_upi) || 0)) * 100) / 100 === 0).length;
+      let mName = month;
+      try {
+        const parts = month.split('-');
+        mName = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      } catch (e) {}
+      const diffHtml = diff === 0
+        ? `<span class="upi-ms-diff ok">✓ Matched (₹0.00)</span>`
+        : (diff > 0
+          ? `<span class="upi-ms-diff hosp">Hospital +${app.ui.formatCurrency(diff)}</span>`
+          : `<span class="upi-ms-diff bank">Bank +${app.ui.formatCurrency(Math.abs(diff))}</span>`);
+      box.innerHTML = `<span class="upi-ms-month">${mName}</span>` +
+        `<span class="upi-ms-item">Hospital <strong>${app.ui.formatCurrency(hosp)}</strong></span>` +
+        `<span class="upi-ms-sep">−</span>` +
+        `<span class="upi-ms-item">Bank <strong>${app.ui.formatCurrency(bank)}</strong></span>` +
+        `<span class="upi-ms-sep">=</span>` +
+        diffHtml +
+        `<span class="upi-ms-count">${rows.length} day(s) • ${matched} matched</span>`;
+      box.style.display = 'flex';
+    },
+
     renderTable() {
       app.upiReconciliation.populateDailyMonthDropdown();
+      try { app.upiReconciliation.renderMonthSummary(); } catch (e) { console.error(e); }
       const tbody = document.getElementById('list-upi-reconciliation');
       const mobileList = document.getElementById('mobile-list-upi-reconciliation');
       const badge = document.getElementById('total-upi-badge');
