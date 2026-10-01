@@ -231,7 +231,7 @@
           <span>UPI Reconciliation</span>
           <span class="badge" id="sidebar-upi-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="staff-receipts" onclick="try{app.ui.switchTab('staff-receipts')}catch(e){}document.querySelectorAll('.panel-container .panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-staff-receipts')});document.querySelectorAll('.sidebar-nav .nav-item').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-panel')==='staff-receipts')});document.getElementById('main-panel-title').textContent='Staff Advance Receipts';document.getElementById('main-panel-sub').textContent='Individual staff advance • naam + amount = receipt ready';try{document.getElementById('sidebar').classList.remove('mobile-open');var sb=document.getElementById('sidebar-backdrop');if(sb)sb.classList.remove('active')}catch(e2){}">
+        <button class="nav-item" data-panel="staff-receipts" onclick="try{app.ui.switchTab('staff-receipts')}catch(e){}document.querySelectorAll('.panel-container .panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-staff-receipts')});document.querySelectorAll('.sidebar-nav .nav-item').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-panel')==='staff-receipts')});document.getElementById('main-panel-title').textContent='Staff Advance Receipts';document.getElementById('main-panel-sub').textContent='Individual staff advance - name + amount = receipt ready';try{document.getElementById('sidebar').classList.remove('mobile-open');var sb=document.getElementById('sidebar-backdrop');if(sb)sb.classList.remove('active')}catch(e2){}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
           <span>Staff Advance Receipts</span>
           <span class="badge" id="sidebar-receipts-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border:1px solid rgba(16,185,129,0.25)">0</span>
@@ -1260,6 +1260,10 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
               <span>New Advance Receipt</span>
             </button>
+            <button class="btn btn-secondary" onclick="app.receipts.syncNow(true)" title="Save all receipts to Supabase online now">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+              <span>Sync Online</span>
+            </button>
           </div>
           <div class="ledger-filter-bar">
             <div class="ledger-filter-group">
@@ -2256,6 +2260,23 @@ CREATE TABLE IF NOT EXISTS upi_reconciliations (
   device_id TEXT
 );
 
+CREATE TABLE IF NOT EXISTS staff_receipts (
+  id TEXT PRIMARY KEY,
+  date TEXT,
+  name TEXT,
+  amount NUMERIC DEFAULT 0,
+  subject TEXT,
+  purpose TEXT,
+  "givenBy" TEXT,
+  status TEXT DEFAULT 'pending',
+  "movedTo" TEXT,
+  "slipId" BIGINT,
+  "slipToken" TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
 -- Quick Upgrade for existing Supabase projects (run once):
 -- ALTER TABLE bills ADD COLUMN IF NOT EXISTS "head" TEXT;
 
@@ -2270,6 +2291,7 @@ ALTER TABLE hospital_deposits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vendors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE heads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE upi_reconciliations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_receipts ENABLE ROW LEVEL SECURITY;
 
 -- Allow all operations (for service_role key usage)
 CREATE POLICY "Allow all" ON settings FOR ALL USING (true) WITH CHECK (true);
@@ -2281,7 +2303,8 @@ CREATE POLICY "Allow all" ON heads FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON bills FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON transfers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all" ON hospital_deposits FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK (true);</code></pre>
+CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (true);</code></pre>
               </details>
 
               <form id="form-supabase-config">

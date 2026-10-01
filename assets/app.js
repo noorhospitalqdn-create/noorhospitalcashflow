@@ -558,6 +558,12 @@ const app = {
     },
 
     async queueOperation(table, method, recordId, record) {
+      // Never queue an UPDATE/DELETE without a real id — 'id=eq.undefined'
+      // would fail on Supabase forever (22P02) and wedge the whole queue.
+      if ((method === 'UPDATE' || method === 'DELETE') && (recordId === undefined || recordId === null || recordId === '')) {
+        console.warn(`Skipped queueing ${method} on ${table}: missing record id.`);
+        return;
+      }
       const operation = {
         table,
         method,
@@ -590,6 +596,13 @@ const app = {
           
           for (const item of queue) {
             try {
+              // Drop stale items that can never succeed (e.g. created before a
+              // fix with recordId undefined) so one bad entry cannot wedge sync.
+              if ((item.method === 'UPDATE' || item.method === 'DELETE') && (item.recordId === undefined || item.recordId === null || item.recordId === '')) {
+                console.warn('Dropping queue item with missing record id:', item);
+                await app.db.delete('sync_queue', item.id);
+                continue;
+              }
               if (item.method === 'INSERT') {
                 const result = await app.supabase.insert(item.table, item.record);
                 if (result && result.id) {
@@ -612,9 +625,10 @@ const app = {
             } catch (itemErr) {
               const msg = String((itemErr && itemErr.message) || itemErr || '');
               const isMissingTable = msg.includes('PGRST205') || msg.includes('schema cache') || msg.includes('Could not find the table');
+              const isBadValue = msg.includes('22P02') || msg.includes('invalid input syntax');
               const isVendorConflict = (item.table === 'vendors' || item.table === 'heads' || item.table === 'upi_reconciliations') && (msg.includes('duplicate') || msg.includes('already exists') || msg.includes('23505') || msg.includes('unique'));
-              if (isMissingTable || isVendorConflict) {
-                console.warn('Dropping non-blocking queue item (table missing or vendor duplicate):', item, itemErr);
+              if (isMissingTable || isVendorConflict || isBadValue) {
+                console.warn('Dropping non-blocking queue item (missing table, duplicate, or invalid value):', item, itemErr);
                 if (isVendorConflict && (item.table === 'vendors' || item.table === 'heads') && item.recordId) {
                   try { await app.db.delete(item.table, item.recordId, true); } catch (_) {}
                 }
@@ -644,6 +658,7 @@ const app = {
     },
 
     updateQueueReferences(queue, table, oldId, newId) {
+      if (newId === undefined || newId === null) return;
       for (const item of queue) {
         if (!item.record) continue;
         if (item.table === 'bills' && table === 'temporary_slips' && item.record.slipId === oldId) {

@@ -74,6 +74,164 @@
   function uid() {
     return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
+
+  /* ============ ONLINE (Supabase) SYNC — receipts also live online ============ */
+  var LS_DIRTY = 'noor_staff_receipts_dirty';
+  var LS_DELETED = 'noor_staff_receipts_deleted';
+  var _tableWarned = false;
+
+  function loadIds(key) {
+    try { var a = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function saveIds(key, arr) {
+    try { localStorage.setItem(key, JSON.stringify(arr)); } catch (e) {}
+  }
+  function markDirty(id) {
+    var d = loadIds(LS_DIRTY);
+    if (d.indexOf(id) === -1 && d.indexOf(String(id)) === -1) { d.push(id); saveIds(LS_DIRTY, d); }
+  }
+  function unmarkDirty(id) {
+    saveIds(LS_DIRTY, loadIds(LS_DIRTY).filter(function (x) { return String(x) !== String(id); }));
+  }
+  function onlineReady() {
+    try {
+      return navigator.onLine && window.app && app.supabase && app.supabase.isConfigured && app.supabase.isConfigured();
+    } catch (e) { return false; }
+  }
+  async function ensureCreds() {
+    try {
+      if ((!app.supabase.url || !app.supabase.key) && app.supabase.init) await app.supabase.init();
+    } catch (e) {}
+    return !!(app.supabase.url && app.supabase.key);
+  }
+  function toRemote(r) {
+    var now = new Date().toISOString();
+    return {
+      id: String(r.id),
+      date: r.date || null,
+      name: r.name || null,
+      amount: Number(r.amount) || 0,
+      subject: r.subject || null,
+      purpose: r.purpose || null,
+      givenBy: r.givenBy || null,
+      status: r.status || 'pending',
+      movedTo: r.movedTo || null,
+      slipId: (r.slipId === undefined || r.slipId === null || r.slipId === '') ? null : r.slipId,
+      slipToken: r.slipToken || null,
+      created_at: r.createdAt || r.created_at || now,
+      updated_at: r.updatedAt || r.updated_at || r.createdAt || now,
+      device_id: (window.app && app.getDeviceId) ? app.getDeviceId() : null
+    };
+  }
+  function fromRemote(rec) {
+    return {
+      id: String(rec.id),
+      date: rec.date || '',
+      name: rec.name || '',
+      amount: Number(rec.amount) || 0,
+      subject: rec.subject || 'ADVANCE',
+      purpose: rec.purpose || '',
+      givenBy: rec.givenBy || '',
+      status: rec.status || 'pending',
+      movedTo: rec.movedTo || null,
+      slipId: (rec.slipId === undefined || rec.slipId === null) ? null : rec.slipId,
+      slipToken: rec.slipToken || null,
+      createdAt: rec.created_at || '',
+      updatedAt: rec.updated_at || ''
+    };
+  }
+  function tableMissing(msg) {
+    msg = String(msg || '');
+    return msg.includes('PGRST205') || msg.includes('Could not find the table') || msg.includes('schema cache');
+  }
+  async function remoteUpsert(r) {
+    if (!(await ensureCreds())) throw new Error('offline');
+    var cleanUrl = app.supabase.url.replace(/\/$/, '');
+    var res = await fetch(cleanUrl + '/rest/v1/staff_receipts', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + app.supabase.key,
+        'apikey': app.supabase.key,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=representation'
+      },
+      body: JSON.stringify(toRemote(r))
+    });
+    if (!res.ok) {
+      var t = '';
+      try { t = await res.text(); } catch (e) {}
+      throw new Error('HTTP ' + res.status + ': ' + String(t).slice(0, 220));
+    }
+  }
+  async function remoteDelete(id) {
+    if (!(await ensureCreds())) throw new Error('offline');
+    await app.supabase.delete('staff_receipts', id);
+  }
+  function pushReceipt(r) {
+    if (!onlineReady()) { markDirty(r.id); return; }
+    remoteUpsert(r).then(function () { unmarkDirty(r.id); }).catch(function (e) {
+      markDirty(r.id);
+      var msg = String((e && e.message) || e || '');
+      if (tableMissing(msg) && !_tableWarned) {
+        _tableWarned = true;
+        toast('Online receipts table is missing — please run the latest SQL from Backup & Settings once', 'error');
+      }
+    });
+  }
+  async function pullReceipts() {
+    if (!onlineReady() || !(await ensureCreds())) return 0;
+    var remote = await app.supabase.request('staff_receipts', 'GET', null, { order: 'updated_at.desc', limit: '5000' });
+    if (!Array.isArray(remote)) remote = [];
+    var arr = load();
+    var byId = {};
+    arr.forEach(function (x) { byId[String(x.id)] = x; });
+    var tombstones = loadIds(LS_DELETED);
+    var stillDead = [];
+    for (var i = 0; i < tombstones.length; i++) {
+      var delId = String(tombstones[i]);
+      var existsRemote = remote.some(function (x) { return String(x.id) === delId; });
+      if (existsRemote) {
+        try { await remoteDelete(tombstones[i]); }
+        catch (e) { stillDead.push(tombstones[i]); }
+      }
+      if (byId[delId]) delete byId[delId];
+    }
+    saveIds(LS_DELETED, stillDead);
+    var deadSet = {};
+    loadIds(LS_DELETED).forEach(function (x) { deadSet[String(x)] = 1; });
+    var changed = Object.keys(byId).length !== arr.length;
+    remote.forEach(function (rec) {
+      var id = String(rec.id);
+      if (deadSet[id]) return;
+      var incoming = fromRemote(rec);
+      var local = byId[id];
+      if (!local) { byId[id] = incoming; changed = true; }
+      else {
+        var rt = new Date(rec.updated_at || rec.updatedAt || 0).getTime();
+        var lt = new Date(local.updatedAt || local.updated_at || local.createdAt || 0).getTime();
+        if (rt >= lt) {
+          var merged = {};
+          Object.keys(local).forEach(function (k) { merged[k] = local[k]; });
+          Object.keys(incoming).forEach(function (k) { if (incoming[k] !== undefined) merged[k] = incoming[k]; });
+          byId[id] = merged; changed = true;
+        }
+      }
+    });
+    var dirty = loadIds(LS_DIRTY);
+    for (var j = 0; j < dirty.length; j++) {
+      var lr = byId[String(dirty[j])];
+      if (lr) {
+        try { await remoteUpsert(lr); unmarkDirty(lr.id); }
+        catch (e) { /* stays dirty for next time */ }
+      } else { unmarkDirty(dirty[j]); }
+    }
+    if (changed) {
+      save(Object.keys(byId).map(function (k) { return byId[k]; }));
+      render();
+    }
+    return remote.length;
+  }
   function getSubject() {
     var sel = $('receipt-subject');
     var v = sel ? sel.value : 'ADVANCE';
@@ -432,6 +590,7 @@
         r.slipToken = link.tokenNumber;
         r.updatedAt = new Date().toISOString();
         save(arr.map(function (x) { return String(x.id) === String(r.id) ? r : x; }));
+        pushReceipt(r);
         if (app.syncState) await app.syncState();
         render();
         closeModal('dialog-receipt-move');
@@ -446,6 +605,26 @@
       closeModal('dialog-receipt-move');
       var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
       if (r) { paintPaper(r); openModal('dialog-receipt-view'); }
+    },
+    syncNow: function (manual) {
+      if (!onlineReady()) {
+        if (manual !== false) toast('Offline — receipts are saved on this device and will sync when online', 'warning');
+        return Promise.resolve(false);
+      }
+      if (manual !== false) toast('Syncing receipts online...', 'info');
+      return pullReceipts().then(function (n) {
+        render();
+        if (manual !== false) toast('Receipts synced online (' + n + ' online records)', 'success');
+        return true;
+      }).catch(function (e) {
+        var msg = String((e && e.message) || e || 'Unknown error');
+        if (tableMissing(msg)) {
+          toast('Online receipts table is missing — please run the latest SQL from Backup & Settings once', 'error');
+        } else if (manual !== false) {
+          toast('Online sync failed: ' + msg.slice(0, 140), 'error');
+        }
+        return false;
+      });
     },
     edit: function (id) {
       var r = load().filter(function (x) { return String(x.id) === String(id); })[0];
@@ -493,6 +672,7 @@
       r.status = (r.status || 'pending') === 'pending' ? 'returned' : (r.status === 'returned' ? 'adjusted' : 'pending');
       r.updatedAt = new Date().toISOString();
       save(arr); render();
+      pushReceipt(r);
       toast('Status: ' + r.status);
     },
     remove: function (id) {
@@ -503,6 +683,15 @@
       var ok = confirm('Delete receipt for ' + (r.name || '') + ' (' + fmtINR(r.amount) + ')?' + extra);
       if (!ok) return;
       save(arr.filter(function (x) { return String(x.id) !== String(id); }));
+      // Online delete (tombstone keeps it deleted on next pull if offline now)
+      var tomb = loadIds(LS_DELETED);
+      if (tomb.indexOf(id) === -1 && tomb.indexOf(String(id)) === -1) { tomb.push(id); saveIds(LS_DELETED, tomb); }
+      unmarkDirty(id);
+      if (onlineReady()) {
+        remoteDelete(id).then(function () {
+          saveIds(LS_DELETED, loadIds(LS_DELETED).filter(function (x) { return String(x) !== String(id); }));
+        }).catch(function () {});
+      }
       if (r.slipId && window.app && app.db) {
         (async function () {
           try { await app.db.delete('temporary_slips', r.slipId); } catch (e) {}
@@ -580,6 +769,7 @@
           arr.push(rec);
         }
         save(arr); render();
+        pushReceipt(rec);
         closeModal('dialog-receipt-add');
         var form = $('form-receipt-add'); if (form) form.reset();
         $('edit-receipt-id').value = '';
@@ -702,7 +892,7 @@
     bind();
     render();
     patchBackup();
-    // Top-bar title fix: switchTab ke baad title/sub set karo (ek dafa — koi loop nahi)
+    // Top-bar title fix: set title/sub once after switchTab (no loop)
     try {
       if (window.app && app.ui && app.ui.switchTab && !app.ui.switchTab._rcptPatched) {
         var origSwitch = app.ui.switchTab.bind(app.ui);
@@ -712,13 +902,22 @@
             var t = $('main-panel-title');
             if (t) t.textContent = 'Staff Advance Receipts';
             var s = $('main-panel-sub');
-            if (s) s.textContent = 'Individual staff advance • naam + amount = receipt ready';
+            if (s) s.textContent = 'Individual staff advance — name + amount = receipt ready';
           }
           return r;
         };
         app.ui.switchTab._rcptPatched = true;
       }
     } catch (e) {}
+    // Silent online sync shortly after load (push dirty + pull latest)
+    setTimeout(function () {
+      try {
+        if (!navigator.onLine) return;
+        ensureCreds().then(function (ok) {
+          if (ok && onlineReady()) pullReceipts().catch(function () {});
+        }).catch(function () {});
+      } catch (e) {}
+    }, 4000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 300); });
