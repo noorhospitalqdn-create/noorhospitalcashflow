@@ -186,24 +186,28 @@
     var arr = load();
     var byId = {};
     arr.forEach(function (x) { byId[String(x.id)] = x; });
+
+    // Load tombstones (deleted IDs) - NEVER purge them, they protect against resurrection
     var tombstones = loadIds(LS_DELETED);
-    var stillDead = [];
+    var deadSet = {};
+    tombstones.forEach(function (x) { deadSet[String(x)] = 1; });
+
+    var changed = false;
     for (var i = 0; i < tombstones.length; i++) {
       var delId = String(tombstones[i]);
       var existsRemote = remote.some(function (x) { return String(x.id) === delId; });
       if (existsRemote) {
-        try { await remoteDelete(tombstones[i]); }
-        catch (e) { stillDead.push(tombstones[i]); }
+        try { await remoteDelete(tombstones[i]); } catch (e) {}
       }
-      if (byId[delId]) delete byId[delId];
+      if (byId[delId]) {
+        delete byId[delId];
+        changed = true;
+      }
     }
-    saveIds(LS_DELETED, stillDead);
-    var deadSet = {};
-    loadIds(LS_DELETED).forEach(function (x) { deadSet[String(x)] = 1; });
-    var changed = Object.keys(byId).length !== arr.length;
+
     remote.forEach(function (rec) {
       var id = String(rec.id);
-      if (deadSet[id]) return;
+      if (deadSet[id]) return; // strictly honor tombstones
       var incoming = fromRemote(rec);
       var local = byId[id];
       if (!local) { byId[id] = incoming; changed = true; }
@@ -226,20 +230,14 @@
         catch (e) { /* stays dirty for next time */ }
       } else { unmarkDirty(dirty[j]); }
     }
-    if (changed) {
+    if (changed || Object.keys(byId).length !== arr.length) {
       save(Object.keys(byId).map(function (k) { return byId[k]; }));
       render();
     }
     return remote.length;
   }
   function getSubject() {
-    var sel = $('receipt-subject');
-    var v = sel ? sel.value : 'ADVANCE';
-    if (v === '__CUSTOM__') {
-      var c = ($('receipt-subject-custom') || {}).value || '';
-      return (c.trim().toUpperCase() || 'ADVANCE');
-    }
-    return v;
+    return 'ADVANCE';
   }
 
   function buildText(r) {
@@ -258,7 +256,7 @@
     return lines.join('\n');
   }
 
-  var filters = { search: '', from: '', to: '', status: '', vendor: '', sort: 'date_desc' };
+  var filters = { search: '', from: '', to: '', vendor: '', sort: 'date_desc' };
   var currentId = null;
 
   function filtered() {
@@ -276,7 +274,6 @@
     }
     if (filters.from) arr = arr.filter(function (r) { return String(r.date || '') >= filters.from; });
     if (filters.to) arr = arr.filter(function (r) { return String(r.date || '') <= filters.to; });
-    if (filters.status) arr = arr.filter(function (r) { return String(r.status || 'pending') === filters.status; });
     if (filters.vendor) {
       var vNorm = filters.vendor.toLowerCase().trim();
       arr = arr.filter(function (r) {
@@ -390,7 +387,7 @@
     var tb = $('list-staff-receipts');
     if (tb) {
       if (!rows.length) {
-        tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:1.2rem">No receipts yet — click “New Advance Receipt” to create the first receipt.</td></tr>';
+        tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted" style="padding:1.2rem">No receipts yet — click “New Advance Receipt” to create the first receipt.</td></tr>';
       } else {
         tb.innerHTML = rows.map(function (r) {
           return '<tr>' +
@@ -398,12 +395,10 @@
             '<td><strong>' + esc(r.name || '—') + '</strong>' + (r.purpose ? '<br><span class="text-muted" style="font-size:.75rem">' + esc(String(r.purpose).slice(0, 60)) + '</span>' : '') + '</td>' +
             '<td><span class="font-mono" style="font-size:.72rem;font-weight:800">' + esc(r.subject || 'ADVANCE') + '</span></td>' +
             '<td style="white-space:nowrap;font-weight:800">' + esc(fmtINR(r.amount)) + '</td>' +
-            '<td>' + statusPill(r.status) + '</td>' +
             '<td>' + movedBadge(r) + '</td>' +
             '<td><div class="rcpt-row-actions">' +
               '<button class="btn btn-secondary btn-sm" onclick="app.receipts.preview(\'' + esc(r.id) + '\')">View</button>' +
               '<button class="btn btn-secondary btn-sm" onclick="app.receipts.openMoveDialog(\'' + esc(r.id) + '\')" title="Move to Muhasib Advance / Hospital Advance">Move</button>' +
-              '<button class="btn btn-secondary btn-sm" onclick="app.receipts.cycleStatus(\'' + esc(r.id) + '\')" title="Change status: Pending → Returned → Adjusted">✓</button>' +
               '<button class="btn btn-secondary btn-sm" onclick="app.receipts.edit(\'' + esc(r.id) + '\')">Edit</button>' +
               '<button class="btn btn-secondary btn-sm text-error" onclick="app.receipts.remove(\'' + esc(r.id) + '\')">Del</button>' +
             '</div></td></tr>';
@@ -415,14 +410,12 @@
     if (mc) {
       mc.innerHTML = rows.map(function (r) {
         return '<div class="m-card">' +
-          '<div class="m-card-top"><strong>' + esc(r.name || '—') + '</strong>' + statusPill(r.status) + '</div>' +
+          '<div class="m-card-top"><strong>' + esc(r.name || '—') + '</strong>' + movedBadge(r) + '</div>' +
           '<div class="m-card-mid"><span class="font-mono">' + esc(fmtDate(r.date)) + '</span><strong>' + esc(fmtINR(r.amount)) + '</strong></div>' +
           '<div class="text-muted" style="font-size:.75rem">' + esc(r.subject || '') + (r.purpose ? ' • ' + esc(String(r.purpose).slice(0, 80)) : '') + '</div>' +
-          '<div style="margin-top:.25rem">' + movedBadge(r) + '</div>' +
           '<div class="rcpt-row-actions" style="margin-top:.5rem;justify-content:flex-start">' +
             '<button class="btn btn-secondary btn-sm" onclick="app.receipts.preview(\'' + esc(r.id) + '\')">View / Print</button>' +
             '<button class="btn btn-secondary btn-sm" onclick="app.receipts.openMoveDialog(\'' + esc(r.id) + '\')">Move</button>' +
-            '<button class="btn btn-secondary btn-sm" onclick="app.receipts.cycleStatus(\'' + esc(r.id) + '\')">✓ Status</button>' +
             '<button class="btn btn-secondary btn-sm" onclick="app.receipts.edit(\'' + esc(r.id) + '\')">Edit</button>' +
             '<button class="btn btn-secondary btn-sm text-error" onclick="app.receipts.remove(\'' + esc(r.id) + '\')">Del</button>' +
           '</div></div>';
@@ -568,17 +561,7 @@
     $('receipt-givenby').value = r ? (r.givenBy || '') : '';
     $('receipt-status').value = r ? (r.status || 'pending') : 'pending';
     var subjSel = $('receipt-subject');
-    var presets = ['ADVANCE', 'SALARY ADVANCE', 'STAFF LOAN', 'TRAVEL ADVANCE', 'MEDICAL ADVANCE', 'FESTIVAL ADVANCE', 'IMPREST ADVANCE', 'PETTY CASH ADVANCE'];
-    var wrapSubj = $('receipt-subject-custom-wrap'), customSubj = $('receipt-subject-custom');
-    if (r && presets.indexOf(String(r.subject)) === -1) {
-      subjSel.value = '__CUSTOM__';
-      if (wrapSubj) wrapSubj.classList.remove('hidden');
-      if (customSubj) customSubj.value = r.subject || '';
-    } else {
-      subjSel.value = r ? (r.subject || 'ADVANCE') : 'ADVANCE';
-      if (wrapSubj) wrapSubj.classList.add('hidden');
-      if (customSubj && !r) customSubj.value = '';
-    }
+    if (subjSel) subjSel.value = 'ADVANCE';
     var title = $('dialog-receipt-title');
     if (title) title.textContent = r ? 'Edit Staff Advance Receipt' : 'New Staff Advance Receipt';
     updateLive();
@@ -682,7 +665,7 @@
       '@media print{body{padding:0}.sheet{width:auto;margin:0}}' +
       '</style></head><body>' +
       '<div class="sheet"><div class="half">' +
-      '<div class="box"><h1>NOOR HOSPITAL</h1><div class="sub">Staff Advance Receipt &bull; Muhasib Cash</div>' +
+      '<div class="box"><h1>NOOR HOSPITAL</h1>' +
       '<div class="subj">' + esc(r.subject || 'ADVANCE') + '</div>' +
       '<div class="meta"><span>Date: ' + esc(fmtDate(r.date)) + '</span></div>' +
       '<div class="txt">Received a sum of <strong>' + esc(fmtINR0(amt)) + '/- (' + esc(amountInWords(amt)) + ')</strong> as ' + esc(String(r.subject || 'advance').toLowerCase()) + '.</div>' +
@@ -835,48 +818,81 @@
       if (!r) return;
       window.open('https://wa.me/?text=' + encodeURIComponent('*NOOR HOSPITAL — ' + (r.subject || 'ADVANCE') + '*\n' + buildText(r)), '_blank');
     },
-    cycleStatus: function (id) {
-      var arr = load();
-      var r = arr.filter(function (x) { return String(x.id) === String(id); })[0];
-      if (!r) return;
-      r.status = (r.status || 'pending') === 'pending' ? 'returned' : (r.status === 'returned' ? 'adjusted' : 'pending');
-      r.updatedAt = new Date().toISOString();
-      save(arr); render();
-      pushReceipt(r);
-      toast('Status: ' + r.status);
-    },
+    cycleStatus: function () {},
     remove: function (id) {
+      if (!id) return;
       var arr = load();
-      var r = arr.filter(function (x) { return String(x.id) === String(id); })[0];
-      if (!r) return;
+      var r = arr.filter(function (x) { return String(x.id).trim() === String(id).trim(); })[0];
+      if (!r) { console.warn('[receipts] remove: id not found', id); return; }
       var extra = r.movedTo ? '\nThe linked slip (' + (r.slipToken || '') + ') will also be deleted.' : '';
-      var ok = confirm('Delete receipt for ' + (r.name || '') + ' (' + fmtINR(r.amount) + ')?' + extra);
-      if (!ok) return;
-      save(arr.filter(function (x) { return String(x.id) !== String(id); }));
-      // Online delete (tombstone keeps it deleted on next pull if offline now)
-      var tomb = loadIds(LS_DELETED);
-      if (tomb.indexOf(id) === -1 && tomb.indexOf(String(id)) === -1) { tomb.push(id); saveIds(LS_DELETED, tomb); }
-      unmarkDirty(id);
-      if (onlineReady()) {
-        remoteDelete(id).then(function () {
-          saveIds(LS_DELETED, loadIds(LS_DELETED).filter(function (x) { return String(x) !== String(id); }));
-        }).catch(function () {});
+      var msg = 'Delete receipt for ' + (r.name || '') + ' (' + fmtINR(r.amount) + ')?' + extra;
+
+      function doDelete() {
+        console.log('[receipts] deleting receipt', id, r.name);
+        // 1. Immediately remove from local storage & memory
+        var fresh = load();
+        fresh = fresh.filter(function (x) { return String(x.id).trim() !== String(id).trim(); });
+        save(fresh);
+
+        // 2. Permanent tombstone in LS_DELETED so Supabase pull NEVER re-inserts it
+        var tomb = loadIds(LS_DELETED);
+        if (tomb.indexOf(String(id)) === -1) {
+          tomb.push(String(id));
+          saveIds(LS_DELETED, tomb);
+        }
+        unmarkDirty(id);
+
+        // 3. Online remote delete (fire & forget with tombstone protection)
+        if (onlineReady()) {
+          remoteDelete(id).catch(function (e) { console.warn('[receipts] remote delete failed (tombstone protects):', e); });
+        }
+
+        // 4. Delete linked slip from IndexedDB temporary_slips & app.state
+        if (window.app && app.db) {
+          (async function () {
+            try {
+              if (r.slipId) {
+                await app.db.delete('temporary_slips', r.slipId);
+                try { await app.db.delete('temporary_slips', parseInt(r.slipId, 10)); } catch (_) {}
+                try { await app.db.delete('temporary_slips', String(r.slipId)); } catch (_) {}
+              }
+              if (r.slipToken && app.state && app.state.temporarySlips) {
+                var matched = app.state.temporarySlips.filter(function (s) {
+                  return String(s.tokenNumber) === String(r.slipToken) || String(s.id) === String(r.slipId);
+                });
+                for (var m = 0; m < matched.length; m++) {
+                  try { await app.db.delete('temporary_slips', matched[m].id); } catch (_) {}
+                  try { await app.db.delete('temporary_slips', parseInt(matched[m].id, 10)); } catch (_) {}
+                }
+                app.state.temporarySlips = app.state.temporarySlips.filter(function (s) {
+                  return String(s.tokenNumber) !== String(r.slipToken) && String(s.id) !== String(r.slipId);
+                });
+              }
+              if (app.syncState) await app.syncState();
+            } catch (slipErr) {
+              console.error('[receipts] Linked slip cleanup failed:', slipErr);
+            }
+          })();
+        }
+
+        // 5. Re-render receipts list and alert user
+        render();
+        toast('Receipt deleted successfully');
       }
-      if (r.slipId && window.app && app.db) {
-        (async function () {
-          try { await app.db.delete('temporary_slips', r.slipId); } catch (e) {}
-          try { if (app.syncState) await app.syncState(); } catch (e2) {}
-          render();
-        })();
+
+      // Use app's custom confirm dialog (native confirm() fails on some mobile browsers)
+      if (window.app && app.ui && app.ui.showConfirm) {
+        app.ui.showConfirm('Delete Receipt', msg, doDelete);
+      } else {
+        // Fallback to native confirm if app.ui not ready
+        if (confirm(msg)) doDelete();
       }
-      render(); toast('Receipt deleted');
     },
     clearFilters: function () {
-      filters = { search: '', from: '', to: '', status: '', vendor: '', sort: 'date_desc' };
+      filters = { search: '', from: '', to: '', vendor: '', sort: 'date_desc' };
       if ($('search-staff-receipts')) $('search-staff-receipts').value = '';
       if ($('filter-staff-receipts-from')) $('filter-staff-receipts-from').value = '';
       if ($('filter-staff-receipts-to')) $('filter-staff-receipts-to').value = '';
-      if ($('filter-staff-receipts-status')) $('filter-staff-receipts-status').value = '';
       if ($('filter-staff-receipts-vendor')) $('filter-staff-receipts-vendor').value = '';
       if ($('sort-staff-receipts')) $('sort-staff-receipts').value = 'date_desc';
       render();
@@ -885,7 +901,16 @@
       var rows = filtered();
       if (!rows.length) { toast('No receipts to export', 'warning'); return; }
       var data = rows.map(function (r) {
-        return { 'Date': fmtDate(r.date), 'Received By': r.name || '', 'Subject': r.subject || '', 'Amount': Number(r.amount) || 0, 'Amount In Words': amountInWords(Number(r.amount) || 0), 'Purpose': r.purpose || '', 'Given By': r.givenBy || '', 'Status': r.status || 'pending', 'Moved To': r.movedTo ? (r.movedTo === 'hospital' ? 'Hospital Advance' : 'Muhasib Advance') + ' (' + (r.slipToken || '') + ')' : 'Not moved' };
+        return {
+          'Date': fmtDate(r.date),
+          'Received By': r.name || '',
+          'Subject': r.subject || '',
+          'Amount': Number(r.amount) || 0,
+          'Amount In Words': amountInWords(Number(r.amount) || 0),
+          'Purpose': r.purpose || '',
+          'Given By': r.givenBy || '',
+          'Moved To': r.movedTo ? (r.movedTo === 'hospital' ? 'Hospital Advance' : 'Muhasib Advance') + ' (' + (r.slipToken || '') + ')' : 'Not moved'
+        };
       });
       try {
         if (window.XLSX && XLSX.utils) {
@@ -992,14 +1017,6 @@
         }
         updateLive();
       });
-      var subj = $('receipt-subject');
-      if (subj) subj.addEventListener('change', function () {
-        var wrap = $('receipt-subject-custom-wrap');
-        if (!wrap) return;
-        if (subj.value === '__CUSTOM__') { wrap.classList.remove('hidden'); var c = $('receipt-subject-custom'); if (c) c.focus(); }
-        else wrap.classList.add('hidden');
-        updateLive();
-      });
       document.addEventListener('click', function (e) {
         var chip = e.target.closest ? e.target.closest('[data-receipt-add]') : null;
         if (!chip) return;
@@ -1027,7 +1044,6 @@
     bindFilter('search-staff-receipts', 'search');
     bindFilter('filter-staff-receipts-from', 'from');
     bindFilter('filter-staff-receipts-to', 'to');
-    bindFilter('filter-staff-receipts-status', 'status');
     bindFilter('filter-staff-receipts-vendor', 'vendor');
     bindFilter('sort-staff-receipts', 'sort');
   }

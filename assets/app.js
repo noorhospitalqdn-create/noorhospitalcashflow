@@ -1758,11 +1758,13 @@ const app = {
       const collapseBtn = document.getElementById('sidebar-collapse-btn');
       const appLayout = document.querySelector('.app-layout');
       if (collapseBtn && appLayout) {
-        // Restore saved state
+        // Restore saved state (inline script already handled pre-paint, now hand off to CSS class)
         if (localStorage.getItem('noor_sidebar_collapsed') === 'true') {
           appLayout.classList.add('sidebar-collapsed');
           collapseBtn.title = 'Expand sidebar';
         }
+        // Remove the pre-collapsed override now that JS has taken over
+        document.documentElement.classList.remove('sidebar-pre-collapsed');
         collapseBtn.addEventListener('click', () => {
           const isCollapsed = appLayout.classList.toggle('sidebar-collapsed');
           localStorage.setItem('noor_sidebar_collapsed', isCollapsed);
@@ -6021,20 +6023,20 @@ const app = {
 
         let diffBadge = '';
         if (diff === 0) {
-          diffBadge = `<span class="badge-matched">✓ Matched (₹0.00)</span>`;
+          diffBadge = `<span class="badge-matched" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;">✓ Matched</span>`;
         } else if (diff > 0) {
-          diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(diff)} (Hospital Excess)</span>`;
+          diffBadge = `<span class="badge-mismatch-hosp" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;" title="Hospital statement exceeds bank (Hospital Excess)">+${app.ui.formatCurrency(diff)} Hosp Excess</span>`;
         } else {
-          diffBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess)</span>`;
+          diffBadge = `<span class="badge-mismatch-bank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;" title="Bank statement exceeds hospital (Bank Excess)">-${app.ui.formatCurrency(Math.abs(diff))} Bank Excess</span>`;
         }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx + 1}</td>
-          <td class="font-semibold">${app.ui.formatDate(r.date)}</td>
-          <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(hosp)}</td>
-          <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(bank)}</td>
-          <td class="text-center">${diffBadge}</td>
+          <td class="font-semibold" style="white-space:nowrap;">${app.ui.formatDate(r.date)}</td>
+          <td class="num-val text-right font-bold" style="color:#0284c7;white-space:nowrap;">${app.ui.formatCurrency(hosp)}</td>
+          <td class="num-val text-right font-bold" style="color:#8b5cf6;white-space:nowrap;">${app.ui.formatCurrency(bank)}</td>
+          <td class="text-center" style="white-space:nowrap;">${diffBadge}</td>
           <td class="text-sm text-muted" style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${app.ui.escapeHTML(r.remarks || '')}">
             ${r.remarks ? app.ui.escapeHTML(r.remarks) : '<span style="opacity:0.35;">-</span>'}
           </td>
@@ -11420,32 +11422,209 @@ tfoot .r{text-align:right;}
       if (!s) { s = document.createElement('style'); s.id = 'dynamic-sidebar-colors'; document.head.appendChild(s); }
       const hex = (col) => col;
       const light = (col) => col + '1A';
+      const border = (col) => col + '33';
       s.textContent = `
-.nav-item[data-panel="advance-cash"], .nav-item[data-panel="advance-bills"], .nav-item[data-panel="advance-cleared"], .nav-item[data-panel="advance-slips"] { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; }
-.nav-item[data-panel="advance-cash"].active, .nav-item[data-panel="advance-bills"].active, .nav-item[data-panel="advance-cleared"].active, .nav-item[data-panel="advance-slips"].active { background-color: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-left: 3px solid ${hex(c.muhasib)} !important; }
-.nav-item[data-panel="advance-cash"] .badge, .nav-item[data-panel="advance-bills"] .badge, .nav-item[data-panel="advance-cleared"] .badge, .nav-item[data-panel="advance-slips"] .badge { background: ${light(hex(c.muhasib))} !important; color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; }
-.nav-item[data-panel="hospital-cash"], .nav-item[data-panel="bills"], .nav-item[data-panel="hospital-cleared"], .nav-item[data-panel="temp-slips"], .nav-item[data-panel="hospital-deposits"], .nav-item[data-panel="accounts"] { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; }
-.nav-item[data-panel="hospital-cash"].active, .nav-item[data-panel="bills"].active, .nav-item[data-panel="hospital-cleared"].active, .nav-item[data-panel="temp-slips"].active, .nav-item[data-panel="hospital-deposits"].active, .nav-item[data-panel="accounts"].active { background-color: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-left: 3px solid ${hex(c.hospital)} !important; }
-.nav-item[data-panel="hospital-cash"] .badge, .nav-item[data-panel="bills"] .badge, .nav-item[data-panel="hospital-cleared"] .badge, .nav-item[data-panel="temp-slips"] .badge, .nav-item[data-panel="hospital-deposits"] .badge, .nav-item[data-panel="accounts"] .badge { background: ${light(hex(c.hospital))} !important; color: ${hex(c.hospital)} !important; border-color: ${hex(c.hospital)}33 !important; }
-.nav-item[data-panel="transfers"] { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; }
-.nav-item[data-panel="transfers"].active { background-color: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-left: 3px solid ${hex(c.transfers)} !important; }
-.nav-item[data-panel="transfers"] .badge { background: ${light(hex(c.transfers))} !important; color: ${hex(c.transfers)} !important; border-color: ${hex(c.transfers)}33 !important; }
-.metric-card:has(#dash-advance-cash), .metric-card:has(#dash-total-advance-received), .metric-card:has(#dash-imprest-received), .metric-card:has(#dash-advance-bills-pending), .metric-card:has(#dash-advance-slips-total), .metric-card:has(#dash-advance-cleared-total) { border-left: 4px solid ${hex(c.muhasib)} !important; background: ${light(hex(c.muhasib))} !important; }
-.metric-card:has(#dash-advance-cash) .card-metric-value, .metric-card:has(#dash-total-advance-received) .card-metric-value, .metric-card:has(#dash-imprest-received) .card-metric-value, .metric-card:has(#dash-advance-bills-pending) .card-metric-value, .metric-card:has(#dash-advance-slips-total) .card-metric-value, .metric-card:has(#dash-advance-cleared-total) .card-metric-value { color: ${hex(c.muhasib)} !important; }
-.metric-card:has(#dash-advance-cash) .card-metric-header span, .metric-card:has(#dash-total-advance-received) .card-metric-header span, .metric-card:has(#dash-imprest-received) .card-metric-header span, .metric-card:has(#dash-advance-bills-pending) .card-metric-header span, .metric-card:has(#dash-advance-slips-total) .card-metric-header span, .metric-card:has(#dash-advance-cleared-total) .card-metric-header span, .metric-card:has(#dash-advance-cash) .card-metric-header, .metric-card:has(#dash-total-advance-received) .card-metric-header, .metric-card:has(#dash-imprest-received) .card-metric-header, .metric-card:has(#dash-advance-bills-pending) .card-metric-header, .metric-card:has(#dash-advance-slips-total) .card-metric-header, .metric-card:has(#dash-advance-cleared-total) .card-metric-header { color: ${hex(c.muhasib)} !important; }
-.metric-card:has(#dash-advance-cash) .metric-icon, .metric-card:has(#dash-total-advance-received) .metric-icon, .metric-card:has(#dash-imprest-received) .metric-icon, .metric-card:has(#dash-advance-bills-pending) .metric-icon, .metric-card:has(#dash-advance-slips-total) .metric-icon, .metric-card:has(#dash-advance-cleared-total) .metric-icon { color: ${hex(c.muhasib)} !important; border-color: ${hex(c.muhasib)}33 !important; opacity:1 !important; }
-.metric-card:has(#dash-hospital-cash), .metric-card:has(#dash-total-hospital-collected), .metric-card:has(#dash-total-hospital-deposited), .metric-card:has(#dash-amanat-received), .metric-card:has(#dash-hospital-bills-pending), .metric-card:has(#dash-hospital-slips-total), .metric-card:has(#dash-hospital-cleared-total) { border-left: 4px solid ${hex(c.hospital)} !important; background: ${light(hex(c.hospital))} !important; }
-.metric-card:has(#dash-hospital-cash) .card-metric-value, .metric-card:has(#dash-total-hospital-collected) .card-metric-value, .metric-card:has(#dash-total-hospital-deposited) .card-metric-value, .metric-card:has(#dash-amanat-received) .card-metric-value, .metric-card:has(#dash-hospital-bills-pending) .card-metric-value, .metric-card:has(#dash-hospital-slips-total) .card-metric-value, .metric-card:has(#dash-hospital-cleared-total) .card-metric-value { color: ${hex(c.hospital)} !important; }
-.metric-card:has(#dash-hospital-cash) .card-metric-header span, .metric-card:has(#dash-total-hospital-collected) .card-metric-header span, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header span, .metric-card:has(#dash-amanat-received) .card-metric-header span, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header span, .metric-card:has(#dash-hospital-slips-total) .card-metric-header span, .metric-card:has(#dash-hospital-cleared-total) .card-metric-header span, .metric-card:has(#dash-hospital-cash) .card-metric-header, .metric-card:has(#dash-total-hospital-collected) .card-metric-header, .metric-card:has(#dash-total-hospital-deposited) .card-metric-header, .metric-card:has(#dash-amanat-received) .card-metric-header, .metric-card:has(#dash-hospital-bills-pending) .card-metric-header, .metric-card:has(#dash-hospital-slips-total) .card-metric-header, .metric-card:has(#dash-hospital-cleared-total) .card-metric-header { color: ${hex(c.hospital)} !important; }
-.metric-card:has(#dash-hospital-cash) .metric-icon, .metric-card:has(#dash-total-hospital-collected) .metric-icon, .metric-card:has(#dash-total-hospital-deposited) .metric-icon, .metric-card:has(#dash-amanat-received) .metric-icon, .metric-card:has(#dash-hospital-bills-pending) .metric-icon, .metric-card:has(#dash-hospital-slips-total) .metric-icon, .metric-card:has(#dash-hospital-cleared-total) .metric-icon { color: ${hex(c.hospital)} !important; opacity:1 !important; }
-.metric-card:has(#dash-total-sent-to-accounts), .metric-card:has(#dash-awaiting-transfer), .metric-card:has(#dash-total-pending-bills) { border-left: 4px solid ${hex(c.transfers)} !important; background: ${light(hex(c.transfers))} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .card-metric-value, .metric-card:has(#dash-awaiting-transfer) .card-metric-value, .metric-card:has(#dash-total-pending-bills) .card-metric-value { color: ${hex(c.transfers)} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .card-metric-header span, .metric-card:has(#dash-awaiting-transfer) .card-metric-header span, .metric-card:has(#dash-total-pending-bills) .card-metric-header span, .metric-card:has(#dash-total-sent-to-accounts) .card-metric-header, .metric-card:has(#dash-awaiting-transfer) .card-metric-header, .metric-card:has(#dash-total-pending-bills) .card-metric-header { color: ${hex(c.transfers)} !important; }
-.metric-card:has(#dash-total-sent-to-accounts) .metric-icon, .metric-card:has(#dash-awaiting-transfer) .metric-icon, .metric-card:has(#dash-total-pending-bills) .metric-icon { color: ${hex(c.transfers)} !important; opacity:1 !important; }
-.metric-card:has(#dash-total-transferred), .metric-card:has(#dash-total-cash-me) { border-left: 4px solid ${hex(c.transfers)} !important; background: ${light(hex(c.transfers))} !important; }
-.metric-card:has(#dash-total-transferred) .card-metric-value, .metric-card:has(#dash-total-cash-me) .card-metric-value { color: ${hex(c.transfers)} !important; }
-.metric-card:has(#dash-total-transferred) .card-metric-header span, .metric-card:has(#dash-total-cash-me) .card-metric-header span, .metric-card:has(#dash-total-transferred) .card-metric-header, .metric-card:has(#dash-total-cash-me) .card-metric-header { color: ${hex(c.transfers)} !important; }
-.metric-card:has(#dash-total-transferred) .metric-icon, .metric-card:has(#dash-total-cash-me) .metric-icon { color: ${hex(c.transfers)} !important; opacity:1 !important; }
+:root {
+  --color-muhasib: ${hex(c.muhasib)};
+  --color-hospital: ${hex(c.hospital)};
+  --color-transfers: ${hex(c.transfers)};
+}
+
+/* =========================================================
+   SIDEBAR ONLY: Distinct Muhasib, Hospital & Transfers Colors
+   ========================================================= */
+
+/* 1. Muhasib Nav Items */
+.nav-item[data-panel="advance-cash"],
+.nav-item[data-panel="advance-bills"],
+.nav-item[data-panel="advance-cleared"],
+.nav-item[data-panel="advance-slips"] {
+  background-color: ${light(hex(c.muhasib))} !important;
+  color: ${hex(c.muhasib)} !important;
+  border-left: 3px solid transparent !important;
+}
+.nav-item[data-panel="advance-cash"] svg,
+.nav-item[data-panel="advance-bills"] svg,
+.nav-item[data-panel="advance-cleared"] svg,
+.nav-item[data-panel="advance-slips"] svg {
+  color: ${hex(c.muhasib)} !important;
+  stroke: ${hex(c.muhasib)} !important;
+}
+.nav-item[data-panel="advance-cash"]:hover,
+.nav-item[data-panel="advance-bills"]:hover,
+.nav-item[data-panel="advance-cleared"]:hover,
+.nav-item[data-panel="advance-slips"]:hover {
+  background-color: ${hex(c.muhasib)}2E !important;
+  color: #ffffff !important;
+}
+.nav-item[data-panel="advance-cash"]:hover svg,
+.nav-item[data-panel="advance-bills"]:hover svg,
+.nav-item[data-panel="advance-cleared"]:hover svg,
+.nav-item[data-panel="advance-slips"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.nav-item[data-panel="advance-cash"].active,
+.nav-item[data-panel="advance-bills"].active,
+.nav-item[data-panel="advance-cleared"].active,
+.nav-item[data-panel="advance-slips"].active {
+  background-color: ${hex(c.muhasib)}33 !important;
+  color: #ffffff !important;
+  border-left: 4px solid ${hex(c.muhasib)} !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px ${hex(c.muhasib)}25 !important;
+}
+.nav-item[data-panel="advance-cash"].active svg,
+.nav-item[data-panel="advance-bills"].active svg,
+.nav-item[data-panel="advance-cleared"].active svg,
+.nav-item[data-panel="advance-slips"].active svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.nav-item[data-panel="advance-cash"] .badge,
+.nav-item[data-panel="advance-bills"] .badge,
+.nav-item[data-panel="advance-cleared"] .badge,
+.nav-item[data-panel="advance-slips"] .badge {
+  background: ${light(hex(c.muhasib))} !important;
+  color: ${hex(c.muhasib)} !important;
+  border: 1px solid ${border(hex(c.muhasib))} !important;
+}
+
+/* 1b. Advance Receipts (Standalone) — Normal / White */
+.nav-item[data-panel="staff-receipts"] {
+  background-color: transparent !important;
+  color: #94a3b8 !important;
+  border-left: 3px solid transparent !important;
+}
+.nav-item[data-panel="staff-receipts"] svg {
+  color: #64748b !important;
+  stroke: #64748b !important;
+}
+.nav-item[data-panel="staff-receipts"]:hover {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #f8fafc !important;
+}
+.nav-item[data-panel="staff-receipts"]:hover svg {
+  color: #cbd5e1 !important;
+  stroke: #cbd5e1 !important;
+}
+.nav-item[data-panel="staff-receipts"].active {
+  background-color: rgba(20, 184, 166, 0.14) !important;
+  color: #ffffff !important;
+  border-left: 4px solid #2dd4bf !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+.nav-item[data-panel="staff-receipts"].active svg {
+  color: #2dd4bf !important;
+  stroke: #2dd4bf !important;
+}
+.nav-item[data-panel="staff-receipts"] .badge {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* 2. Hospital Nav Items */
+.nav-item[data-panel="hospital-cash"],
+.nav-item[data-panel="bills"],
+.nav-item[data-panel="hospital-cleared"],
+.nav-item[data-panel="temp-slips"],
+.nav-item[data-panel="hospital-deposits"],
+.nav-item[data-panel="accounts"] {
+  background-color: ${light(hex(c.hospital))} !important;
+  color: ${hex(c.hospital)} !important;
+  border-left: 3px solid transparent !important;
+}
+.nav-item[data-panel="hospital-cash"] svg,
+.nav-item[data-panel="bills"] svg,
+.nav-item[data-panel="hospital-cleared"] svg,
+.nav-item[data-panel="temp-slips"] svg,
+.nav-item[data-panel="hospital-deposits"] svg,
+.nav-item[data-panel="accounts"] svg {
+  color: ${hex(c.hospital)} !important;
+  stroke: ${hex(c.hospital)} !important;
+}
+.nav-item[data-panel="hospital-cash"]:hover,
+.nav-item[data-panel="bills"]:hover,
+.nav-item[data-panel="hospital-cleared"]:hover,
+.nav-item[data-panel="temp-slips"]:hover,
+.nav-item[data-panel="hospital-deposits"]:hover,
+.nav-item[data-panel="accounts"]:hover {
+  background-color: ${hex(c.hospital)}2E !important;
+  color: #ffffff !important;
+}
+.nav-item[data-panel="hospital-cash"]:hover svg,
+.nav-item[data-panel="bills"]:hover svg,
+.nav-item[data-panel="hospital-cleared"]:hover svg,
+.nav-item[data-panel="temp-slips"]:hover svg,
+.nav-item[data-panel="hospital-deposits"]:hover svg,
+.nav-item[data-panel="accounts"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.nav-item[data-panel="hospital-cash"].active,
+.nav-item[data-panel="bills"].active,
+.nav-item[data-panel="hospital-cleared"].active,
+.nav-item[data-panel="temp-slips"].active,
+.nav-item[data-panel="hospital-deposits"].active,
+.nav-item[data-panel="accounts"].active {
+  background-color: ${hex(c.hospital)}33 !important;
+  color: #ffffff !important;
+  border-left: 4px solid ${hex(c.hospital)} !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px ${hex(c.hospital)}25 !important;
+}
+.nav-item[data-panel="hospital-cash"].active svg,
+.nav-item[data-panel="bills"].active svg,
+.nav-item[data-panel="hospital-cleared"].active svg,
+.nav-item[data-panel="temp-slips"].active svg,
+.nav-item[data-panel="hospital-deposits"].active svg,
+.nav-item[data-panel="accounts"].active svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.nav-item[data-panel="hospital-cash"] .badge,
+.nav-item[data-panel="bills"] .badge,
+.nav-item[data-panel="hospital-cleared"] .badge,
+.nav-item[data-panel="temp-slips"] .badge,
+.nav-item[data-panel="hospital-deposits"] .badge,
+.nav-item[data-panel="accounts"] .badge {
+  background: ${light(hex(c.hospital))} !important;
+  color: ${hex(c.hospital)} !important;
+  border: 1px solid ${border(hex(c.hospital))} !important;
+}
+
+/* 3. UPI Reconciliation */
+.nav-item[data-panel="upi-reconciliation"] {
+  background-color: ${light(hex(c.transfers))} !important;
+  color: ${hex(c.transfers)} !important;
+  border-left: 3px solid transparent !important;
+}
+.nav-item[data-panel="upi-reconciliation"] svg {
+  color: ${hex(c.transfers)} !important;
+  stroke: ${hex(c.transfers)} !important;
+}
+.nav-item[data-panel="upi-reconciliation"]:hover {
+  background-color: ${hex(c.transfers)}2E !important;
+  color: #ffffff !important;
+}
+.nav-item[data-panel="upi-reconciliation"]:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.nav-item[data-panel="upi-reconciliation"].active {
+  background-color: ${hex(c.transfers)}33 !important;
+  color: #ffffff !important;
+  border-left: 4px solid ${hex(c.transfers)} !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 8px ${hex(c.transfers)}25 !important;
+}
+.nav-item[data-panel="upi-reconciliation"].active svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+.nav-item[data-panel="upi-reconciliation"] .badge {
+  background: ${light(hex(c.transfers))} !important;
+  color: ${hex(c.transfers)} !important;
+  border: 1px solid ${border(hex(c.transfers))} !important;
+}
 `;
     },
     bindForm() {
