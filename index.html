@@ -31,6 +31,7 @@
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
   <link rel="stylesheet" href="assets/app.css?v=20260927_05">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261001_01">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
@@ -38,6 +39,7 @@
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
   <script src="assets/app.js?v=20260927_05" defer></script>
+  <script src="assets/staff-receipts.js?v=20261001_01" defer></script>
 </head>
 <body>
 
@@ -229,6 +231,11 @@
           <span>UPI Reconciliation</span>
           <span class="badge" id="sidebar-upi-badge">0</span>
         </button>
+        <button class="nav-item" data-panel="staff-receipts" onclick="try{app.ui.switchTab('staff-receipts')}catch(e){}document.querySelectorAll('.panel-container .panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-staff-receipts')});document.querySelectorAll('.sidebar-nav .nav-item').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-panel')==='staff-receipts')});document.getElementById('main-panel-title').textContent='Staff Advance Receipts';document.getElementById('main-panel-sub').textContent='Individual staff advance • naam + amount = receipt ready';try{document.getElementById('sidebar').classList.remove('mobile-open');var sb=document.getElementById('sidebar-backdrop');if(sb)sb.classList.remove('active')}catch(e2){}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+          <span>Staff Advance Receipts</span>
+          <span class="badge" id="sidebar-receipts-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border:1px solid rgba(16,185,129,0.25)">0</span>
+        </button>
 
         <div class="nav-section-title">Reports & Statements</div>
         <button class="nav-item" data-panel="balance-sheet">
@@ -319,6 +326,10 @@
           <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-bill-add')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
             <span>Bill</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="if(window.app&&app.receipts)app.receipts.openAddModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+            <span>Receipt</span>
           </button>
           <button class="btn btn-primary btn-sm" onclick="app.ui.openModal('dialog-transfer-add')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg>
@@ -1237,6 +1248,62 @@
             </table>
           </div>
           <div class="mobile-card-list" id="mobile-list-transfers"></div>
+        </section>
+
+        <!-- STAFF ADVANCE RECEIPTS PANEL -->
+        <section class="panel" id="panel-staff-receipts">
+          <div class="panel-action-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search name / subject / purpose..." class="search-input" id="search-staff-receipts">
+            </div>
+            <button class="btn btn-primary" onclick="app.receipts.openAddModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              <span>New Advance Receipt</span>
+            </button>
+          </div>
+          <div class="ledger-filter-bar">
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-staff-receipts-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-staff-receipts-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="filter-staff-receipts-status" class="form-select form-input-sm" style="max-width:150px" title="Status filter">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="returned">Returned</option>
+              <option value="adjusted">Adjusted in Salary</option>
+            </select>
+            <select id="sort-staff-receipts" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High → Low</option>
+              <option value="amount_asc">Amount: Low → High</option>
+              <option value="alpha_asc">Name A → Z</option>
+              <option value="alpha_desc">Name Z → A</option>
+            </select>
+            <span class="ledger-total-badge" id="total-staff-receipts" style="display:none">Total: ₹0.00 (0)</span>
+            <button class="btn btn-secondary btn-sm" onclick="app.receipts.exportExcel()">Export Excel</button>
+            <button class="btn btn-secondary btn-sm" onclick="app.receipts.clearFilters()">Clear</button>
+          </div>
+
+          <div class="card overflow-x">
+            <table class="data-table" id="table-staff-receipts">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Received By</th>
+                  <th>Subject</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Moved To</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-staff-receipts">
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-staff-receipts"></div>
         </section>
 
 
@@ -3146,6 +3213,167 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
     </div>
   </dialog>
 
+  <!-- MODAL: Staff Advance Receipt Add/Edit -->
+  <dialog id="dialog-receipt-add" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="dialog-receipt-title">New Staff Advance Receipt</h3>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-receipt-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-receipt-add">
+      <input type="hidden" id="edit-receipt-id">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="receipt-date">Date <span class="text-error">*</span></label>
+          <input type="date" id="receipt-date" class="form-input" required>
+        </div>
+        <div class="amt-hero">
+          <label class="form-label" for="receipt-amount">Amount (₹) <span class="text-error">*</span></label>
+          <div class="amt-input-wrap">
+            <span class="amt-cur">₹</span>
+            <input type="number" step="0.01" min="0.01" id="receipt-amount" class="form-input amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+          </div>
+          <div class="quick-chips">
+            <button type="button" class="qchip" data-receipt-add="100">+100</button>
+            <button type="button" class="qchip" data-receipt-add="500">+500</button>
+            <button type="button" class="qchip" data-receipt-add="1000">+1,000</button>
+            <button type="button" class="qchip" data-receipt-add="5000">+5,000</button>
+            <button type="button" class="qchip qchip-clear" data-receipt-add="clear">✕ Clear</button>
+          </div>
+          <div class="rcpt-words-preview" id="receipt-words-preview">—</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="receipt-name">Received By — Staff / Person Name <span class="text-error">*</span></label>
+          <input type="text" id="receipt-name" class="form-input" list="receipt-name-list" placeholder="e.g. Rehmat Ali SB." required autocomplete="off">
+          <datalist id="receipt-name-list"></datalist>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" for="receipt-subject">Subject <span class="text-error">*</span></label>
+            <select id="receipt-subject" class="form-select" required>
+              <option value="ADVANCE" selected>ADVANCE</option>
+              <option value="SALARY ADVANCE">SALARY ADVANCE</option>
+              <option value="STAFF LOAN">STAFF LOAN</option>
+              <option value="TRAVEL ADVANCE">TRAVEL ADVANCE</option>
+              <option value="MEDICAL ADVANCE">MEDICAL ADVANCE</option>
+              <option value="FESTIVAL ADVANCE">FESTIVAL ADVANCE</option>
+              <option value="IMPREST ADVANCE">IMPREST ADVANCE</option>
+              <option value="PETTY CASH ADVANCE">PETTY CASH ADVANCE</option>
+              <option value="__CUSTOM__">✏️ Custom subject...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="receipt-status">Status</label>
+            <select id="receipt-status" class="form-select">
+              <option value="pending" selected>Pending</option>
+              <option value="returned">Returned</option>
+              <option value="adjusted">Adjusted in Salary</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group hidden" id="receipt-subject-custom-wrap">
+          <label class="form-label" for="receipt-subject-custom">Custom Subject <span class="text-error">*</span></label>
+          <input type="text" id="receipt-subject-custom" class="form-input" placeholder="e.g. EMERGENCY ADVANCE" autocomplete="off" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="receipt-purpose">Purpose / Note <span style="font-weight:400;color:var(--text-muted)">(Optional)</span></label>
+          <textarea id="receipt-purpose" class="form-textarea" rows="2" placeholder="e.g. urgent household expense, travel..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="receipt-givenby">Given By <span style="font-weight:400;color:var(--text-muted)">(Optional)</span></label>
+          <input type="text" id="receipt-givenby" class="form-input" placeholder="e.g. Mubashar (Muhasib)" autocomplete="off">
+        </div>
+        <div class="rcpt-live-box">
+          <div class="rcpt-live-head">Live Preview — builds automatically as you type</div>
+          <div class="rcpt-live-body" id="receipt-live-preview"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-receipt-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save & Preview Receipt</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Staff Advance Receipt Preview / Print -->
+  <dialog id="dialog-receipt-view" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3>Advance Receipt</h3>
+        <p class="modal-subtitle" id="receipt-view-sub">Preview</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-receipt-view')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="rcpt-paper" id="receipt-paper">
+        <div class="rcpt-paper-head">
+          <div class="rcpt-hosp">NOOR HOSPITAL</div>
+          <div class="rcpt-hosp-sub">Staff Advance Receipt • Muhasib Cash</div>
+        </div>
+        <div class="rcpt-subject-line" id="receipt-paper-subject">ADVANCE</div>
+        <div class="rcpt-paper-meta">
+          <span id="receipt-paper-date">Date: 01-10-2026</span>
+        </div>
+        <p class="rcpt-paper-text" id="receipt-paper-text"></p>
+        <div class="rcpt-paper-rows">
+          <div class="rcpt-row"><span>Received By:</span><strong id="receipt-paper-name">—</strong></div>
+          <div class="rcpt-row"><span>Amount:</span><strong id="receipt-paper-amount">—</strong></div>
+          <div class="rcpt-row"><span>Date:</span><strong id="receipt-paper-date2">—</strong></div>
+          <div class="rcpt-row" id="receipt-paper-purpose-wrap"><span>Purpose:</span><strong id="receipt-paper-purpose">—</strong></div>
+          <div class="rcpt-row" id="receipt-paper-givenby-wrap"><span>Given By:</span><strong id="receipt-paper-givenby">—</strong></div>
+        </div>
+        <div class="rcpt-sign-row">
+          <div class="rcpt-sign">Receiver Signature<br>___________________</div>
+          <div class="rcpt-sign">Authorised Sign<br>___________________</div>
+        </div>
+      </div>
+      <div class="rcpt-share-grid">
+        <button type="button" class="btn btn-primary btn-sm" onclick="app.receipts.printCurrent()">🖨️ Print / PDF (A4)</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="app.receipts.openMoveDialog()">📥 Move To Adv...</button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="app.receipts.editCurrent()">✏️ Edit</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-receipt-view')">Close</button>
+    </div>
+  </dialog>
+
+  <!-- MODAL: Receipt Move Choice — Muhasib Adv / Hospital Adv / Skip -->
+  <dialog id="dialog-receipt-move" closedby="any" class="modal-dialog modal-dialog-sm">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3>Where should this receipt be added?</h3>
+        <p class="modal-subtitle" id="receipt-move-sub">—</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.receipts.skipMove()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="rcpt-move-summary" id="receipt-move-summary"></div>
+      <div class="rcpt-move-grid">
+        <button type="button" class="btn btn-primary" onclick="app.receipts.confirmMove('advance')">
+          <span>📥 Add to Muhasib Advance</span>
+          <small>Muhasib Advance Slip register</small>
+        </button>
+        <button type="button" class="btn btn-primary" onclick="app.receipts.confirmMove('hospital')" style="background:#4f46e5;border-color:#4f46e5">
+          <span>📥 Add to Hospital Advance</span>
+          <small>Hospital Advance Slip register</small>
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="app.receipts.skipMove()">
+          <span>⏭️ Skip — do not add anywhere</span>
+          <small>Keep the receipt only (print / save)</small>
+        </button>
+      </div>
+      <p class="text-muted" id="receipt-move-note" style="font-size:.75rem;margin-top:.6rem"></p>
+    </div>
+  </dialog>
+
   <!-- MODAL: Confirmation Dialog (Custom Alert Overlay) -->
   <dialog id="dialog-confirm" closedby="any" class="modal-dialog modal-dialog-sm border-error-subtle">
     <div class="modal-header">
@@ -3279,6 +3507,10 @@ CREATE POLICY "Allow all" ON upi_reconciliations FOR ALL USING (true) WITH CHECK
       <button class="mobile-submenu-item" data-panel="upi-reconciliation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01M9 6h6M9 10h6"/></svg>
         <span>UPI Reconciliation</span>
+      </button>
+      <button class="mobile-submenu-item" data-panel="staff-receipts" onclick="try{app.ui.switchTab('staff-receipts')}catch(e){}document.querySelectorAll('.panel-container .panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-staff-receipts')});try{var m=document.getElementById('mobile-ledger-submenu');if(m)m.classList.remove('active')}catch(e2){}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
+        <span>Staff Advance Receipts</span>
       </button>
     </div>
   </div>
