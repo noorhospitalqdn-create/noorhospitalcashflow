@@ -19,6 +19,15 @@ const app = {
     status: null
   },
 
+  // Local Timezone-accurate ISO Date (YYYY-MM-DD)
+  getTodayISO() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+
   // Central Application State
   state: {
     theme: 'dark',
@@ -648,6 +657,9 @@ const app = {
         app.sync.lastError = null;
         app.sync.setStatus('synced', 'Online & Synced');
         await app.syncState();
+        if (window.app && app.receipts && app.receipts.syncNow) {
+          app.receipts.syncNow(false).catch(() => {});
+        }
       } catch (err) {
         console.error('Sync queue processing error:', err);
         app.sync.lastError = { message: String((err && err.message) || err || 'Unknown sync error'), table: 'sync', time: new Date().toISOString() };
@@ -1082,6 +1094,10 @@ const app = {
      */
     async exportBackup() {
       try {
+        const receiptsData = (window.app && app.receipts && app.receipts.getAllReceipts)
+          ? app.receipts.getAllReceipts()
+          : JSON.parse(localStorage.getItem('noor_staff_receipts_v1') || '[]');
+
         const backup = {
           openingAdvanceCash: app.state.openingAdvanceCash,
           openingHospitalCash: app.state.openingHospitalCash,
@@ -1093,14 +1109,17 @@ const app = {
           transfers: await app.db.getAll('transfers'),
           hospital_deposits: await app.db.getAll('hospital_deposits'),
           accounts_register: await app.db.getAll('accounts_register'),
-          upi_reconciliations: await app.db.getAll('upi_reconciliations')
+          upi_reconciliations: await app.db.getAll('upi_reconciliations'),
+          vendors: await app.db.getAll('vendors'),
+          heads: await app.db.getAll('heads'),
+          staff_receipts: receiptsData
         };
         
         const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `NoorHospital_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        link.download = `NoorHospital_Backup_${app.getTodayISO()}.json`;
         link.click();
         URL.revokeObjectURL(url);
         app.ui.showToast('Backup JSON file exported successfully!');
@@ -1173,12 +1192,18 @@ const app = {
         await restoreStore('hospital_deposits', data.hospital_deposits);
         await restoreStore('accounts_register', data.accounts_register);
         await restoreStore('upi_reconciliations', data.upi_reconciliations);
+        await restoreStore('vendors', data.vendors);
+        await restoreStore('heads', data.heads);
+
+        if (Array.isArray(data.staff_receipts)) {
+          localStorage.setItem('noor_staff_receipts_v1', JSON.stringify(data.staff_receipts));
+        }
 
         app.ui.showToast('Database successfully restored from JSON!');
         setTimeout(() => location.reload(), 1500);
       } catch (err) {
         console.error(err);
-        app.ui.showToast('Restore failed: ' + err.message, 'error');
+        app.ui.showToast(`Import failed: ${err.message}`, 'error');
       }
     },
 
@@ -1480,6 +1505,15 @@ const app = {
         const v = (s.vendor || '').trim();
         if (v) discoveredVendors.add(v);
       });
+      try {
+        const rcpts = (window.app && app.receipts && app.receipts.getAllReceipts)
+          ? app.receipts.getAllReceipts()
+          : JSON.parse(localStorage.getItem('noor_staff_receipts_v1') || '[]');
+        (rcpts || []).forEach(r => {
+          const v = (r.name || '').trim();
+          if (v) discoveredVendors.add(v);
+        });
+      } catch (_) {}
 
       for (const vName of discoveredVendors) {
         const norm = vName.toLowerCase();
@@ -2783,6 +2817,7 @@ const app = {
         'accounts': 'ledgers',
         'transfers': 'ledgers',
         'upi-reconciliation': 'ledgers',
+        'staff-receipts': 'ledgers',
         'bills': 'bills',
         'balance-sheet': 'reports',
         'reports': 'reports',
@@ -2813,6 +2848,7 @@ const app = {
         'accounts': 'Accounts Department Register',
         'transfers': 'Accounts Verification & Transfers',
         'upi-reconciliation': 'UPI Transaction Reconciliation',
+        'staff-receipts': 'Staff Advance Receipts',
         'balance-sheet': 'Cash Position Balance Sheet',
         'reports': 'Financial Reports Centre',
         'vendors': 'Vendor Directory',
@@ -2833,6 +2869,8 @@ const app = {
         if (app.upiReconciliation.activeTab === 'monthly') {
           app.upiReconciliation.renderMonthlyComparison();
         }
+      } else if (panelId === 'staff-receipts' && window.app && app.receipts && app.receipts.render) {
+        app.receipts.render();
       }
 
       // Scroll to top on mobile (panel-container is the scroller, not window)
@@ -3241,10 +3279,11 @@ const app = {
      * Formats floating number to Indian Rupees format (e.g. ₹4,500.00).
      */
     formatCurrency(val) {
+      const num = Number(val);
       return new Intl.NumberFormat('en-IN', {
         style: 'currency',
         currency: 'INR'
-      }).format(val);
+      }).format(isNaN(num) ? 0 : num);
     },
 
     /**
@@ -5043,6 +5082,16 @@ const app = {
           slipVendorSel.value = name;
           slipVendorSel.dispatchEvent(new Event('change'));
         }
+      } else if (app.vendors._returnContext === 'receipt') {
+        if (window.app && app.receipts && app.receipts.selectVendor) {
+          app.receipts.selectVendor(name);
+        } else {
+          const rcptSel = document.getElementById('receipt-name');
+          if (rcptSel) {
+            rcptSel.value = name;
+            rcptSel.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
       }
       app.vendors._returnContext = null;
 
@@ -5125,7 +5174,23 @@ const app = {
         if (cur) sel.value = cur;
       });
 
-      // 5. Update sidebar badge
+      // 5. Staff Advance Receipt Vendor Select & Filter
+      if (window.app && app.receipts && app.receipts.populateVendorSelect) {
+        app.receipts.populateVendorSelect(selectedVendor);
+      } else {
+        const receiptSel = document.getElementById('receipt-name');
+        if (receiptSel && receiptSel.tagName === 'SELECT') {
+          const currVal = selectedVendor || receiptSel.value;
+          receiptSel.innerHTML = '<option value="">-- Select Registered Vendor / Staff --</option>' +
+            sorted.map(v => `<option value="${String(v.name || '').replace(/"/g, '&quot;')}">${optLabel(v)}</option>`).join('') +
+            '<option disabled>──────────</option>' +
+            '<option value="__NEW__">➕ + Register New Vendor / Staff...</option>' +
+            '<option value="__CUSTOM__">✏️ Custom / Other Name...</option>';
+          if (currVal) receiptSel.value = currVal;
+        }
+      }
+
+      // 6. Update sidebar badge
       const badge = document.getElementById('nav-vendors-badge');
       if (badge) badge.textContent = sorted.length;
     },
@@ -10706,6 +10771,24 @@ tfoot .r{text-align:right;}
         if (reportsSub && reportsSub.classList.contains('active')) {
           if (!reportsSub.querySelector('.mobile-submenu-card')?.contains(e.target) && !reportsBtn?.contains(e.target)) {
             reportsSub.classList.remove('active');
+          }
+        }
+      });
+
+      // Global Escape handler for mobile submenus, drawers & open modals
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const activeSubmenu = document.querySelector('.mobile-submenu-overlay.active');
+          if (activeSubmenu) {
+            activeSubmenu.classList.remove('active');
+            return;
+          }
+          const sidebar = document.getElementById('sidebar');
+          if (sidebar && sidebar.classList.contains('mobile-open')) {
+            sidebar.classList.remove('mobile-open');
+            const sbBackdrop = document.getElementById('sidebar-backdrop');
+            if (sbBackdrop) sbBackdrop.classList.remove('active');
+            return;
           }
         }
       });

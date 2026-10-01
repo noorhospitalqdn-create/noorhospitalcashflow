@@ -258,7 +258,7 @@
     return lines.join('\n');
   }
 
-  var filters = { search: '', from: '', to: '', status: '', sort: 'date_desc' };
+  var filters = { search: '', from: '', to: '', status: '', vendor: '', sort: 'date_desc' };
   var currentId = null;
 
   function filtered() {
@@ -268,12 +268,21 @@
       arr = arr.filter(function (r) {
         return String(r.name || '').toLowerCase().indexOf(q) > -1 ||
           String(r.subject || '').toLowerCase().indexOf(q) > -1 ||
-          String(r.purpose || '').toLowerCase().indexOf(q) > -1;
+          String(r.purpose || '').toLowerCase().indexOf(q) > -1 ||
+          String(r.givenBy || '').toLowerCase().indexOf(q) > -1 ||
+          String(r.slipToken || '').toLowerCase().indexOf(q) > -1 ||
+          String(r.amount || '').indexOf(q) > -1;
       });
     }
     if (filters.from) arr = arr.filter(function (r) { return String(r.date || '') >= filters.from; });
     if (filters.to) arr = arr.filter(function (r) { return String(r.date || '') <= filters.to; });
     if (filters.status) arr = arr.filter(function (r) { return String(r.status || 'pending') === filters.status; });
+    if (filters.vendor) {
+      var vNorm = filters.vendor.toLowerCase().trim();
+      arr = arr.filter(function (r) {
+        return String(r.name || '').toLowerCase().trim() === vNorm;
+      });
+    }
     var s = filters.sort || 'date_desc';
     arr.sort(function (a, b) {
       if (s === 'date_asc') return String(a.date || '').localeCompare(String(b.date || '')) || String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
@@ -303,17 +312,27 @@
   /* Ensure person exists in Vendor Directory (slip register requires registered vendor) */
   async function ensureVendor(name) {
     try {
+      var trimmed = String(name || '').trim();
+      if (!trimmed) return false;
       var list = (window.app && app.state && app.state.vendors) || [];
       var exists = list.some(function (v) {
-        return v && v.name && v.name.trim().toLowerCase() === String(name).trim().toLowerCase();
+        return v && v.name && v.name.trim().toLowerCase() === trimmed.toLowerCase();
       });
       if (exists) return true;
-      await app.db.add('vendors', {
-        name: String(name).trim(),
+      var newV = {
+        name: trimmed,
         category: 'General',
         phone: '',
         remarks: 'Auto-created from staff advance receipt'
-      });
+      };
+      var id = await app.db.add('vendors', newV);
+      newV.id = id;
+      if (window.app && app.state && app.state.vendors) {
+        app.state.vendors.push(newV);
+      }
+      if (window.app && app.vendors && app.vendors.populateVendorDropdowns) {
+        app.vendors.populateVendorDropdowns();
+      }
       return true;
     } catch (e) {
       console.error(e);
@@ -411,41 +430,154 @@
     }
 
     var badge = $('total-staff-receipts');
-    if (badge) badge.textContent = 'Total: ' + fmtINR(total) + ' (' + rows.length + ')';
+    if (badge) {
+      badge.textContent = 'Total: ' + fmtINR(total) + ' (' + rows.length + ')';
+      badge.style.display = 'inline-flex';
+    }
     var sb = $('sidebar-receipts-badge');
     if (sb) sb.textContent = String(all.length);
 
-    // name suggestions
-    var dl = $('receipt-name-list');
-    if (dl) {
-      var seen = {}, names = [];
-      all.forEach(function (r) {
-        var n = String(r.name || '').trim();
-        if (n && !seen[n.toLowerCase()]) { seen[n.toLowerCase()] = 1; names.push(n); }
-      });
-      dl.innerHTML = names.slice(0, 50).map(function (n) { return '<option value="' + esc(n) + '">'; }).join('');
+    populateVendorSelect();
+  }
+
+  /* Populate the "Received By" dropdown and the Filter bar dropdown with registered vendors */
+  function populateVendorSelect(selectedVal) {
+    var vendors = [];
+    try {
+      if (window.app && app.vendors && app.vendors.getUniqueVendors) {
+        vendors = app.vendors.getUniqueVendors();
+      } else if (window.app && app.state && app.state.vendors) {
+        vendors = app.state.vendors;
+      }
+    } catch (e) {}
+
+    var sorted = (vendors || []).filter(function (v) { return v && v.name && v.name.trim(); })
+      .slice()
+      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+
+    function optLabel(v) {
+      var code = String(v.vendorCode || v.code || '').trim();
+      var nm = esc(v.name || '');
+      return code ? nm + ' (' + esc(code) + ')' : nm;
     }
+
+    var sel = $('receipt-name');
+    if (sel && sel.tagName === 'SELECT') {
+      var curr = selectedVal != null ? selectedVal : (sel.value || '');
+      var opts = ['<option value="">-- Select Registered Vendor / Staff --</option>'];
+      sorted.forEach(function (v) {
+        opts.push('<option value="' + esc(v.name) + '">' + optLabel(v) + '</option>');
+      });
+      opts.push('<option disabled>──────────</option>');
+      opts.push('<option value="__NEW__">➕ + Register New Vendor / Staff...</option>');
+      opts.push('<option value="__CUSTOM__">✏️ Custom / Other Name...</option>');
+
+      // If selectedVal is custom/legacy and not in list, add it as an option
+      if (curr && curr !== '__NEW__' && curr !== '__CUSTOM__') {
+        var found = sorted.some(function (v) { return (v.name || '').toLowerCase() === curr.toLowerCase(); });
+        if (!found) {
+          opts.splice(1, 0, '<option value="' + esc(curr) + '">' + esc(curr) + ' (Custom)</option>');
+        }
+      }
+      sel.innerHTML = opts.join('');
+      if (curr) sel.value = curr;
+    }
+
+    // Also populate filter dropdown if present
+    var filterSel = $('filter-staff-receipts-vendor');
+    if (filterSel) {
+      var fCurr = filters.vendor || filterSel.value || '';
+      var fOpts = ['<option value="">All Staff / Vendors</option>'];
+      sorted.forEach(function (v) {
+        fOpts.push('<option value="' + esc(v.name) + '">' + optLabel(v) + '</option>');
+      });
+      filterSel.innerHTML = fOpts.join('');
+      if (fCurr) filterSel.value = fCurr;
+    }
+  }
+
+  function renderRecentReceiverChips() {
+    var rv = $('recent-receipt-vendors');
+    if (!rv) return;
+    var seen = {}, recents = [];
+    var all = load();
+    for (var i = all.length - 1; i >= 0; i--) {
+      var n = String(all[i].name || '').trim();
+      if (n && !seen[n.toLowerCase()]) {
+        seen[n.toLowerCase()] = 1;
+        recents.push(n);
+        if (recents.length >= 4) break;
+      }
+    }
+    if (recents.length < 4 && window.app && app.vendors && app.vendors.getUniqueVendors) {
+      var list = app.vendors.getUniqueVendors();
+      for (var j = 0; j < list.length; j++) {
+        var vn = String(list[j].name || '').trim();
+        if (vn && !seen[vn.toLowerCase()]) {
+          seen[vn.toLowerCase()] = 1;
+          recents.push(vn);
+          if (recents.length >= 4) break;
+        }
+      }
+    }
+    if (!recents.length) { rv.innerHTML = ''; return; }
+    rv.innerHTML = recents.map(function (nm) {
+      return '<button type="button">' + esc(nm) + '</button>';
+    }).join('');
+    Array.prototype.forEach.call(rv.querySelectorAll('button'), function (btn, idx) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var targetName = recents[idx];
+        api.selectVendor(targetName);
+        var amt = $('receipt-amount');
+        if (amt) amt.focus();
+      });
+    });
   }
 
   function fillForm(r) {
     $('edit-receipt-id').value = r ? r.id : '';
     $('receipt-date').value = r ? (r.date || todayISO()) : todayISO();
-    $('receipt-name').value = r ? (r.name || '') : '';
+    var rName = r ? (r.name || '') : '';
+    populateVendorSelect(rName);
+    renderRecentReceiverChips();
+    var sel = $('receipt-name');
+    var wrap = $('receipt-name-custom-wrap');
+    var custom = $('receipt-name-custom');
+    if (sel && sel.tagName === 'SELECT') {
+      if (rName) {
+        sel.value = rName;
+        if (sel.value !== rName) {
+          sel.value = '__CUSTOM__';
+          if (wrap) wrap.classList.remove('hidden');
+          if (custom) custom.value = rName;
+        } else {
+          if (wrap) wrap.classList.add('hidden');
+          if (custom) custom.value = '';
+        }
+      } else {
+        sel.value = '';
+        if (wrap) wrap.classList.add('hidden');
+        if (custom) custom.value = '';
+      }
+    } else if ($('receipt-name')) {
+      $('receipt-name').value = rName;
+    }
     $('receipt-amount').value = r ? (r.amount || '') : '';
     $('receipt-purpose').value = r ? (r.purpose || '') : '';
     $('receipt-givenby').value = r ? (r.givenBy || '') : '';
     $('receipt-status').value = r ? (r.status || 'pending') : 'pending';
     var subjSel = $('receipt-subject');
     var presets = ['ADVANCE', 'SALARY ADVANCE', 'STAFF LOAN', 'TRAVEL ADVANCE', 'MEDICAL ADVANCE', 'FESTIVAL ADVANCE', 'IMPREST ADVANCE', 'PETTY CASH ADVANCE'];
-    var wrap = $('receipt-subject-custom-wrap'), custom = $('receipt-subject-custom');
+    var wrapSubj = $('receipt-subject-custom-wrap'), customSubj = $('receipt-subject-custom');
     if (r && presets.indexOf(String(r.subject)) === -1) {
       subjSel.value = '__CUSTOM__';
-      if (wrap) wrap.classList.remove('hidden');
-      if (custom) custom.value = r.subject || '';
+      if (wrapSubj) wrapSubj.classList.remove('hidden');
+      if (customSubj) customSubj.value = r.subject || '';
     } else {
       subjSel.value = r ? (r.subject || 'ADVANCE') : 'ADVANCE';
-      if (wrap) wrap.classList.add('hidden');
-      if (custom && !r) custom.value = '';
+      if (wrapSubj) wrapSubj.classList.add('hidden');
+      if (customSubj && !r) customSubj.value = '';
     }
     var title = $('dialog-receipt-title');
     if (title) title.textContent = r ? 'Edit Staff Advance Receipt' : 'New Staff Advance Receipt';
@@ -454,9 +586,22 @@
 
   function readForm() {
     var amt = parseFloat(($('receipt-amount') || {}).value);
+    var sel = $('receipt-name');
+    var name = '';
+    if (sel && sel.tagName === 'SELECT') {
+      if (sel.value === '__CUSTOM__') {
+        name = (($('receipt-name-custom') || {}).value || '').trim();
+      } else if (sel.value === '__NEW__') {
+        name = '';
+      } else {
+        name = (sel.value || '').trim();
+      }
+    } else {
+      name = (($('receipt-name') || {}).value || '').trim();
+    }
     return {
       date: ($('receipt-date') || {}).value || todayISO(),
-      name: (($('receipt-name') || {}).value || '').trim(),
+      name: name,
       amount: isNaN(amt) ? 0 : amt,
       subject: getSubject(),
       purpose: (($('receipt-purpose') || {}).value || '').trim(),
@@ -514,6 +659,7 @@
   function printDoc(r) {
     var w = window.open('', '_blank', 'width=800,height=900');
     if (!w) { toast('Popup blocked — please allow popups for this page', 'error'); return; }
+    if (w.focus) { try { w.focus(); } catch (e) {} }
     var amt = Number(r.amount) || 0;
     var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Staff Advance Receipt</title>' +
       '<style>' +
@@ -554,7 +700,31 @@
   }
 
   var api = {
-    openAddModal: function () { currentId = null; fillForm(null); openModal('dialog-receipt-add'); setTimeout(function () { var n = $('receipt-name'); if (n) n.focus(); }, 150); },
+    openAddModal: function () {
+      currentId = null;
+      fillForm(null);
+      openModal('dialog-receipt-add');
+      setTimeout(function () {
+        var n = $('receipt-name');
+        if (n) n.focus();
+      }, 150);
+    },
+    selectVendor: function (name) {
+      name = String(name || '').trim();
+      if (!name) return;
+      populateVendorSelect(name);
+      var sel = $('receipt-name');
+      var wrap = $('receipt-name-custom-wrap');
+      var custom = $('receipt-name-custom');
+      if (sel) {
+        sel.value = name;
+        if (wrap) wrap.classList.add('hidden');
+        if (custom) custom.value = '';
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      updateLive();
+    },
+    populateVendorSelect: populateVendorSelect,
     /* Open the move-choice dialog (after save, or from list/preview) */
     openMoveDialog: function (id) {
       if (id) currentId = id;
@@ -702,11 +872,12 @@
       render(); toast('Receipt deleted');
     },
     clearFilters: function () {
-      filters = { search: '', from: '', to: '', status: '', sort: 'date_desc' };
+      filters = { search: '', from: '', to: '', status: '', vendor: '', sort: 'date_desc' };
       if ($('search-staff-receipts')) $('search-staff-receipts').value = '';
       if ($('filter-staff-receipts-from')) $('filter-staff-receipts-from').value = '';
       if ($('filter-staff-receipts-to')) $('filter-staff-receipts-to').value = '';
       if ($('filter-staff-receipts-status')) $('filter-staff-receipts-status').value = '';
+      if ($('filter-staff-receipts-vendor')) $('filter-staff-receipts-vendor').value = '';
       if ($('sort-staff-receipts')) $('sort-staff-receipts').value = 'date_desc';
       render();
     },
@@ -738,6 +909,7 @@
     },
     render: render,
     amountInWords: amountInWords,
+    getAllReceipts: load,
     _load: load
   };
 
@@ -748,7 +920,17 @@
       f.addEventListener('submit', function (e) {
         e.preventDefault();
         var d = readForm();
-        if (!d.name) { toast('Please enter the receiver name', 'error'); return; }
+        if (!d.name) {
+          toast('Please select or enter the receiver / vendor name', 'error');
+          var nameElem = $('receipt-name');
+          if (nameElem && nameElem.value === '__CUSTOM__') {
+            var cInp = $('receipt-name-custom');
+            if (cInp) cInp.focus();
+          } else if (nameElem) {
+            nameElem.focus();
+          }
+          return;
+        }
         if (!(d.amount > 0)) { toast('Please enter a valid amount', 'error'); return; }
         if (d.subject === '__CUSTOM__') d.subject = 'ADVANCE';
         var arr = load();
@@ -786,10 +968,29 @@
         }
         toast('Receipt saved: ' + (rec.name || '') + ' — ' + fmtINR(rec.amount));
       });
-      ['receipt-date', 'receipt-name', 'receipt-amount', 'receipt-subject', 'receipt-subject-custom', 'receipt-purpose', 'receipt-givenby'].forEach(function (id) {
+      ['receipt-date', 'receipt-name', 'receipt-name-custom', 'receipt-amount', 'receipt-subject', 'receipt-subject-custom', 'receipt-purpose', 'receipt-givenby'].forEach(function (id) {
         var el = $(id);
         if (el) el.addEventListener('input', updateLive);
         if (el) el.addEventListener('change', updateLive);
+      });
+      var nameSel = $('receipt-name');
+      if (nameSel) nameSel.addEventListener('change', function () {
+        var wrap = $('receipt-name-custom-wrap');
+        var custom = $('receipt-name-custom');
+        if (nameSel.value === '__NEW__') {
+          nameSel.value = '';
+          if (wrap) wrap.classList.add('hidden');
+          if (window.app && app.vendors && app.vendors.openAddVendorModal) {
+            app.vendors.openAddVendorModal('', 'receipt');
+          }
+        } else if (nameSel.value === '__CUSTOM__') {
+          if (wrap) wrap.classList.remove('hidden');
+          if (custom) custom.focus();
+        } else {
+          if (wrap) wrap.classList.add('hidden');
+          if (custom) custom.value = '';
+        }
+        updateLive();
       });
       var subj = $('receipt-subject');
       if (subj) subj.addEventListener('change', function () {
@@ -827,45 +1028,14 @@
     bindFilter('filter-staff-receipts-from', 'from');
     bindFilter('filter-staff-receipts-to', 'to');
     bindFilter('filter-staff-receipts-status', 'status');
+    bindFilter('filter-staff-receipts-vendor', 'vendor');
     bindFilter('sort-staff-receipts', 'sort');
   }
 
-  /* Backup integration: include receipts in JSON export; restore on import */
+  /* Backup integration: restore receipts on JSON import */
   function patchBackup() {
     try {
       if (!window.app || !app.db) return;
-      if (!app.db.exportBackup._rcptPatched) {
-        app.db.exportBackup = async function () {
-          try {
-            var backup = {
-              openingAdvanceCash: app.state.openingAdvanceCash,
-              openingHospitalCash: app.state.openingHospitalCash,
-              theme: app.state.theme,
-              advance_cash: await app.db.getAll('advance_cash'),
-              hospital_cash: await app.db.getAll('hospital_cash'),
-              temporary_slips: await app.db.getAll('temporary_slips'),
-              bills: await app.db.getAll('bills'),
-              transfers: await app.db.getAll('transfers'),
-              hospital_deposits: await app.db.getAll('hospital_deposits'),
-              accounts_register: await app.db.getAll('accounts_register'),
-              upi_reconciliations: await app.db.getAll('upi_reconciliations'),
-              staff_receipts: load()
-            };
-            var blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-            var url = URL.createObjectURL(blob);
-            var link = document.createElement('a');
-            link.href = url;
-            link.download = 'NoorHospital_Backup_' + new Date().toISOString().split('T')[0] + '.json';
-            link.click();
-            URL.revokeObjectURL(url);
-            app.ui.showToast('Backup JSON file exported successfully!');
-          } catch (err) {
-            console.error(err);
-            app.ui.showToast('Failed to export backup data.', 'error');
-          }
-        };
-        app.db.exportBackup._rcptPatched = true;
-      }
       if (app.db.importBackup && !app.db.importBackup._rcptPatched) {
         var origImport = app.db.importBackup.bind(app.db);
         app.db.importBackup = async function (file) {
@@ -875,8 +1045,6 @@
             if (data && Array.isArray(data.staff_receipts)) {
               save(data.staff_receipts);
               setTimeout(function () { render(); toast('Staff receipts restored (' + data.staff_receipts.length + ')'); }, 1500);
-              var fresh = new File([text], file.name, { type: file.type });
-              return origImport(fresh);
             }
           } catch (e) {}
           return origImport(file);
