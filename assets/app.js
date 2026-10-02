@@ -205,7 +205,7 @@ const app = {
         app.auth.showApp();
         
         // Reload all data from Supabase to IndexedDB since it's a new device/session
-        app.sync.pullAllData().then(() => {
+        app.sync.pullAllData(true).then(() => {
           app.syncState();
         }).catch(err => {
           console.error('Initial pull on login failed:', err);
@@ -354,7 +354,7 @@ const app = {
         'Authorization': `Bearer ${app.supabase.key}`,
         'apikey': app.supabase.key,
         'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
+        'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal'
       };
 
       const options = {
@@ -468,6 +468,8 @@ const app = {
     status: 'offline',
     isProcessingQueue: false,
     lastError: null,
+    _lastFullSyncTime: 0,   // timestamp of last full (non-incremental) pull
+    _FULL_SYNC_INTERVAL: 600000, // 10 minutes between full syncs for orphan cleanup
 
     init() {
       app.sync.checkConnection();
@@ -508,12 +510,12 @@ const app = {
         app.sync.setStatus('offline', 'Offline Mode');
       });
 
-      // Periodic check every 20 seconds
+      // Periodic check every 2 minutes (was 20s — reduced to cut egress)
       setInterval(() => {
         if (navigator.onLine && app.supabase.isConfigured() && !app.sync.isProcessingQueue) {
           app.sync.processQueue();
         }
-      }, 20000);
+      }, 120000);
     },
 
     setStatus(status, message) {
@@ -600,7 +602,9 @@ const app = {
       app.sync.isProcessingQueue = true;
       try {
         const queue = await app.db.getAll('sync_queue');
+        let hadQueueItems = false;
         if (queue.length > 0) {
+          hadQueueItems = true;
           app.sync.setStatus('syncing', 'Syncing...');
           
           for (const item of queue) {
@@ -652,8 +656,14 @@ const app = {
           }
         }
         
-        // Always pull latest data from remote and refresh local states when online
-        await app.sync.pullAllData();
+        // Pull data from remote: incremental (only changes) or full (periodic orphan cleanup)
+        // Skip pull entirely when queue was empty AND no full sync is due — nothing has changed.
+        const now = Date.now();
+        const needsFullSync = (now - app.sync._lastFullSyncTime) >= app.sync._FULL_SYNC_INTERVAL;
+        if (hadQueueItems || needsFullSync) {
+          await app.sync.pullAllData(needsFullSync);
+          if (needsFullSync) app.sync._lastFullSyncTime = now;
+        }
         app.sync.lastError = null;
         app.sync.setStatus('synced', 'Online & Synced');
         await app.syncState();
@@ -685,22 +695,45 @@ const app = {
       }
     },
 
-    async pullAllData() {
+    /**
+     * Pull data from Supabase tables.
+     * @param {boolean} fullSync - If true, pulls ALL rows (for orphan cleanup / first sync).
+     *                             If false/undefined, performs incremental delta sync (only rows
+     *                             updated since last pull) to minimize egress.
+     */
+    async pullAllData(fullSync = false) {
       if (!app.supabase.isConfigured()) return;
 
       // If a reset was deferred while offline, execute it on Supabase now before pulling.
       if (localStorage.getItem('noor_database_reset_pending') === 'true') {
         await app.sync.wipeRemoteTables();
         localStorage.removeItem('noor_database_reset_pending');
+        // After a wipe, clear all sync timestamps so next pull is full
+        app.sync._clearSyncTimestamps();
+        fullSync = true;
       }
       
       const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads', 'upi_reconciliations'];
       
       for (const table of tables) {
         try {
-          const remoteRecords = await app.supabase.getAll(table);
-          const localRecords = await app.db.getAll(table);
+          // Determine if this is an incremental or full pull
+          const lastSyncKey = `noor_sync_ts_${table}`;
+          const lastSyncTS = fullSync ? '' : (localStorage.getItem(lastSyncKey) || '');
+          const isIncremental = !!lastSyncTS;
           
+          // Fetch: either delta (updated since lastSyncTS) or full table
+          let remoteRecords;
+          if (isIncremental) {
+            remoteRecords = await app.supabase.request(table, 'GET', null, {
+              'updated_at': `gte.${lastSyncTS}`,
+              'order': 'updated_at.asc'
+            });
+          } else {
+            remoteRecords = await app.supabase.getAll(table);
+          }
+          
+          const localRecords = await app.db.getAll(table);
           const localMap = new Map(localRecords.map(r => [r.id, r]));
 
           // Build sets of pending queue operations so we never overwrite local intent
@@ -708,10 +741,18 @@ const app = {
           const queuedInserts = new Set(syncQueue.filter(q => q.table === table && q.method === 'INSERT').map(q => String(q.recordId)));
           const queuedDeletes = new Set(syncQueue.filter(q => q.table === table && q.method === 'DELETE').map(q => String(q.recordId)));
           
+          // Track the latest updated_at we see so we can narrow the next incremental pull
+          let latestUpdatedAt = lastSyncTS;
+          
           for (const remote of remoteRecords) {
             if (remote.amount !== undefined) remote.amount = parseFloat(remote.amount);
             if (remote.slipId !== undefined && remote.slipId !== null) remote.slipId = parseInt(remote.slipId);
             if (remote.transferId !== undefined && remote.transferId !== null) remote.transferId = parseInt(remote.transferId);
+
+            // Track latest timestamp for next incremental sync
+            if (remote.updated_at && remote.updated_at > latestUpdatedAt) {
+              latestUpdatedAt = remote.updated_at;
+            }
 
             // Skip any record that is queued for local deletion – do not restore it.
             if (queuedDeletes.has(String(remote.id))) continue;
@@ -747,11 +788,14 @@ const app = {
             }
           }
           
-          const remoteIds = new Set(remoteRecords.map(r => String(r.id)));
-          
-          for (const local of localRecords) {
-            if (!remoteIds.has(String(local.id)) && !queuedInserts.has(String(local.id))) {
-              await app.db.delete(table, local.id, true); // localOnly = true
+          // Orphan cleanup: only possible during a full sync (we have the complete remote picture)
+          if (!isIncremental) {
+            const remoteIds = new Set(remoteRecords.map(r => String(r.id)));
+            
+            for (const local of localRecords) {
+              if (!remoteIds.has(String(local.id)) && !queuedInserts.has(String(local.id))) {
+                await app.db.delete(table, local.id, true); // localOnly = true
+              }
             }
           }
 
@@ -781,6 +825,11 @@ const app = {
               }
             }
           }
+          
+          // Save the sync timestamp for this table so next pull is incremental
+          if (latestUpdatedAt) {
+            localStorage.setItem(lastSyncKey, latestUpdatedAt);
+          }
         } catch (err) {
           console.error(`Failed to pull table ${table}:`, err);
           const pullMsg = String((err && err.message) || err || '');
@@ -795,15 +844,44 @@ const app = {
       }
       
       try {
-        const remoteSettings = await app.supabase.getAll('settings');
+        // Settings: incremental pull
+        const settingsSyncKey = 'noor_sync_ts_settings';
+        const lastSettingsSync = fullSync ? '' : (localStorage.getItem(settingsSyncKey) || '');
+        let remoteSettings;
+        if (lastSettingsSync) {
+          remoteSettings = await app.supabase.request('settings', 'GET', null, {
+            'updated_at': `gte.${lastSettingsSync}`
+          });
+        } else {
+          remoteSettings = await app.supabase.getAll('settings');
+        }
+        let latestSettingsTs = lastSettingsSync;
         for (const remote of remoteSettings) {
           // Never let a remote setting overwrite local Supabase credentials
           if (remote.key === 'supabaseUrl' || remote.key === 'supabaseKey' || remote.key === 'supabaseBucket') continue;
           await app.db.setSetting(remote.key, remote.value, true); // localOnly = true
+          if (remote.updated_at && remote.updated_at > latestSettingsTs) {
+            latestSettingsTs = remote.updated_at;
+          }
+        }
+        if (latestSettingsTs) {
+          localStorage.setItem(settingsSyncKey, latestSettingsTs);
         }
       } catch (err) {
         console.error('Failed to pull settings:', err);
       }
+    },
+
+    /**
+     * Clear all sync timestamps (used after database reset / wipe).
+     */
+    _clearSyncTimestamps() {
+      const tables = ['advance_cash', 'hospital_cash', 'temporary_slips', 'bills', 'transfers', 'hospital_deposits', 'accounts_register', 'vendors', 'heads', 'upi_reconciliations', 'settings'];
+      for (const t of tables) {
+        localStorage.removeItem(`noor_sync_ts_${t}`);
+      }
+      localStorage.removeItem('noor_receipts_last_sync');
+      app.sync._lastFullSyncTime = 0;
     },
 
     /**
@@ -2634,7 +2712,8 @@ const app = {
           app.sync.setStatus('syncing', 'Syncing...');
           try {
             await app.sync.processQueue();
-            await app.sync.pullAllData();
+            app.sync._clearSyncTimestamps(); // Fresh config = full sync
+            await app.sync.pullAllData(true);
             app.ui.showToast('Initial sync completed successfully!');
             app.sync.setStatus('synced', 'Online & Synced');
             await app.syncState();
@@ -11782,7 +11861,7 @@ tfoot .r{text-align:right;}
           try {
             app.sync.setStatus('syncing', 'Syncing...');
             await app.sync.processQueue();
-            await app.sync.pullAllData();
+            await app.sync.pullAllData(true); // Startup = full sync to ensure consistency
             app.sync.setStatus('synced', 'Online & Synced');
             await app.syncState();
           } catch (syncErr) {

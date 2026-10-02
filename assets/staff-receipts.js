@@ -181,7 +181,14 @@
   }
   async function pullReceipts() {
     if (!onlineReady() || !(await ensureCreds())) return 0;
-    var remote = await app.supabase.request('staff_receipts', 'GET', null, { order: 'updated_at.desc', limit: '5000' });
+    // Incremental sync: only fetch receipts updated since last pull to reduce egress
+    var lastSyncKey = 'noor_receipts_last_sync';
+    var lastSync = localStorage.getItem(lastSyncKey) || '';
+    var params = { order: 'updated_at.desc', limit: '5000' };
+    if (lastSync) {
+      params['updated_at'] = 'gte.' + lastSync;
+    }
+    var remote = await app.supabase.request('staff_receipts', 'GET', null, params);
     if (!Array.isArray(remote)) remote = [];
     var arr = load();
     var byId = {};
@@ -205,6 +212,8 @@
       }
     }
 
+    // Track latest updated_at for next incremental pull
+    var latestTs = lastSync;
     remote.forEach(function (rec) {
       var id = String(rec.id);
       if (deadSet[id]) return; // strictly honor tombstones
@@ -221,6 +230,9 @@
           byId[id] = merged; changed = true;
         }
       }
+      // Track latest timestamp
+      var ts = rec.updated_at || rec.updatedAt || '';
+      if (ts && ts > latestTs) latestTs = ts;
     });
     var dirty = loadIds(LS_DIRTY);
     for (var j = 0; j < dirty.length; j++) {
@@ -233,6 +245,10 @@
     if (changed || Object.keys(byId).length !== arr.length) {
       save(Object.keys(byId).map(function (k) { return byId[k]; }));
       render();
+    }
+    // Save sync timestamp so next pull is incremental
+    if (latestTs) {
+      localStorage.setItem(lastSyncKey, latestTs);
     }
     return remote.length;
   }
