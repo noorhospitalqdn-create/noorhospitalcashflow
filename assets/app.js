@@ -4644,10 +4644,10 @@ const app = {
       const errorColor = styles.getPropertyValue('--error').trim() || '#ef4444';
 
       const dataPosition = {
-        cash: rawVal(app.state.totalCashWithMe),
-        pending: rawVal(app.state.totalPendingBills),
-        amanat: rawVal(app.state.amanatReceived),
-        imprest: rawVal(app.state.imprestReceived)
+        muhasibCash: rawVal(app.state.advanceCashAvailable),
+        hospitalCash: rawVal(app.state.hospitalCashAvailable),
+        muhasibPending: rawVal(app.state.advanceBillsPending),
+        hospitalPending: rawVal(app.state.hospitalBillsPending)
       };
 
       const dataSources = {
@@ -4681,7 +4681,7 @@ const app = {
 
         // If chart instances already exist, update datasets in-place without rebuilding
         if (app.charts.position && (!hasStatusChart || app.charts.status) && (!hasSourcesChart || app.charts.sources)) {
-          app.charts.position.data.datasets[0].data = [dataPosition.cash, dataPosition.pending, dataPosition.amanat, dataPosition.imprest];
+          app.charts.position.data.datasets[0].data = [dataPosition.muhasibCash, dataPosition.hospitalCash, dataPosition.muhasibPending, dataPosition.hospitalPending];
           app.charts.position.update('none');
 
           if (hasSourcesChart && app.charts.sources) {
@@ -4723,17 +4723,17 @@ const app = {
           }
         };
 
-        // 1. Financial Position Chart (Horizontal Bar Chart)
+        // 1. Financial Position Chart (Horizontal Bar Chart) — Dept-wise: Muhasib vs Hospital
         const ctxPosition = document.getElementById('chart-financial-position').getContext('2d');
         app.charts.position = new Chart(ctxPosition, {
           type: 'bar',
           data: {
-            labels: ['Cash With Me', 'Total Pending Bills', 'Amanat Received', 'Imprest Received'],
+            labels: ['Muhasib Cash', 'Hospital Cash', 'Muhasib Pending Bills', 'Hospital Pending Bills'],
             datasets: [{
               label: 'Amount',
-              data: [dataPosition.cash, dataPosition.pending, dataPosition.amanat, dataPosition.imprest],
-              backgroundColor: [primaryColor, accentColor, secondaryColor, 'rgba(99, 102, 241, 0.65)'],
-              borderColor: [primaryColor, accentColor, secondaryColor, 'rgba(99, 102, 241, 0.65)'],
+              data: [dataPosition.muhasibCash, dataPosition.hospitalCash, dataPosition.muhasibPending, dataPosition.hospitalPending],
+              backgroundColor: ['#a855f7', '#0ea5e9', '#f59e0b', '#e11d48'],
+              borderColor: ['#a855f7', '#0ea5e9', '#f59e0b', '#e11d48'],
               borderWidth: 1,
               borderRadius: 6
             }]
@@ -4878,8 +4878,8 @@ const app = {
         const fbStatus = document.getElementById('fallback-bills-status');
         if (fbStatus) fbStatus.classList.remove('hidden');
 
-        // Render Fallback 1: Financial Position Bar List
-        const maxVal = Math.max(dataPosition.cash, dataPosition.pending, dataPosition.amanat, dataPosition.imprest, 1);
+        // Render Fallback 1: Financial Position Bar List — Dept-wise
+        const maxVal = Math.max(dataPosition.muhasibCash, dataPosition.hospitalCash, dataPosition.muhasibPending, dataPosition.hospitalPending, 1);
         const getPct = (val) => Math.min(100, Math.max(5, (val / maxVal) * 100)) + '%';
         const formattedVal = (val) => '₹' + val.toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
@@ -4887,38 +4887,38 @@ const app = {
           <div class="fallback-bar-list">
             <div class="fallback-bar-item">
               <div class="fallback-bar-info">
-                <span>Cash With Me</span>
-                <strong>${formattedVal(dataPosition.cash)}</strong>
+                <span>Muhasib Cash</span>
+                <strong>${formattedVal(dataPosition.muhasibCash)}</strong>
               </div>
               <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.cash)}; background-color: var(--primary);"></div>
+                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.muhasibCash)}; background-color: #a855f7;"></div>
               </div>
             </div>
             <div class="fallback-bar-item">
               <div class="fallback-bar-info">
-                <span>Total Pending Bills</span>
-                <strong>${formattedVal(dataPosition.pending)}</strong>
+                <span>Hospital Cash</span>
+                <strong>${formattedVal(dataPosition.hospitalCash)}</strong>
               </div>
               <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.pending)}; background-color: var(--accent);"></div>
+                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.hospitalCash)}; background-color: #0ea5e9;"></div>
               </div>
             </div>
             <div class="fallback-bar-item">
               <div class="fallback-bar-info">
-                <span>Amanat Received</span>
-                <strong>${formattedVal(dataPosition.amanat)}</strong>
+                <span>Muhasib Pending Bills</span>
+                <strong>${formattedVal(dataPosition.muhasibPending)}</strong>
               </div>
               <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.amanat)}; background-color: var(--secondary);"></div>
+                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.muhasibPending)}; background-color: #f59e0b;"></div>
               </div>
             </div>
             <div class="fallback-bar-item">
               <div class="fallback-bar-info">
-                <span>Imprest Received</span>
-                <strong>${formattedVal(dataPosition.imprest)}</strong>
+                <span>Hospital Pending Bills</span>
+                <strong>${formattedVal(dataPosition.hospitalPending)}</strong>
               </div>
               <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.imprest)}; background-color: rgba(99, 102, 241, 0.65);"></div>
+                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.hospitalPending)}; background-color: #e11d48;"></div>
               </div>
             </div>
           </div>
