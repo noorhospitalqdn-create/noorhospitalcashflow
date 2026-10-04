@@ -1088,6 +1088,11 @@
               <option value="amount_asc">Amount: Low → High</option>
               <option value="alpha_asc">Vendor A → Z</option>
               <option value="alpha_desc">Vendor Z → A</option>
+              <option value="head_asc">Head A → Z</option>
+              <option value="head_desc">Head Z → A</option>
+            </select>
+            <select id="filter-advance-bills-head" class="form-select form-input-sm" style="max-width:170px" onchange="app.ui.applyFilter('advance-bills',{head:this.value})" title="Filter by Head">
+              <option value="">All Heads</option>
             </select>
             <span class="ledger-total-badge" style="background:var(--tertiary-light);color:var(--tertiary);border-color:rgba(168,85,247,0.2)" id="total-advance-bills">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-bills')">Export Excel</button>
@@ -1153,6 +1158,11 @@
               <option value="amount_asc">Amount: Low → High</option>
               <option value="alpha_asc">Vendor A → Z</option>
               <option value="alpha_desc">Vendor Z → A</option>
+              <option value="head_asc">Head A → Z</option>
+              <option value="head_desc">Head Z → A</option>
+            </select>
+            <select id="filter-advance-cleared-head" class="form-select form-input-sm" style="max-width:170px" onchange="app.ui.applyFilter('advance-cleared',{head:this.value})" title="Filter by Head">
+              <option value="">All Heads</option>
             </select>
             <select id="filter-advance-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('advance-cleared',{})" title="Filter by batch">
               <option value="">All Batches</option>
@@ -1209,6 +1219,11 @@
               <option value="amount_asc">Amount: Low → High</option>
               <option value="alpha_asc">Vendor A → Z</option>
               <option value="alpha_desc">Vendor Z → A</option>
+              <option value="head_asc">Head A → Z</option>
+              <option value="head_desc">Head Z → A</option>
+            </select>
+            <select id="filter-bills-head" class="form-select form-input-sm" style="max-width:170px" onchange="app.ui.applyFilter('bills',{head:this.value})" title="Filter by Head">
+              <option value="">All Heads</option>
             </select>
             <span class="ledger-total-badge" style="background:var(--secondary-light);color:var(--secondary);border-color:rgba(99,102,241,0.2)" id="total-bills">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('bills')">Export Excel</button>
@@ -1274,6 +1289,11 @@
               <option value="amount_asc">Amount: Low → High</option>
               <option value="alpha_asc">Vendor A → Z</option>
               <option value="alpha_desc">Vendor Z → A</option>
+              <option value="head_asc">Head A → Z</option>
+              <option value="head_desc">Head Z → A</option>
+            </select>
+            <select id="filter-hospital-cleared-head" class="form-select form-input-sm" style="max-width:170px" onchange="app.ui.applyFilter('hospital-cleared',{head:this.value})" title="Filter by Head">
+              <option value="">All Heads</option>
             </select>
             <select id="filter-hospital-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('hospital-cleared',{})" title="Filter by batch">
               <option value="">All Batches</option>

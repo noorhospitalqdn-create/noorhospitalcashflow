@@ -1738,10 +1738,10 @@ const app = {
       deposits:{search:'',from:'',to:'',sort:'date_desc'},
       slips:{search:'',from:'',to:'',sort:'date_desc'},
       'advance-slips':{search:'',from:'',to:'',sort:'date_desc'},
-      bills:{search:'',from:'',to:'',sort:'date_desc'},
-      'advance-bills':{search:'',from:'',to:'',sort:'date_desc'},
-      'advance-cleared':{search:'',from:'',to:'',sort:'date_desc'},
-      'hospital-cleared':{search:'',from:'',to:'',sort:'date_desc'},
+      bills:{search:'',from:'',to:'',sort:'date_desc',head:''},
+      'advance-bills':{search:'',from:'',to:'',sort:'date_desc',head:''},
+      'advance-cleared':{search:'',from:'',to:'',sort:'date_desc',head:''},
+      'hospital-cleared':{search:'',from:'',to:'',sort:'date_desc',head:''},
       accounts:{search:'',from:'',to:'',sort:'date_desc'},
       transfers:{search:'',from:'',to:'',sort:'date_desc'}
     },
@@ -1760,9 +1760,20 @@ const app = {
       const f=document.getElementById('filter-'+page+'-from'); if(f) f.value='';
       const t=document.getElementById('filter-'+page+'-to'); if(t) t.value='';
       const so=document.getElementById('sort-'+page); if(so) so.value='date_desc';
+      const hf=document.getElementById('filter-'+page+'-head'); if(hf) hf.value='';
       const bf=document.getElementById('filter-advance-cleared-batch'); if(bf && page==='advance-cleared') bf.value='';
       const hbf=document.getElementById('filter-hospital-cleared-batch'); if(hbf && page==='hospital-cleared') hbf.value='';
       app.ui.applyFilter(page,{});
+    },
+    refreshHeadFilter(page, items){
+      const sel=document.getElementById('filter-'+page+'-head');
+      if(!sel) return;
+      const heads=[...new Set((items||[]).map(b=>String(b&&b.head!=null&&b.head!==''?b.head:(b&&b.category!=null?b.category:'')).trim()).filter(Boolean))]
+        .sort((a,b)=>a.localeCompare(b));
+      const cur=sel.value;
+      sel.innerHTML='<option value="">All Heads</option>'+heads.map(h=>`<option value="${app.ui.escapeHTML(h)}">${app.ui.escapeHTML(h)}</option>`).join('');
+      if(cur && heads.includes(cur)) sel.value=cur;
+      else if(app.ui.filters[page]) app.ui.filters[page].head='';
     },
     getFiltered(list, page, opts={}){
       const f=app.ui.filters[page]||{search:'',from:'',to:'',sort:'date_desc'};
@@ -1785,16 +1796,24 @@ const app = {
         const bt=document.getElementById('filter-bills-type')?.value;
         if(bt) out=out.filter(b=>b.expenseType===bt);
       }
+      const headOf=x=>String(x&&x.head!=null&&x.head!==''?x.head:(x&&x.category!=null?x.category:''));
+      if(f.head){
+        const hv=String(f.head);
+        out=out.filter(x=>headOf(x)===hv);
+      }
       const sort=f.sort||'date_desc';
       const alphaKey={advance:'remarks',hospital:'source',deposits:'receiptNumber',slips:'vendor','advance-slips':'vendor',bills:'vendor','advance-bills':'vendor','advance-cleared':'vendor','hospital-cleared':'vendor',accounts:'referenceNo',transfers:'remarks'}[page];
       const dateKey= page==='accounts' ? 'dateSent' : 'date';
+      const strKey=(x,k)=>String(x&&x[k]!=null?x[k]:'');
       out.sort((a,b)=>{
         if(sort==='date_asc') return new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
         if(sort==='date_desc') return new Date(b[dateKey]||0)-new Date(a[dateKey]||0);
         if(sort==='amount_asc') return (a.amount||0)-(b.amount||0);
         if(sort==='amount_desc') return (b.amount||0)-(a.amount||0);
-        if(sort==='alpha_asc') return String(a[alphaKey]||'').localeCompare(String(b[alphaKey]||''));
-        if(sort==='alpha_desc') return String(b[alphaKey]||'').localeCompare(String(a[alphaKey]||''));
+        if(sort==='alpha_asc') return strKey(a,alphaKey).localeCompare(strKey(b,alphaKey));
+        if(sort==='alpha_desc') return strKey(b,alphaKey).localeCompare(strKey(a,alphaKey));
+        if(sort==='head_asc') return headOf(a).localeCompare(headOf(b)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
+        if(sort==='head_desc') return headOf(b).localeCompare(headOf(a)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
         return 0;
       });
       return out;
@@ -4063,17 +4082,19 @@ const app = {
     renderAdvanceBillsTable() {
       const list=document.getElementById('list-advance-bills');
       if(!list) return;
+      try{ app.ui.refreshHeadFilter('advance-bills', (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared')); }catch(e){}
       const allFiltered=app.ui.getFiltered(app.state.bills,'advance-bills');
       let filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
       if(!filtered.length && app.state.bills.length){
         const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
-        if(raw.length && !app.ui.filters['advance-bills'].search && !app.ui.filters['advance-bills'].from && !app.ui.filters['advance-bills'].to) filtered=raw;
-        else if(raw.length && !filtered.length) filtered=raw;
+        const fh=app.ui.filters['advance-bills'].head||'';
+        if(!fh && raw.length && !app.ui.filters['advance-bills'].search && !app.ui.filters['advance-bills'].from && !app.ui.filters['advance-bills'].to) filtered=raw;
+        else if(!fh && raw.length && !filtered.length) filtered=raw;
       }
       const total=filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
-        const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
+        const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to||f.head;
         list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
@@ -4247,13 +4268,14 @@ const app = {
         if(bf){ const cur=bf.value; bf.innerHTML='<option value="">All Batches</option>'+allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join(''); if(allBatches.includes(cur)) bf.value=cur; }
         const dl=document.getElementById('advance-batch-list'); if(dl) dl.innerHTML=allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
       }catch(e){}
+      try{ app.ui.refreshHeadFilter('advance-cleared', (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared')); }catch(e){}
       const allFiltered=app.ui.getFiltered(app.state.bills,'advance-cleared');
       const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared');
       const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const totEl=document.getElementById('total-advance-cleared'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       const navBadge=document.getElementById('sidebar-advance-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
       if(!filtered.length){
-        const f=app.ui.filters['advance-cleared']; const isF=f && (f.search||f.from||f.to);
+        const f=app.ui.filters['advance-cleared']; const isF=f && (f.search||f.from||f.to||f.head);
         list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No cleared bills yet. Clear bills from Muhasib Bills via ✓ Adv Clear.'}</td></tr>`;
         return;
       }
@@ -4273,17 +4295,19 @@ const app = {
     renderBillsTable() {
       const list=document.getElementById('list-bills');
       if(!list) return;
+      try{ app.ui.refreshHeadFilter('bills', (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared')); }catch(e){}
       const allFiltered=app.ui.getFiltered(app.state.bills,'bills');
       let filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
       if(!filtered.length && app.state.bills.length){
         const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
-        if(raw.length && !app.ui.filters.bills.search && !app.ui.filters.bills.from && !app.ui.filters.bills.to) filtered=raw;
-        else if(raw.length && !filtered.length) filtered=raw;
+        const fh=app.ui.filters.bills.head||'';
+        if(!fh && raw.length && !app.ui.filters.bills.search && !app.ui.filters.bills.from && !app.ui.filters.bills.to) filtered=raw;
+        else if(!fh && raw.length && !filtered.length) filtered=raw;
       }
       const total=filtered.reduce((s,e)=>s+e.amount,0);
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
-        const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
+        const f=app.ui.filters.bills; const isF=f.search||f.from||f.to||f.head;
         list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
         try{ app.ui.updateHospitalBatchBar(); }catch(e){}
         return;
@@ -4436,13 +4460,14 @@ const app = {
         if(bf){ const cur=bf.value; bf.innerHTML='<option value="">All Batches</option>'+allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join(''); if(allBatches.includes(cur)) bf.value=cur; }
         const dl=document.getElementById('hospital-batch-list'); if(dl) dl.innerHTML=allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
       }catch(e){}
+      try{ app.ui.refreshHeadFilter('hospital-cleared', (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared')); }catch(e){}
       const allFiltered=app.ui.getFiltered(app.state.bills,'hospital-cleared');
       const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
       const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const totEl=document.getElementById('total-hospital-cleared'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       const navBadge=document.getElementById('sidebar-hospital-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
       if(!filtered.length){
-        const f=app.ui.filters['hospital-cleared']; const isF=f && (f.search||f.from||f.to);
+        const f=app.ui.filters['hospital-cleared']; const isF=f && (f.search||f.from||f.to||f.head);
         list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
         return;
       }
@@ -9581,9 +9606,10 @@ tbody tr:nth-child(even){background:#f8fafc;}
 tbody tr.batch-row td{background:#ede9fe!important;font-weight:800;border:1px solid #8b5cf6;color:#5b21b6;}
 tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5px;background:#f1f5f9;}
 tfoot .r{text-align:right;}
-.pay-note{margin-top:16px;}
-.pay-note-title{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
-.pay-note-box{border:1px solid #111;min-height:80px;padding:10px 12px;font-size:13.5px;white-space:pre-wrap;background:#fff;}
+.pay-note{margin-top:18px;}
+.pay-note-title{font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
+.pay-note-box{border:1px solid #111;min-height:110px;padding:14px 16px;font-size:18px;line-height:1.55;font-weight:600;white-space:pre-wrap;background:#fff;overflow-wrap:break-word;}
+.pay-note-box .empty-hint{font-size:18px;}
 .sign-row{display:flex;justify-content:space-between;gap:40px;margin-top:56px;}
 .sign-box{flex:1;text-align:center;}
 .sign-line{border-top:1.5px solid #111;margin-bottom:8px;height:1px;}
@@ -9597,14 +9623,32 @@ tfoot .r{text-align:right;}
         return c || '-';
       } catch (_) { return '-'; }
     },
+    _sortPrintItems(items, sort){
+      const arr=[...items];
+      const s=String(sort||'');
+      const key=(x,k)=>String(x&&x[k]!=null&&x[k]!==''?x[k]:'');
+      const headOf=x=>key(x,'head')||key(x,'category');
+      const cmpHead=(a,b)=>headOf(a).localeCompare(headOf(b))||key(a,'vendor').localeCompare(key(b,'vendor'));
+      if(s==='date_asc') arr.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+      else if(s==='date_desc') arr.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+      else if(s==='amount_asc') arr.sort((a,b)=>(Number(a.amount)||0)-(Number(b.amount)||0));
+      else if(s==='amount_desc') arr.sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0));
+      else if(s==='alpha_asc') arr.sort((a,b)=>key(a,'vendor').localeCompare(key(b,'vendor')));
+      else if(s==='alpha_desc') arr.sort((a,b)=>key(b,'vendor').localeCompare(key(a,'vendor')));
+      else if(s==='head_asc') arr.sort(cmpHead);
+      else if(s==='head_desc') arr.sort((a,b)=>cmpHead(b,a));
+      else arr.sort(cmpHead);
+      return arr;
+    },
     _printBillDetailList(list,numLabel,headLabel,opts){
       if(!list.length){ app.ui.showToast('No records to print.','warning'); return; }
       const o=opts||app.reports._getBillPrintOpts();
-      const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
+      const items=app.reports._sortPrintItems(list, o.sort);
+      const total=items.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
       const esc=s=>app.ui.escapeHTML(s==null?'':String(s));
       const showHead=!!headLabel;
-      const rows=list.map((b,i)=>{
+      const rows=items.map((b,i)=>{
         const vid=app.reports._resolvePrintVendorId(b.vendor, b.vendorId);
         return `<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(vid)}</td><td class="c">${esc(b.num||'-')}</td>${showHead?`<td>${esc(b.head||'-')}</td>`:''}<td class="r">₹${fmt(Number(b.amount)||0)}</td></tr>`;
       }).join('');
@@ -9625,18 +9669,24 @@ tfoot .r{text-align:right;}
       const total=list.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const fmt=n=>new Intl.NumberFormat('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
       const esc=s2=>app.ui.escapeHTML(s2==null?'':String(s2));
-      let lastBatch=null; let html_rows='';
-      const sorted=[...list].sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||'')));
-      sorted.forEach((b,i)=>{
-        if(String(b.batch)!==String(lastBatch)){ lastBatch=b.batch; html_rows+=`<tr class="batch-row"><td colspan="6">Batch: ${esc(lastBatch||'-')}</td></tr>`; }
-        const vid=app.reports._resolvePrintVendorId(b.vendor, b.vendorId);
-        html_rows+=`<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(vid)}</td><td class="c">${esc(b.num||'-')}</td><td>${esc(b.head||'-')}</td><td class="r">\u20B9${fmt(Number(b.amount)||0)}</td></tr>`;
+      const batches=new Map();
+      list.forEach(b=>{ const k=String(b.batch||''); if(!batches.has(k)) batches.set(k,[]); batches.get(k).push(b); });
+      const batchKeys=[...batches.keys()].sort((a,b)=>a.localeCompare(b));
+      let html_rows=''; let idx=0;
+      batchKeys.forEach(k=>{
+        html_rows+=`<tr class="batch-row"><td colspan="6">Batch: ${esc(k||'-')}</td></tr>`;
+        app.reports._sortPrintItems(batches.get(k), o.sort).forEach(b=>{
+          idx++;
+          const vid=app.reports._resolvePrintVendorId(b.vendor, b.vendorId);
+          html_rows+=`<tr><td class="c">${idx}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(vid)}</td><td class="c">${esc(b.num||'-')}</td><td>${esc(b.head||'-')}</td><td class="r">\u20B9${fmt(Number(b.amount)||0)}</td></tr>`;
+        });
       });
+      const sortedCount=list.length;
       const subTitle=title||'Batch Detail';
       const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Payment Request Form</title><style>`
       + app.reports._billPrintCss()
       + `</head><body>`
-      + app.reports._billPrintHeaderHtml(o, `${subTitle} • Bills grouped by batch • Total: \u20B9${fmt(total)} (${sorted.length} bills)`)
+      + app.reports._billPrintHeaderHtml(o, `${subTitle} • Bills grouped by batch • Total: \u20B9${fmt(total)} (${sortedCount} bills)`)
       + `<table><thead><tr><th class="c" style="width:50px">S.No</th><th>Vendor Name</th><th class="c" style="width:110px">Vendor ID</th><th class="c" style="width:130px">Bill Number</th><th style="width:140px">Head</th><th class="r" style="width:130px">Amount</th></tr></thead>`
       + `<tbody>${html_rows}</tbody>`
       + `<tfoot><tr><td colspan="5" style="text-align:right">Total</td><td class="r">\u20B9${fmt(total)}</td></tr></tfoot></table>`
@@ -9661,25 +9711,27 @@ tfoot .r{text-align:right;}
     },
     _executeBillPrint(type, opts){
       const vIdOf=name=>{ try{ return app.vendors.getVendorCodeByName(name) || '-'; }catch(_){ return '-'; } };
+      const pageOf={'advance-bills':'advance-bills','advance-cleared':'advance-cleared','hospital-bills':'bills','hospital-cleared':'hospital-cleared','advance-slips':'advance-slips','hospital-slips':'slips'};
+      opts=Object.assign({}, opts||{}, {sort:(app.ui.filters[pageOf[type]]||{}).sort||''});
       if(type==='advance-bills'){
-        const list=app.ui.getFiltered(app.state.bills,'advance-bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
+        const list=app.ui.getFiltered(app.state.bills,'advance-bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',date:b.date,amount:b.amount}));
         app.reports._printBillDetailList(list,'Bill Number','Head',opts);
       } else if(type==='advance-cleared'){
-        const list=app.ui.getFiltered(app.state.bills,'advance-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
+        const list=app.ui.getFiltered(app.state.bills,'advance-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',date:b.date,amount:b.amount}));
         app.reports._printBatchDetailList(list,'Muhasib Bill Sayer - Batch Detail',opts);
       } else if(type==='hospital-bills'){
-        const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',amount:b.amount})).sort((a,b)=>String(a.head||'').localeCompare(String(b.head||'')));
+        const list=app.ui.getFiltered(app.state.bills,'bills').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',date:b.date,amount:b.amount}));
         app.reports._printBillDetailList(list,'Bill Number','Head',opts);
       } else if(type==='hospital-cleared'){
-        const list=app.ui.getFiltered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',amount:b.amount})).sort((a,b)=>String(a.batch||'').localeCompare(String(b.batch||''))||String(a.head||'').localeCompare(String(b.head||'')));
+        const list=app.ui.getFiltered(app.state.bills,'hospital-cleared').filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared').map(b=>({vendor:b.vendor,vendorId:b.vendorId||vIdOf(b.vendor),num:b.billNumber,head:b.head||b.category||'-',batch:b.clearBatch||'-',date:b.date,amount:b.amount}));
         app.reports._printBatchDetailList(list,'Hospital Bill Sayer - Batch Detail',opts);
       } else if(type==='advance-slips'){
         const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='advance');
-        const list=app.ui.getFiltered(active,'advance-slips').map(s=>({vendor:s.vendor,vendorId:s.vendorId||vIdOf(s.vendor),num:s.tokenNumber,amount:s.amount}));
+        const list=app.ui.getFiltered(active,'advance-slips').map(s=>({vendor:s.vendor,vendorId:s.vendorId||vIdOf(s.vendor),num:s.tokenNumber,date:s.date,amount:s.amount}));
         app.reports._printBillDetailList(list,'Token No',null,opts);
       } else if(type==='hospital-slips'){
         const active=app.getActiveTemporarySlips().filter(s=>s.expenseType==='hospital');
-        const list=app.ui.getFiltered(active,'slips').map(s=>({vendor:s.vendor,vendorId:s.vendorId||vIdOf(s.vendor),num:s.tokenNumber,amount:s.amount}));
+        const list=app.ui.getFiltered(active,'slips').map(s=>({vendor:s.vendor,vendorId:s.vendorId||vIdOf(s.vendor),num:s.tokenNumber,date:s.date,amount:s.amount}));
         app.reports._printBillDetailList(list,'Token No',null,opts);
       }
     },
@@ -11264,11 +11316,12 @@ tfoot .r{text-align:right;}
       let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
       if(!filtered.length && app.state.bills.length){
         const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
-        if(raw.length) filtered = app.ui.filters['advance-bills'].search||app.ui.filters['advance-bills'].from||app.ui.filters['advance-bills'].to ? filtered : raw;
-        if(!filtered.length && raw.length) filtered=raw;
+        const fh=app.ui.filters['advance-bills'].head||'';
+        if(!fh && raw.length) filtered = app.ui.filters['advance-bills'].search||app.ui.filters['advance-bills'].from||app.ui.filters['advance-bills'].to ? filtered : raw;
+        if(!fh && !filtered.length && raw.length) filtered=raw;
       }
       if(!filtered.length){
-        const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to;
+        const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to||f.head;
         container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter. <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters(\'advance-bills\')">Clear Filter</button>':'No muhasib bills found.'} <small style="display:block;margin-top:4px;opacity:0.6">Total bills: ${app.state.bills.length}, Advance: ${app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance').length}</small></div>`;
         return;
       }
@@ -11289,7 +11342,7 @@ tfoot .r{text-align:right;}
       let all=app.ui.getFiltered(app.state.bills,'advance-cleared');
       let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared');
       if(!filtered.length){
-        const f=app.ui.filters['advance-cleared']; const isF=f&&(f.search||f.from||f.to);
+        const f=app.ui.filters['advance-cleared']; const isF=f&&(f.search||f.from||f.to||f.head);
         container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No cleared bills yet.'}</div>`;
         return;
       }
@@ -11311,11 +11364,12 @@ tfoot .r{text-align:right;}
       let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
       if(!filtered.length && app.state.bills.length){
         const raw=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
-        if(raw.length) filtered = app.ui.filters.bills.search||app.ui.filters.bills.from||app.ui.filters.bills.to ? filtered : raw;
-        if(!filtered.length && raw.length) filtered=raw;
+        const fh=app.ui.filters.bills.head||'';
+        if(!fh && raw.length) filtered = app.ui.filters.bills.search||app.ui.filters.bills.from||app.ui.filters.bills.to ? filtered : raw;
+        if(!fh && !filtered.length && raw.length) filtered=raw;
       }
       if(!filtered.length){
-        const f=app.ui.filters.bills; const isF=f.search||f.from||f.to;
+        const f=app.ui.filters.bills; const isF=f.search||f.from||f.to||f.head;
         container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter. <button class="btn btn-secondary btn-sm" onclick="app.ui.clearFilters(\'bills\')">Clear Filter</button>':'No hospital bills found.'} <small style="display:block;margin-top:4px;opacity:0.6">Total bills: ${app.state.bills.length}, Hospital: ${app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital').length}</small></div>`;
         return;
       }
@@ -11336,7 +11390,7 @@ tfoot .r{text-align:right;}
       let all=app.ui.getFiltered(app.state.bills,'hospital-cleared');
       let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
       if(!filtered.length){
-        const f=app.ui.filters['hospital-cleared']; const isF=f&&(f.search||f.from||f.to);
+        const f=app.ui.filters['hospital-cleared']; const isF=f&&(f.search||f.from||f.to||f.head);
         container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No cleared bills yet.'}</div>`;
         return;
       }
