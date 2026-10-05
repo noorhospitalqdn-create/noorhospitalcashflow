@@ -3722,7 +3722,7 @@ const app = {
         const upiDiff = Math.round((upiHosp - upiBank) * 100) / 100;
         setSafeText('dash-upi-hospital', app.ui.formatCurrency(upiHosp));
         setSafeText('dash-upi-bank', app.ui.formatCurrency(upiBank));
-        setSafeText('dash-upi-diff', app.ui.formatCurrency(upiDiff));
+        setSafeText('dash-upi-diff', upiDiff === 0 ? app.ui.formatCurrency(0) : ((upiDiff > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(upiDiff))));
         const dashDiffSub = document.getElementById('dash-upi-diff-sub');
         if (dashDiffSub) {
           if (upiDiff === 0) dashDiffSub.textContent = upiList.length ? `Reconciled • ${upiList.length} day(s)` : 'Hospital UPI − Bank UPI';
@@ -5729,7 +5729,7 @@ const app = {
           qDiff.title = 'Reconciled: Hospital and Bank statements match exactly.';
         } else if (diff > 0) {
           qDiff.classList.add('mismatch-hosp');
-          qDiff.innerText = `Hospital +${app.ui.formatCurrency(diff)}`;
+          qDiff.innerText = `Hospital -${app.ui.formatCurrency(diff)}`;
           qDiff.title = `Hospital statement exceeds bank by ${app.ui.formatCurrency(diff)} (Hospital Excess / Bank Deficit)`;
         } else {
           qDiff.classList.add('mismatch-bank');
@@ -5760,7 +5760,7 @@ const app = {
           mDiff.innerText = '✓ Reconciled (Matched - ₹0.00 Difference)';
         } else if (diff > 0) {
           mDiff.classList.add('mismatch-hosp');
-          mDiff.innerText = `⚠️ Hospital Excess: +${app.ui.formatCurrency(diff)} (Bank Deficit)`;
+          mDiff.innerText = `⚠️ Hospital Excess: -${app.ui.formatCurrency(diff)} (Bank Deficit)`;
         } else {
           mDiff.classList.add('mismatch-bank');
           mDiff.innerText = `⚠️ Bank Excess: +${app.ui.formatCurrency(Math.abs(diff))} (Hospital Deficit)`;
@@ -6081,7 +6081,7 @@ const app = {
       const diffHtml = diff === 0
         ? `<span class="upi-ms-diff ok">✓ Matched (₹0.00)</span>`
         : (diff > 0
-          ? `<span class="upi-ms-diff hosp">Hospital +${app.ui.formatCurrency(diff)}</span>`
+          ? `<span class="upi-ms-diff hosp">Hospital -${app.ui.formatCurrency(diff)}</span>`
           : `<span class="upi-ms-diff bank">Bank +${app.ui.formatCurrency(Math.abs(diff))}</span>`);
       box.innerHTML = `<span class="upi-ms-month">${mName}</span>` +
         `<span class="upi-ms-item">Hospital <strong>${app.ui.formatCurrency(hosp)}</strong></span>` +
@@ -6129,9 +6129,9 @@ const app = {
         if (diff === 0) {
           diffBadge = `<span class="badge-matched" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;">✓ Matched</span>`;
         } else if (diff > 0) {
-          diffBadge = `<span class="badge-mismatch-hosp" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;" title="Hospital statement exceeds bank (Hospital Excess)">+${app.ui.formatCurrency(diff)} Hosp Excess</span>`;
+          diffBadge = `<span class="badge-mismatch-hosp" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;" title="Hospital statement exceeds bank (Hospital Excess)">-${app.ui.formatCurrency(diff)} Hosp Excess</span>`;
         } else {
-          diffBadge = `<span class="badge-mismatch-bank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;" title="Bank statement exceeds hospital (Bank Excess)">-${app.ui.formatCurrency(Math.abs(diff))} Bank Excess</span>`;
+          diffBadge = `<span class="badge-mismatch-bank" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;font-size:0.76rem;" title="Bank statement exceeds hospital (Bank Excess)">+${app.ui.formatCurrency(Math.abs(diff))} Bank Excess</span>`;
         }
 
         const tr = document.createElement('tr');
@@ -6210,12 +6210,12 @@ const app = {
           elDiff.style.color = 'var(--success)';
           if (elDiffSub) elDiffSub.innerHTML = '<span style="color:var(--success); font-weight:700;">✓ Perfectly Reconciled (Hospital = Bank)</span>';
         } else if (netDiff > 0) {
-          elDiff.innerHTML = `+${app.ui.formatCurrency(netDiff)} <span style="font-size:0.75rem; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Hospital Excess</span>`;
+          elDiff.innerHTML = `-${app.ui.formatCurrency(netDiff)} <span style="font-size:0.75rem; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Hospital Excess</span>`;
           elDiff.style.color = '#0284c7';
           if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#0284c7; font-weight:700;">Hospital statement has excess</span> &bull; Bank deficit';
         } else {
           const absDiff = Math.abs(netDiff);
-          elDiff.innerHTML = `-${app.ui.formatCurrency(absDiff)} <span style="font-size:0.75rem; font-weight:700; color:#8b5cf6; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Bank Excess</span>`;
+          elDiff.innerHTML = `+${app.ui.formatCurrency(absDiff)} <span style="font-size:0.75rem; font-weight:700; color:#8b5cf6; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Bank Excess</span>`;
           elDiff.style.color = '#8b5cf6';
           if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#8b5cf6; font-weight:700;">Bank statement has excess</span> &bull; Hospital deficit';
         }
@@ -6258,7 +6258,7 @@ const app = {
         if (dB) dB.textContent = app.ui.formatCurrency(totalBank);
         const dD = document.getElementById('dash-upi-diff');
         if (dD) {
-          dD.textContent = app.ui.formatCurrency(netDiff);
+          dD.textContent = netDiff === 0 ? app.ui.formatCurrency(0) : ((netDiff > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(netDiff)));
           dD.style.color = netDiff === 0 ? 'var(--success)' : (netDiff > 0 ? '#0284c7' : '#8b5cf6');
         }
         const dDS = document.getElementById('dash-upi-diff-sub');
@@ -6317,16 +6317,6 @@ const app = {
           item.matchRate = 0;
         }
 
-        const olderMonth = sortedKeys[index + 1] ? groups[sortedKeys[index + 1]] : null;
-        if (olderMonth && olderMonth.hospital_upi > 0) {
-          item.diffVsPrev = Math.round((item.hospital_upi - olderMonth.hospital_upi) * 100) / 100;
-          const hospGrowth = ((item.hospital_upi - olderMonth.hospital_upi) / olderMonth.hospital_upi) * 100;
-          item.momGrowth = Math.round(hospGrowth * 10) / 10;
-        } else {
-          item.diffVsPrev = null;
-          item.momGrowth = null;
-        }
-
         const [y, m] = k.split('-');
         const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
         item.monthName = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
@@ -6345,7 +6335,7 @@ const app = {
 
       if (!monthlyData.length) {
         if (tbody) {
-          tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding: 2.5rem;">No monthly data available yet. Please add daily reconciliation records first.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted" style="padding: 2.5rem;">No monthly data available yet. Please add daily reconciliation records first.</td></tr>`;
         }
         const container = document.getElementById('month-compare-results-container');
         if (container) {
@@ -6384,38 +6374,26 @@ const app = {
         monthlyData.forEach(m => {
           let statusBadge = '';
           if (m.difference === 0) {
-            statusBadge = `<span class="badge-matched">✓ Matched</span>`;
+            statusBadge = `<span class="badge-matched" style="white-space:nowrap;">✓ Matched</span>`;
           } else if (m.difference > 0) {
-            statusBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(m.difference)} (Hospital Excess)</span>`;
+            statusBadge = `<span class="badge-mismatch-hosp" style="white-space:nowrap;" title="Hospital statement exceeds bank (Hospital Excess)">Hospital -${app.ui.formatCurrency(m.difference)} (Hospital Excess)</span>`;
           } else {
-            statusBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(m.difference))} (Bank Excess)</span>`;
-          }
-
-          let vsPrev = '<span class="text-muted" style="opacity:0.4">-</span>';
-          if (m.diffVsPrev !== null && m.diffVsPrev !== undefined) {
-            if (m.diffVsPrev > 0) {
-              vsPrev = `<span class="month-higher-badge">⬆ +${app.ui.formatCurrency(m.diffVsPrev)} (Higher)</span>`;
-            } else if (m.diffVsPrev < 0) {
-              vsPrev = `<span class="month-lower-badge">⬇ -${app.ui.formatCurrency(Math.abs(m.diffVsPrev))} (Lower)</span>`;
-            } else {
-              vsPrev = `<span class="badge" style="background:var(--bg-app);font-weight:700;">Equal</span>`;
-            }
+            statusBadge = `<span class="badge-mismatch-bank" style="white-space:nowrap;" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(m.difference))} (Bank Excess)</span>`;
           }
 
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td class="font-bold">${m.monthName}</td>
-            <td class="text-center font-mono">${m.daysCount}</td>
-            <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(m.hospital_upi)}</td>
-            <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(m.bank_upi)}</td>
-            <td class="num-val text-center font-bold" style="${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#0284c7;' : 'color:#8b5cf6;')}">
-              ${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}
-              <div class="text-xs" style="font-size:0.7rem; font-weight:600; color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')};">
+            <td class="font-bold" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${m.monthName}</td>
+            <td class="text-center font-mono" style="white-space:nowrap;">${m.daysCount}</td>
+            <td class="num-val text-right font-bold" style="color:#0284c7;white-space:nowrap;">${app.ui.formatCurrency(m.hospital_upi)}</td>
+            <td class="num-val text-right font-bold" style="color:#8b5cf6;white-space:nowrap;">${app.ui.formatCurrency(m.bank_upi)}</td>
+            <td class="num-val text-center font-bold" style="white-space:nowrap;${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#0284c7;' : 'color:#8b5cf6;')}">
+              ${m.difference === 0 ? app.ui.formatCurrency(0) : ((m.difference > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(m.difference)))}
+              <div class="text-xs" style="font-size:0.7rem; font-weight:600; white-space:nowrap; color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')};">
                 ${m.difference === 0 ? 'Reconciled' : (m.difference > 0 ? 'Hospital Excess' : 'Bank Excess')}
               </div>
             </td>
-            <td class="text-center">${vsPrev}</td>
-            <td class="text-center">${statusBadge}</td>
+            <td class="text-center" style="white-space:nowrap;">${statusBadge}</td>
           `;
           tbody.appendChild(tr);
         });
@@ -6502,7 +6480,7 @@ const app = {
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; padding-top: 0.4rem; border-top: 1px dashed var(--border-color);">
               <span class="text-sm text-muted font-semibold">Difference:</span>
-              <span>${monthA.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : (monthA.difference > 0 ? `<span class="badge-mismatch-hosp">Hospital +${app.ui.formatCurrency(monthA.difference)} (Hospital Excess)</span>` : `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(monthA.difference))} (Bank Excess)</span>`)}</span>
+              <span>${monthA.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : (monthA.difference > 0 ? `<span class="badge-mismatch-hosp">Hospital -${app.ui.formatCurrency(monthA.difference)} (Hospital Excess)</span>` : `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(monthA.difference))} (Bank Excess)</span>`)}</span>
             </div>
           </div>
         </div>
@@ -6525,7 +6503,7 @@ const app = {
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; padding-top: 0.4rem; border-top: 1px dashed var(--border-color);">
               <span class="text-sm text-muted font-semibold">Difference:</span>
-              <span>${monthB.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : (monthB.difference > 0 ? `<span class="badge-mismatch-hosp">Hospital +${app.ui.formatCurrency(monthB.difference)} (Hospital Excess)</span>` : `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(monthB.difference))} (Bank Excess)</span>`)}</span>
+              <span>${monthB.difference === 0 ? '<span class="badge-matched">✓ Matched (₹0.00)</span>' : (monthB.difference > 0 ? `<span class="badge-mismatch-hosp">Hospital -${app.ui.formatCurrency(monthB.difference)} (Hospital Excess)</span>` : `<span class="badge-mismatch-bank">Bank +${app.ui.formatCurrency(Math.abs(monthB.difference))} (Bank Excess)</span>`)}</span>
             </div>
           </div>
         </div>
@@ -6576,7 +6554,7 @@ const app = {
           'Date': r.date,
           'Hospital Statement UPI': Number(r.hospital_upi) || 0,
           'Bank UPI Statement': Number(r.bank_upi) || 0,
-          'Difference': Number(r.difference) || 0,
+          'Difference (Bank - Hospital: Bank Excess +, Hospital Excess -)': Math.round((-(Number(r.difference) || 0)) * 100) / 100,
           'Status': r.status === 'matched' ? 'Matched' : 'Discrepancy',
           'Remarks': r.remarks || ''
         }));
@@ -6598,8 +6576,7 @@ const app = {
           'Days Reconciled': m.daysCount,
           'Hospital UPI Total': m.hospital_upi,
           'Bank UPI Total': m.bank_upi,
-          'Difference': m.difference,
-          'vs Previous Month': m.diffVsPrev !== null ? (m.diffVsPrev > 0 ? `+${m.diffVsPrev} (Higher)` : `${m.diffVsPrev} (Lower)`) : 'N/A',
+          'Difference (Bank - Hospital: Bank Excess +, Hospital Excess -)': Math.round((-m.difference) * 100) / 100,
           'Status': m.difference === 0 ? 'Matched' : 'Discrepancy'
         }));
 
@@ -6619,7 +6596,9 @@ const app = {
       }
 
       if (mode === 'daily') {
-        const list = app.upiReconciliation.getFilteredList();
+        const _list = app.upiReconciliation.getFilteredList();
+        // PRINT: older-first starting April (01-04-2026) — ascending by date
+        const list = [..._list].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
         const totalHosp = list.reduce((s, r) => s + (Number(r.hospital_upi) || 0), 0);
         const totalBank = list.reduce((s, r) => s + (Number(r.bank_upi) || 0), 0);
         const totalDiff = Math.round((totalHosp - totalBank) * 100) / 100;
@@ -6627,11 +6606,11 @@ const app = {
         const rowsHtml = list.map((r, i) => `
           <tr>
             <td style="text-align:center;">${i + 1}</td>
-            <td>${app.ui.formatDate(r.date)}</td>
-            <td style="text-align:right;">₹${(Number(r.hospital_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-            <td style="text-align:right;">₹${(Number(r.bank_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-            <td style="text-align:center; font-weight:bold; color:${(Number(r.difference)||0)===0 ? '#059669' : '#dc2626'};">
-              ${(Number(r.difference) > 0 ? '+' : '')}₹${(Number(r.difference) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}
+            <td style="white-space:nowrap;">${app.ui.formatDate(r.date)}</td>
+            <td style="text-align:right;white-space:nowrap;">₹${(Number(r.hospital_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:right;white-space:nowrap;">₹${(Number(r.bank_upi) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:center; font-weight:bold; white-space:nowrap; color:${(Number(r.difference)||0)===0 ? '#059669' : '#dc2626'};">
+              ${(() => { const _d = Number(r.difference) || 0; if (_d === 0) return '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}); return (_d > 0 ? '-₹' : '+₹') + Math.abs(_d).toLocaleString('en-IN', {minimumFractionDigits:2}); })()}
             </td>
             <td>${r.remarks ? app.ui.escapeHTML(r.remarks) : '-'}</td>
           </tr>
@@ -6665,7 +6644,7 @@ const app = {
             <div class="summary-box">
               <div class="summary-item"><div class="val">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</div><div class="lbl">Hospital Statement UPI</div></div>
               <div class="summary-item"><div class="val">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</div><div class="lbl">Bank UPI Statement</div></div>
-              <div class="summary-item"><div class="val" style="color:${totalDiff === 0 ? '#059669' : '#dc2626'};">₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}</div><div class="lbl">Net Difference</div></div>
+              <div class="summary-item"><div class="val" style="color:${totalDiff === 0 ? '#059669' : '#dc2626'};white-space:nowrap;">${totalDiff === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((totalDiff > 0 ? '-₹' : '+₹') + Math.abs(totalDiff).toLocaleString('en-IN', {minimumFractionDigits:2}))}</div><div class="lbl">Net Difference</div></div>
               <div class="summary-item"><div class="val">${list.length} Days</div><div class="lbl">Total Days</div></div>
             </div>
             <table>
@@ -6687,17 +6666,18 @@ const app = {
           </html>
         `);
       } else {
-        const monthly = app.upiReconciliation.getMonthlyRollup();
+        const _monthly = app.upiReconciliation.getMonthlyRollup();
+        // PRINT: older-first starting April — ascending by monthKey
+        const monthly = [..._monthly].sort((a, b) => (a.monthKey || '').localeCompare(b.monthKey || ''));
         const rowsHtml = monthly.map((m, i) => `
           <tr>
             <td><strong>${m.monthName}</strong></td>
             <td style="text-align:center;">${m.daysCount}</td>
             <td style="text-align:right;">₹${m.hospital_upi.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
             <td style="text-align:right;">₹${m.bank_upi.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-            <td style="text-align:center; font-weight:bold; color:${m.difference === 0 ? '#059669' : '#dc2626'};">
-              ${m.difference > 0 ? '+' : ''}₹${m.difference.toLocaleString('en-IN', {minimumFractionDigits:2})}
+            <td style="text-align:center; font-weight:bold; white-space:nowrap; color:${m.difference === 0 ? '#059669' : '#dc2626'};">
+              ${m.difference === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((m.difference > 0 ? '-₹' : '+₹') + Math.abs(m.difference).toLocaleString('en-IN', {minimumFractionDigits:2}))}
             </td>
-            <td style="text-align:center;">${m.diffVsPrev !== null ? (m.diffVsPrev > 0 ? `+₹${m.diffVsPrev.toLocaleString('en-IN', {minimumFractionDigits:2})} (Higher)` : `-₹${Math.abs(m.diffVsPrev).toLocaleString('en-IN', {minimumFractionDigits:2})} (Lower)`) : '-'}</td>
             <td style="text-align:center;">${m.difference === 0 ? '✓ Matched' : 'Discrepancy'}</td>
           </tr>
         `).join('');
@@ -6731,7 +6711,6 @@ const app = {
                   <th style="text-align:right;">Hospital UPI Total</th>
                   <th style="text-align:right;">Bank UPI Total</th>
                   <th style="text-align:center;">Difference</th>
-                  <th style="text-align:center;">vs Previous Month</th>
                   <th style="text-align:center;">Status</th>
                 </tr>
               </thead>
@@ -7061,12 +7040,12 @@ const app = {
           elDiff.style.color = 'var(--success)';
           if (elDiffSub) elDiffSub.innerHTML = '<span style="color:var(--success); font-weight:700;">✓ Perfectly Reconciled (Hospital = Bank)</span>';
         } else if (monthDiff > 0) {
-          elDiff.innerHTML = `+${app.ui.formatCurrency(monthDiff)} <span style="font-size:0.75rem; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Hospital Excess</span>`;
+          elDiff.innerHTML = `-${app.ui.formatCurrency(monthDiff)} <span style="font-size:0.75rem; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Hospital Excess</span>`;
           elDiff.style.color = '#0284c7';
           if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#0284c7; font-weight:700;">Hospital statement has excess</span> &bull; Bank deficit';
         } else {
           const absDiff = Math.abs(monthDiff);
-          elDiff.innerHTML = `-${app.ui.formatCurrency(absDiff)} <span style="font-size:0.75rem; font-weight:700; color:#8b5cf6; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Bank Excess</span>`;
+          elDiff.innerHTML = `+${app.ui.formatCurrency(absDiff)} <span style="font-size:0.75rem; font-weight:700; color:#8b5cf6; background:rgba(139,92,246,0.12); border:1px solid rgba(139,92,246,0.3); padding:2px 7px; border-radius:999px; vertical-align:middle; display:inline-block; margin-left:4px; font-family:var(--font-sans);">Bank Excess</span>`;
           elDiff.style.color = '#8b5cf6';
           if (elDiffSub) elDiffSub.innerHTML = '<span style="color:#8b5cf6; font-weight:700;">Bank statement has excess</span> &bull; Hospital deficit';
         }
@@ -7141,7 +7120,7 @@ const app = {
           const discrepancies = allList.filter(r => (Number(r.difference) || 0) !== 0);
           const discRows = discrepancies.map(r => {
             const d = Number(r.difference) || 0;
-            const diffText = d > 0 ? `Hospital Excess: +${app.ui.formatCurrency(d)} (Bank Deficit)` : `Bank Excess: +${app.ui.formatCurrency(Math.abs(d))} (Hospital Deficit)`;
+            const diffText = d > 0 ? `Hospital Excess: -${app.ui.formatCurrency(d)} (Bank Deficit)` : `Bank Excess: +${app.ui.formatCurrency(Math.abs(d))} (Hospital Deficit)`;
             return `
               <li style="display:flex; justify-content:space-between; align-items:center; padding: 0.5rem 0; border-bottom: 1px dashed rgba(239,68,68,0.2); flex-wrap:wrap; gap:0.4rem;">
                 <div>
@@ -7153,7 +7132,7 @@ const app = {
                 </div>
                 <div style="display:flex; align-items:center; gap: 0.5rem;">
                   <span style="font-weight:700; font-family:var(--font-mono); color:${d > 0 ? '#0284c7' : '#8b5cf6'};">
-                    ${d > 0 ? '+' : ''}${app.ui.formatCurrency(d)}
+                    ${d === 0 ? app.ui.formatCurrency(0) : ((d > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(d)))}
                   </span>
                   <button type="button" class="btn btn-secondary btn-sm" onclick="app.upiReconciliation.initiateEdit(${r.id})" style="padding: 2px 8px; font-size: 0.75rem;">Edit</button>
                 </div>
@@ -7221,7 +7200,7 @@ const app = {
         } else if (m.difference === 0 && m.mismatchDays === 0) {
           statusBadge = '<span class="badge-matched">✓ 100% Reconciled</span>';
         } else if (m.difference > 0) {
-          statusBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(m.difference)} (Hospital Excess)</span>`;
+          statusBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital -${app.ui.formatCurrency(m.difference)} (Hospital Excess)</span>`;
         } else {
           statusBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(m.difference))} (Bank Excess)</span>`;
         }
@@ -7237,7 +7216,7 @@ const app = {
           <td class="num-val text-right font-bold" style="color:#0284c7;">${app.ui.formatCurrency(m.hospital_upi)}</td>
           <td class="num-val text-right font-bold" style="color:#8b5cf6;">${app.ui.formatCurrency(m.bank_upi)}</td>
           <td class="num-val text-center font-bold" style="${m.difference === 0 ? 'color:var(--success);' : (m.difference > 0 ? 'color:#0284c7;' : 'color:#8b5cf6;')}">
-            ${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}
+            ${m.difference === 0 ? app.ui.formatCurrency(0) : ((m.difference > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(m.difference)))}
             <div class="text-xs" style="font-size:0.7rem; font-weight:600; color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')};">
               ${m.difference === 0 ? 'Reconciled' : (m.difference > 0 ? 'Hospital Excess' : 'Bank Excess')}
             </div>
@@ -7275,7 +7254,7 @@ const app = {
               </div>
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.4rem; padding-top:0.4rem; border-top:1px dashed var(--border-color); font-size:0.8rem;">
-              <span>Net Difference: <strong style="color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')}">${(m.difference > 0 ? '+' : '') + app.ui.formatCurrency(m.difference)}</strong></span>
+              <span>Net Difference: <strong style="color:${m.difference === 0 ? 'var(--success)' : (m.difference > 0 ? '#0284c7' : '#8b5cf6')}">${m.difference === 0 ? app.ui.formatCurrency(0) : ((m.difference > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(m.difference)))}</strong></span>
               <span class="text-xs text-muted font-mono">${m.daysCount} Days (${m.matchedDays} M / ${m.mismatchDays} D)</span>
             </div>
             <div class="mobile-record-actions" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.5rem;">
@@ -7302,7 +7281,7 @@ const app = {
               ${app.ui.formatCurrency(aggBank)}
             </td>
             <td class="num-val text-center font-bold" style="padding: 10px 12px; color:${aggDiff === 0 ? 'var(--success)' : (aggDiff > 0 ? '#0284c7' : '#8b5cf6')};">
-              ${(aggDiff > 0 ? '+' : '') + app.ui.formatCurrency(aggDiff)}
+              ${aggDiff === 0 ? app.ui.formatCurrency(0) : ((aggDiff > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(aggDiff)))}
               <div class="text-xs" style="font-size:0.72rem; font-weight:700; color:${aggDiff === 0 ? 'var(--success)' : (aggDiff > 0 ? '#0284c7' : '#8b5cf6')};">
                 ${aggDiff === 0 ? 'Reconciled' : (aggDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}
               </div>
@@ -7311,7 +7290,7 @@ const app = {
               ${aggMatched} Matched &bull; ${aggMismatch} Disc.
             </td>
             <td class="text-center" style="padding: 10px 12px;">
-              ${aggDiff === 0 ? '<span class="badge-matched">✓ Reconciled</span>' : (aggDiff > 0 ? `<span class="badge-mismatch-hosp">Hospital Excess (+${app.ui.formatCurrency(aggDiff)})</span>` : `<span class="badge-mismatch-bank">Bank Excess (+${app.ui.formatCurrency(Math.abs(aggDiff))})</span>`)}
+              ${aggDiff === 0 ? '<span class="badge-matched">✓ Reconciled</span>' : (aggDiff > 0 ? `<span class="badge-mismatch-hosp">Hospital Excess (-${app.ui.formatCurrency(aggDiff)})</span>` : `<span class="badge-mismatch-bank">Bank Excess (+${app.ui.formatCurrency(Math.abs(aggDiff))})</span>`)}
             </td>
             <td></td>
           </tr>
@@ -7359,7 +7338,7 @@ const app = {
             if (diff === 0) {
               diffBadge = `<span class="badge-matched">✓ Matched (₹0.00)</span>`;
             } else if (diff > 0) {
-              diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital +${app.ui.formatCurrency(diff)} (Hospital Excess)</span>`;
+              diffBadge = `<span class="badge-mismatch-hosp" title="Hospital statement exceeds bank (Hospital Excess)">Hospital -${app.ui.formatCurrency(diff)} (Hospital Excess)</span>`;
             } else {
               diffBadge = `<span class="badge-mismatch-bank" title="Bank statement exceeds hospital (Bank Excess)">Bank +${app.ui.formatCurrency(Math.abs(diff))} (Bank Excess)</span>`;
             }
@@ -7430,10 +7409,10 @@ const app = {
                 <td class="num-val text-right font-bold" style="color:#0284c7; padding: 8px 12px;">${app.ui.formatCurrency(sumHosp)}</td>
                 <td class="num-val text-right font-bold" style="color:#8b5cf6; padding: 8px 12px;">${app.ui.formatCurrency(sumBank)}</td>
                 <td class="num-val text-center font-bold" style="padding: 8px 12px; color:${totalDiff === 0 ? 'var(--success)' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')}">
-                  ${(totalDiff > 0 ? '+' : '') + app.ui.formatCurrency(totalDiff)}
+                  ${totalDiff === 0 ? app.ui.formatCurrency(0) : ((totalDiff > 0 ? '-' : '+') + app.ui.formatCurrency(Math.abs(totalDiff)))}
                 </td>
                 <td colspan="2" class="text-center text-xs" style="padding: 8px 12px;">
-                  ${totalDiff === 0 ? '<span class="badge-matched">✓ Reconciled</span>' : (totalDiff > 0 ? `<span class="badge-mismatch-hosp">Hospital Excess: +${app.ui.formatCurrency(totalDiff)}</span>` : `<span class="badge-mismatch-bank">Bank Excess: +${app.ui.formatCurrency(Math.abs(totalDiff))}</span>`)}
+                  ${totalDiff === 0 ? '<span class="badge-matched">✓ Reconciled</span>' : (totalDiff > 0 ? `<span class="badge-mismatch-hosp">Hospital Excess: -${app.ui.formatCurrency(totalDiff)}</span>` : `<span class="badge-mismatch-bank">Bank Excess: +${app.ui.formatCurrency(Math.abs(totalDiff))}</span>`)}
                 </td>
               </tr>
             `;
@@ -7518,14 +7497,14 @@ const app = {
         const mDiff = Math.round((mHosp - mBank) * 100) / 100;
         const mMatch = mEntries.filter(r => (Number(r.difference) || 0) === 0).length;
         const mDisc = mEntries.length - mMatch;
-        const diffDetail = mDiff === 0 ? 'Reconciled (Matched)' : (mDiff > 0 ? `Hospital Excess: ₹${mDiff} (Bank Deficit)` : `Bank Excess: ₹${Math.abs(mDiff)} (Hospital Deficit)`);
+        const diffDetail = mDiff === 0 ? 'Reconciled (Matched)' : (mDiff > 0 ? `Hospital Excess: -₹${mDiff} (Bank Deficit)` : `Bank Excess: +₹${Math.abs(mDiff)} (Hospital Deficit)`);
 
         summaryRows.push([
           mName,
           mEntries.length,
           mHosp,
           mBank,
-          mDiff,
+          Math.round((-mDiff) * 100) / 100,
           diffDetail,
           mMatch,
           mDisc,
@@ -7533,15 +7512,15 @@ const app = {
         ]);
       });
 
-      const aggDiffDetail = totalDiff === 0 ? 'Reconciled (Matched)' : (totalDiff > 0 ? `Hospital Excess: ₹${totalDiff}` : `Bank Excess: ₹${Math.abs(totalDiff)}`);
+      const aggDiffDetail = totalDiff === 0 ? 'Reconciled (Matched)' : (totalDiff > 0 ? `Hospital Excess: -₹${totalDiff}` : `Bank Excess: +₹${Math.abs(totalDiff)}`);
       summaryRows.push([]);
-      summaryRows.push(['TOTAL', list.length, totalHosp, totalBank, totalDiff, aggDiffDetail, matchedDays, mismatchDays, totalDiff === 0 ? 'Matched' : 'Discrepancy']);
+      summaryRows.push(['TOTAL', list.length, totalHosp, totalBank, Math.round((-totalDiff) * 100) / 100, aggDiffDetail, matchedDays, mismatchDays, totalDiff === 0 ? 'Matched' : 'Discrepancy']);
 
       const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Month_Wise_Statement');
 
       // Day-Wise Ledger Sheet (Sheet 2)
-      const totalDiffDetail = totalDiff === 0 ? 'Reconciled (Matched)' : (totalDiff > 0 ? `Hospital Excess: ₹${totalDiff} (Bank Deficit)` : `Bank Excess: ₹${Math.abs(totalDiff)} (Hospital Deficit)`);
+      const totalDiffDetail = totalDiff === 0 ? 'Reconciled (Matched)' : (totalDiff > 0 ? `Hospital Excess: -₹${totalDiff} (Bank Deficit)` : `Bank Excess: +₹${Math.abs(totalDiff)} (Hospital Deficit)`);
       const ledgerRows = [
         [`NOOR HOSPITAL - ${mode === 'multiple' ? 'MULTI-MONTH' : 'MONTHLY'} UPI DAILY AUDIT LEDGER`],
         [`Report: ${reportTitle}`, `Generated: ${new Date().toLocaleString()}`, `Device: ${app.getDeviceId()}`],
@@ -7550,7 +7529,7 @@ const app = {
         ['Total Days Reconciled', list.length, ''],
         ['Hospital Statement UPI Total', totalHosp, ''],
         ['Bank UPI Statement Total', totalBank, ''],
-        ['Net Difference (Hospital - Bank)', totalDiff, totalDiffDetail],
+        ['Net Difference (Bank - Hospital: Bank Excess +, Hospital Excess -)', Math.round((-totalDiff) * 100) / 100, totalDiffDetail],
         ['Matched Days (₹0 Difference)', matchedDays, ''],
         ['Discrepancy Days', mismatchDays, ''],
         [],
@@ -7563,7 +7542,7 @@ const app = {
         const diff = Number(r.difference) || 0;
         const dObj = new Date(r.date + 'T00:00:00');
         const dayName = isNaN(dObj.getTime()) ? '' : dObj.toLocaleDateString('en-IN', { weekday: 'short' });
-        const rowDiffDetail = diff === 0 ? 'Matched' : (diff > 0 ? `Hospital +₹${diff} (Hospital Excess)` : `Bank +₹${Math.abs(diff)} (Bank Excess)`);
+        const rowDiffDetail = diff === 0 ? 'Matched' : (diff > 0 ? `Hospital -₹${diff} (Hospital Excess)` : `Bank +₹${Math.abs(diff)} (Bank Excess)`);
 
         ledgerRows.push([
           idx + 1,
@@ -7571,7 +7550,7 @@ const app = {
           dayName,
           hosp,
           bank,
-          diff,
+          Math.round((-diff) * 100) / 100,
           rowDiffDetail,
           diff === 0 ? 'Matched' : (diff > 0 ? 'Hospital Excess' : 'Bank Excess'),
           r.remarks || ''
@@ -7585,7 +7564,7 @@ const app = {
         '',
         totalHosp,
         totalBank,
-        totalDiff,
+        Math.round((-totalDiff) * 100) / 100,
         totalDiffDetail,
         totalDiff === 0 ? 'Matched' : 'Discrepancy',
         ''
@@ -7614,7 +7593,7 @@ const app = {
         const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
         reportTitle = dateObj.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
       } else {
-        targetMonths = app.upiReconciliation.selectedReportMonths || [];
+        targetMonths = [...(app.upiReconciliation.selectedReportMonths || [])].sort((a, b) => a.localeCompare(b));
         if (!targetMonths.length) {
           app.ui.showToast('Please select at least one month.', 'warning');
           return;
@@ -7623,6 +7602,7 @@ const app = {
       }
 
       const targetSet = new Set(targetMonths);
+      // PRINT: older-first starting April — daily ledger ascending by date
       const list = (app.state.upiReconciliations || [])
         .filter(r => r.date && targetSet.has(r.date.substring(0, 7)))
         .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -7663,8 +7643,8 @@ const app = {
             <td style="text-align:center;">${mEntries.length}</td>
             <td style="text-align:right; font-weight:bold; color:#0284c7;">₹${mHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
             <td style="text-align:right; font-weight:bold; color:#8b5cf6;">₹${mBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-            <td style="text-align:center; font-weight:bold; color:${mDiff === 0 ? '#059669' : (mDiff > 0 ? '#0284c7' : '#8b5cf6')};">
-              ${mDiff > 0 ? '+' : ''}₹${mDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+            <td style="text-align:center; font-weight:bold; white-space:nowrap; color:${mDiff === 0 ? '#059669' : (mDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+              ${mDiff === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((mDiff > 0 ? '-₹' : '+₹') + Math.abs(mDiff).toLocaleString('en-IN', {minimumFractionDigits:2}))}
               <div style="font-size:10px; font-weight:600;">${mDiff === 0 ? 'Reconciled' : (mDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</div>
             </td>
             <td style="text-align:center;">${mMatch} Matched &bull; ${mMismatch} Disc.</td>
@@ -7696,8 +7676,8 @@ const app = {
               <td style="text-align:center;">${list.length} Days</td>
               <td style="text-align:right; color:#0284c7;">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
               <td style="text-align:right; color:#8b5cf6;">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-              <td style="text-align:center; color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
-                ${totalDiff > 0 ? '+' : ''}₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+              <td style="text-align:center; white-space:nowrap; color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+                ${totalDiff === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((totalDiff > 0 ? '-₹' : '+₹') + Math.abs(totalDiff).toLocaleString('en-IN', {minimumFractionDigits:2}))}
                 <div style="font-size:10px; font-weight:600;">${totalDiff === 0 ? 'Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</div>
               </td>
               <td style="text-align:center;">${matchedCount} Matched &bull; ${mismatchCount} Disc.</td>
@@ -7717,11 +7697,11 @@ const app = {
         return `
           <tr style="${diff !== 0 ? 'background: #fff1f2;' : ''}">
             <td style="text-align:center;">${i + 1}</td>
-            <td><strong>${app.ui.formatDate(r.date)}</strong> <span style="color:#64748b; font-size:11px;">(${weekday})</span></td>
-            <td style="text-align:right; font-weight:bold; color:#0284c7;">₹${hosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-            <td style="text-align:right; font-weight:bold; color:#8b5cf6;">₹${bank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-            <td style="text-align:center; font-weight:bold; color:${diff === 0 ? '#059669' : '#dc2626'};">
-              ${(diff > 0 ? '+' : '')}₹${diff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+            <td style="white-space:nowrap;"><strong>${app.ui.formatDate(r.date)}</strong> <span style="color:#64748b; font-size:11px;white-space:nowrap;">(${weekday})</span></td>
+            <td style="text-align:right; font-weight:bold; white-space:nowrap; color:#0284c7;">₹${hosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:right; font-weight:bold; white-space:nowrap; color:#8b5cf6;">₹${bank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+            <td style="text-align:center; font-weight:bold; white-space:nowrap; color:${diff === 0 ? '#059669' : '#dc2626'};">
+              ${diff === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((diff > 0 ? '-₹' : '+₹') + Math.abs(diff).toLocaleString('en-IN', {minimumFractionDigits:2}))}
             </td>
             <td style="text-align:center; font-size:11px; font-weight:600; color:${diff === 0 ? '#059669' : '#dc2626'};">
               ${diff === 0 ? '✓ Matched' : (diff > 0 ? 'Hospital Excess' : 'Bank Excess')}
@@ -7773,8 +7753,8 @@ const app = {
               <div class="lbl">Bank UPI Statement</div>
             </div>
             <div class="summary-box">
-              <div class="val" style="color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
-                ${totalDiff > 0 ? '+' : ''}₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+              <div class="val" style="color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};white-space:nowrap;">
+                ${totalDiff === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((totalDiff > 0 ? '-₹' : '+₹') + Math.abs(totalDiff).toLocaleString('en-IN', {minimumFractionDigits:2}))}
               </div>
               <div class="lbl">
                 Net Difference: ${totalDiff === 0 ? 'Matched (₹0.00)' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}
@@ -7809,8 +7789,8 @@ const app = {
                 <td colspan="2" style="text-align:left;">TOTAL (${list.length} Days)</td>
                 <td style="text-align:right; color:#0284c7;">₹${totalHosp.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
                 <td style="text-align:right; color:#8b5cf6;">₹${totalBank.toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
-                <td style="text-align:center; color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
-                  ${totalDiff > 0 ? '+' : ''}₹${totalDiff.toLocaleString('en-IN', {minimumFractionDigits:2})}
+                <td style="text-align:center; white-space:nowrap; color:${totalDiff === 0 ? '#059669' : (totalDiff > 0 ? '#0284c7' : '#8b5cf6')};">
+                  ${totalDiff === 0 ? '₹' + (0).toLocaleString('en-IN', {minimumFractionDigits:2}) : ((totalDiff > 0 ? '-₹' : '+₹') + Math.abs(totalDiff).toLocaleString('en-IN', {minimumFractionDigits:2}))}
                   <div style="font-size:10px; font-weight:600;">${totalDiff === 0 ? 'Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</div>
                 </td>
                 <td style="text-align:center;">${totalDiff === 0 ? '✓ Reconciled' : (totalDiff > 0 ? 'Hospital Excess' : 'Bank Excess')}</td>
