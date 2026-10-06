@@ -9613,7 +9613,7 @@ const app = {
     _billPrintCss(){
       return `@page{size:A4 portrait;margin:12mm 14mm;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:24px 10px;}
+body{font-family:'Times New Roman',Times,serif;color:#111;background:#fff;padding:24px 10px;}
 h1{font-size:24px;font-weight:800;text-align:center;letter-spacing:.02em;margin-bottom:4px;color:#111;text-transform:uppercase;}
 .sub{text-align:center;color:#555;margin-bottom:8px;font-size:13px;}
 .rule{height:2px;background:#111;margin:0 auto 14px;max-width:100%;}
@@ -9631,9 +9631,9 @@ tbody tr.batch-row td{background:#ede9fe!important;font-weight:800;border:1px so
 tfoot td{border:1px solid #111;padding:11px 12px;font-weight:800;font-size:14.5px;background:#f1f5f9;}
 tfoot .r{text-align:right;}
 .pay-note{margin-top:18px;}
-.pay-note-title{font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px;}
-.pay-note-box{border:1px solid #111;min-height:110px;padding:14px 16px;font-size:18px;line-height:1.55;font-weight:600;white-space:pre-wrap;background:#fff;overflow-wrap:break-word;}
-.pay-note-box .empty-hint{font-size:18px;}
+.pay-note-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+.pay-note-box{border:1px solid #111;min-height:70px;padding:10px 12px;font-size:12px;line-height:1.5;font-weight:600;white-space:pre-wrap;background:#fff;overflow-wrap:break-word;}
+.pay-note-box .empty-hint{font-size:12px;}
 .sign-row{display:flex;justify-content:space-between;gap:40px;margin-top:56px;}
 .sign-box{flex:1;text-align:center;}
 .sign-line{border-top:1.5px solid #111;margin-bottom:8px;height:1px;}
