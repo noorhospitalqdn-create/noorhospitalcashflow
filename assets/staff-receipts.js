@@ -724,6 +724,29 @@
       updateLive();
     },
     populateVendorSelect: populateVendorSelect,
+    /* Rename vendor across all receipts (called when a vendor is renamed in Vendor Directory) */
+    renameVendor: async function (oldName, newName) {
+      var normOld = String(oldName || '').trim().toLowerCase();
+      var cleanNew = String(newName || '').trim();
+      if (!normOld || !cleanNew) return 0;
+      var arr = load();
+      var renamedIds = [];
+      arr.forEach(function (r) {
+        if (String(r.name || '').trim().toLowerCase() === normOld && String(r.name || '').trim() !== cleanNew) {
+          r.name = cleanNew;
+          r.updatedAt = new Date().toISOString();
+          renamedIds.push(r.id);
+        }
+      });
+      if (!renamedIds.length) return 0;
+      save(arr);
+      renamedIds.forEach(function (id) {
+        var rec = arr.filter(function (x) { return String(x.id) === String(id); })[0];
+        if (rec) { try { markDirty(rec.id); pushReceipt(rec); } catch (e) {} }
+      });
+      try { render(); } catch (e) {}
+      return renamedIds.length;
+    },
     /* Open the move-choice dialog (after save, or from list/preview) */
     openMoveDialog: function (id) {
       if (id) currentId = id;
@@ -740,8 +763,8 @@
       var note = $('receipt-move-note');
       if (note) {
         note.textContent = r.movedTo
-          ? 'This receipt is already in ' + (r.movedTo === 'hospital' ? 'Hospital Advance' : 'Muhasib Advance') + ' (' + (r.slipToken || '') + ') — choosing again will remove the old slip and add it to the new place.'
-          : 'Selecting Muhasib Advance or Hospital Advance will create an entry for this amount in that slip register. Skip keeps only the receipt.';
+          ? 'This receipt is already in ' + (r.movedTo === 'hospital' ? 'Hospital Advance' : 'Muhasib Advance') + ' (' + (r.slipToken || '') + ') — choosing again will remove the old slip, permanently move it to the new place, and delete it from this register.'
+          : 'Selecting Muhasib Advance or Hospital Advance will PERMANENTLY move this entry there. The receipt will be removed from this register. Skip keeps only the receipt.';
       }
       openModal('dialog-receipt-move');
     },
@@ -750,21 +773,29 @@
       var r = arr.filter(function (x) { return String(x.id) === String(currentId); })[0];
       if (!r) { closeModal('dialog-receipt-move'); return; }
       if (!window.app || !app.db) { toast('App is not ready — please try again in a moment', 'error'); return; }
-      toast('Adding to slip register...', 'info');
+      toast('Moving permanently to slip register...', 'info');
       try {
         var link = await createLinkedSlip(r, dest);
         if (!link) return;
-        r.movedTo = dest;
-        r.slipId = link.id;
-        r.slipToken = link.tokenNumber;
-        r.updatedAt = new Date().toISOString();
-        save(arr.map(function (x) { return String(x.id) === String(r.id) ? r : x; }));
-        pushReceipt(r);
+        // Permanent move: remove the receipt from this register (tombstone + remote
+        // delete so it never reappears), keep the newly created slip.
+        var movedId = String(r.id);
+        var movedCopy = JSON.parse(JSON.stringify(r));
+        movedCopy.movedTo = dest;
+        movedCopy.slipId = link.id;
+        movedCopy.slipToken = link.tokenNumber;
+        save(load().filter(function (x) { return String(x.id) !== movedId; }));
+        var tomb = loadIds(LS_DELETED);
+        if (tomb.indexOf(movedId) === -1) { tomb.push(movedId); saveIds(LS_DELETED, tomb); }
+        unmarkDirty(movedId);
+        if (onlineReady()) {
+          remoteDelete(movedId).catch(function (e) { console.warn('[receipts] moved receipt remote delete failed (tombstone protects):', e); });
+        }
         if (app.syncState) await app.syncState();
         render();
         closeModal('dialog-receipt-move');
-        paintPaper(r); openModal('dialog-receipt-view');
-        toast(dest === 'hospital' ? 'Added to Hospital Advance (' + link.tokenNumber + ')' : 'Added to Muhasib Advance (' + link.tokenNumber + ')');
+        paintPaper(movedCopy); openModal('dialog-receipt-view');
+        toast(dest === 'hospital' ? 'Permanently moved to Hospital Advance (' + link.tokenNumber + ')' : 'Permanently moved to Muhasib Advance (' + link.tokenNumber + ')');
       } catch (e) {
         console.error(e);
         toast('Move failed: ' + (e && e.message ? e.message : e), 'error');

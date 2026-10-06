@@ -1594,7 +1594,7 @@ const app = {
       } catch (_) {}
 
       for (const vName of discoveredVendors) {
-        const norm = vName.toLowerCase();
+        const norm = vName.trim().toLowerCase();
         if (!existingVendorMap.has(norm)) {
           const newVendor = {
             name: vName,
@@ -5142,22 +5142,56 @@ const app = {
         const idx = app.state.vendors.findIndex(v => v.id === editId);
         if (idx !== -1) app.state.vendors[idx] = updated;
 
-        // Cascade rename to past bills and slips if name changed
-        if (oldName && oldName.toLowerCase() !== name.toLowerCase()) {
+        // Cascade rename to every past record carrying the old name (any change, including case-only)
+        let touched = 0;
+        if (oldName && oldName !== name) {
+          const normOld = oldName.toLowerCase();
           for (const b of (app.state.bills || [])) {
-            if ((b.vendor || '').trim().toLowerCase() === oldName.toLowerCase()) {
+            if ((b.vendor || '').trim().toLowerCase() === normOld) {
               b.vendor = name;
-              try { await app.db.put('bills', b.id, b); } catch (_) {}
+              try { await app.db.put('bills', b.id, b); touched++; } catch (_) {}
             }
           }
           for (const s of (app.state.temporarySlips || [])) {
-            if ((s.vendor || '').trim().toLowerCase() === oldName.toLowerCase()) {
+            if ((s.vendor || '').trim().toLowerCase() === normOld) {
               s.vendor = name;
-              try { await app.db.put('temporary_slips', s.id, s); } catch (_) {}
+              try { await app.db.put('temporary_slips', s.id, s); touched++; } catch (_) {}
             }
           }
+          try {
+            if (window.app && app.receipts && app.receipts.renameVendor) {
+              touched += (await app.receipts.renameVendor(oldName, name)) || 0;
+            }
+          } catch (_) {}
         }
-        app.ui.showToast(`Vendor "${name}" updated successfully!`, 'success');
+
+        // Merge any twin vendor rows that normalize to the new name so no duplicate can reappear after sync
+        let mergedTwins = 0;
+        const normNew = name.trim().toLowerCase();
+        const twins = (app.state.vendors || []).filter(v =>
+          v && v.id !== editId && String(v.name || '').trim().toLowerCase() === normNew
+        );
+        for (const t of twins) {
+          if (!updated.phone && t.phone) updated.phone = t.phone;
+          if ((!updated.vendorCode || updated.vendorCode === '') && (t.vendorCode || t.code)) updated.vendorCode = t.vendorCode || t.code;
+          if ((!updated.category || updated.category === 'General') && t.category && t.category !== 'General') updated.category = t.category;
+          if ((!updated.remarks || updated.remarks.indexOf('Auto-migrated') > -1 || updated.remarks.indexOf('Auto-created') > -1) && t.remarks && t.remarks.indexOf('Auto-migrated') === -1 && t.remarks.indexOf('Auto-created') === -1) updated.remarks = t.remarks;
+          try { await app.db.delete('vendors', t.id); mergedTwins++; } catch (_) {}
+        }
+        if (mergedTwins) {
+          try { await app.db.put('vendors', editId, updated); } catch (_) {}
+          const keepIdx = app.state.vendors.findIndex(v => v.id === editId);
+          if (keepIdx !== -1) app.state.vendors[keepIdx] = updated;
+          app.state.vendors = (app.state.vendors || []).filter(v =>
+            v && (v.id === editId || String(v.name || '').trim().toLowerCase() !== normNew)
+          );
+        }
+        app.ui.showToast(
+          mergedTwins
+            ? `Vendor "${name}" updated (${touched} records, ${mergedTwins} duplicate${mergedTwins > 1 ? 's' : ''} merged).`
+            : `Vendor "${name}" updated successfully!${touched ? ` (${touched} records).` : ''}`,
+          'success'
+        );
       } else {
         const newVendor = {
           name: name,
