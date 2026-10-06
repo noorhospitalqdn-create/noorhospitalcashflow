@@ -2260,14 +2260,14 @@ const app = {
         }
       });
 
-      // Form: Convert Temporary Slip to Final Bills/Slips (SPLIT — 1 slip se N entries, alag vendor/amount)
+      // Form: Convert Temporary Slip to Final Bills/Slips (SPLIT — one slip creates N entries with separate vendor/amount/date)
       document.getElementById('form-slip-convert').addEventListener('submit', async (e) => {
         e.preventDefault();
         try {
           const slipIdRaw = document.getElementById('convert-slip-id').value;
           const slipId = parseInt(slipIdRaw, 10);
           const destInfo = app.ui._convertDestInfo();
-          // Legacy values ('advance'/'hospital') ko bill destination samjho
+          // Treat legacy values ('advance'/'hospital') as bill destination
           const isSlipDest = !!destInfo.isSlip;
           const expenseType = destInfo.exp;
           const destLabel = destInfo.label;
@@ -2276,26 +2276,27 @@ const app = {
           const slipAmount = slip ? Number(slip.amount) || 0 : 0;
           const rows = app.ui.getConvertSplitRows();
           const kindWord = isSlipDest ? 'slip row' : 'bill row';
-          if (!rows.length) { app.ui.showToast(`Kam se kam 1 ${kindWord} chahiye.`, 'warning'); return; }
+          if (!rows.length) { app.ui.showToast(`At least one ${kindWord} is required.`, 'warning'); return; }
           for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
-            if (!r.vendor) { app.ui.showToast(`Row ${i + 1}: vendor select karo.`, 'warning'); return; }
-            if (!isSlipDest && !r.billNumber) { app.ui.showToast(`Row ${i + 1}: bill / invoice number likho.`, 'warning'); return; }
-            if (!isSlipDest && !r.head) { app.ui.showToast(`Row ${i + 1}: head select karo.`, 'warning'); return; }
-            if (!(r.amount > 0)) { app.ui.showToast(`Row ${i + 1}: amount 0 se zyada likho.`, 'warning'); return; }
+            if (!r.vendor) { app.ui.showToast(`Row ${i + 1}: Please select a vendor.`, 'warning'); return; }
+            if (!isSlipDest && !r.billNumber) { app.ui.showToast(`Row ${i + 1}: Please enter the bill / invoice number.`, 'warning'); return; }
+            if (!isSlipDest && !r.head) { app.ui.showToast(`Row ${i + 1}: Please select a head.`, 'warning'); return; }
+            if (!r.date) { app.ui.showToast(`Row ${i + 1}: Please select a date.`, 'warning'); return; }
+            if (!(r.amount > 0)) { app.ui.showToast(`Row ${i + 1}: Please enter an amount greater than zero.`, 'warning'); return; }
             if (isSlipDest) {
               const ok = (app.state.vendors || []).some(v => v.name && v.name.trim().toLowerCase() === String(r.vendor).trim().toLowerCase());
-              if (!ok) { app.ui.showToast(`Row ${i + 1}: vendor "${r.vendor}" registered nahi hai. Pehle vendor banao.`, 'error'); return; }
+              if (!ok) { app.ui.showToast(`Row ${i + 1}: Vendor "${r.vendor}" is not registered. Please create the vendor first.`, 'error'); return; }
             }
           }
           const splitTotal = rows.reduce((s, r) => s + r.amount, 0);
           if (splitTotal - slipAmount > 0.009) {
-            app.ui.showToast(`Split total (${app.ui.formatCurrency(splitTotal)}) slip amount (${app.ui.formatCurrency(slipAmount)}) se zyada hai!`, 'error');
+            app.ui.showToast(`Split total (${app.ui.formatCurrency(splitTotal)}) exceeds slip amount (${app.ui.formatCurrency(slipAmount)}).`, 'error');
             return;
           }
           const remaining = slipAmount - splitTotal;
           if (remaining > 0.009) {
-            const ok = confirm(`Split total ${app.ui.formatCurrency(splitTotal)} hai, slip ${app.ui.formatCurrency(slipAmount)} thi.\nBaqi ${app.ui.formatCurrency(remaining)} chhut jayegi (cash wapas/adjust samjha jayega).\n\nContinue karen?`);
+            const ok = confirm(`Split total is ${app.ui.formatCurrency(splitTotal)}, slip was ${app.ui.formatCurrency(slipAmount)}.\nRemaining ${app.ui.formatCurrency(remaining)} will be left over (treated as cash back / adjustment).\n\nDo you want to continue?`);
             if (!ok) return;
           }
           
@@ -2344,8 +2345,6 @@ const app = {
             }
           }
 
-          const entryDate = document.getElementById('convert-bill-date').value;
-          if (!entryDate) { app.ui.showToast('Date select karo.', 'warning'); return; }
           const commonRemarks = document.getElementById('convert-bill-remarks').value || '';
           const parentSlipId = isNaN(slipId) ? slipIdRaw : slipId;
 
@@ -2357,12 +2356,12 @@ const app = {
 
           let created = 0;
           if (isSlipDest) {
-            // Build N slips — pehli slip purani attachment carry karegi
+            // Build N slips — first slip carries the previous attachment, each row keeps its own date
             const slipTokenType = expenseType === 'advance' ? 'advance_slip' : 'hospital_slip';
             for (let idx = 0; idx < rows.length; idx++) {
               const r = rows[idx];
               await app.db.add('temporary_slips', {
-                date: entryDate,
+                date: r.date,
                 vendor: r.vendor,
                 amount: r.amount,
                 expenseType: expenseType,
@@ -2374,12 +2373,12 @@ const app = {
               created++;
             }
           } else {
-            // Build N bills — first bill carries slip attachment, rest without
+            // Build N bills — first bill carries slip attachment, each row keeps its own bill number and date
             const billTokenType = expenseType === 'advance' ? 'advance_bill' : 'hospital_bill';
             for (let idx = 0; idx < rows.length; idx++) {
               const r = rows[idx];
               await app.db.add('bills', {
-                date: entryDate,
+                date: r.date,
                 billNumber: r.billNumber,
                 vendor: r.vendor,
                 amount: r.amount,
@@ -2396,7 +2395,7 @@ const app = {
             }
           }
 
-          // Original slip ko temporary_slips se poori tarah delete karo
+          // Fully remove the original slip from temporary_slips
           const delId = parentSlipId;
           await app.db.delete('temporary_slips', delId);
           if (typeof delId === 'string' && !isNaN(parseInt(delId, 10))) {
@@ -2407,7 +2406,7 @@ const app = {
 
           app.attachments.clearStagedFile('convert');
           app.ui.closeModal('dialog-slip-convert');
-          app.ui.showToast(`${created} ${isSlipDest ? 'slip(s)' : 'bill(s)'} ${destLabel} me ban gaye! Slip converted.`);
+          app.ui.showToast(`${created} ${isSlipDest ? 'slip(s)' : 'bill(s)'} created in ${destLabel}. Slip converted.`);
           await app.syncState();
         } catch (err) {
           console.error(err);
@@ -3507,10 +3506,15 @@ const app = {
         return `<option value="${val}"${h.name === selected ? ' selected' : ''}>${app.ui.escapeHTML(h.name)}</option>`;
       }).join('');
     },
-    addConvertSplitRow(vendorPrefill = '', amountPrefill = '') {
+    addConvertSplitRow(vendorPrefill = '', amountPrefill = '', datePrefill = '') {
       const wrap = document.getElementById('convert-split-rows');
       if (!wrap) return;
       const idx = wrap.children.length + 1;
+      let defaultDate = datePrefill || '';
+      if (!defaultDate) {
+        const lastDateEl = wrap.querySelector('.convert-split-row:last-child .convert-split-date');
+        defaultDate = lastDateEl?.value || app.getTodayISO();
+      }
       const row = document.createElement('div');
       row.className = 'convert-split-row';
       row.style.cssText = 'border:1px solid var(--border-color);border-radius:10px;padding:0.6rem;background:var(--bg-elevated);display:flex;flex-direction:column;gap:0.5rem;';
@@ -3525,7 +3529,8 @@ const app = {
         + `<div class="grid-2 convert-split-row-bill">`
         + `<div class="form-group" style="margin:0;"><label class="form-label">Bill / Invoice # *</label><input type="text" class="form-input font-mono convert-split-billno" placeholder="INV-1002" required></div>`
         + `<div class="form-group" style="margin:0;"><label class="form-label">Head *</label><select class="form-select convert-split-head" required>${app.ui._convertSplitHeadOptions()}</select></div>`
-        + `</div>`;
+        + `</div>`
+        + `<div class="form-group" style="margin:0;"><label class="form-label">Bill Date *</label><input type="date" class="form-input convert-split-date" value="${defaultDate}" required></div>`;
       wrap.appendChild(row);
       row.querySelector('.convert-split-amount').addEventListener('input', () => app.ui.recalcConvertSplitTotal());
       app.ui.recalcConvertSplitTotal();
@@ -3535,7 +3540,7 @@ const app = {
       const wrap = document.getElementById('convert-split-rows');
       const row = btn.closest('.convert-split-row');
       if (wrap && row) {
-        if (wrap.children.length <= 1) { app.ui.showToast('Kam se kam 1 row rakho.', 'warning'); return; }
+        if (wrap.children.length <= 1) { app.ui.showToast('At least one row is required.', 'warning'); return; }
         row.remove();
         app.ui.recalcConvertSplitTotal();
         app.ui._renumberConvertSplitRows();
@@ -3584,6 +3589,7 @@ const app = {
         vendor: row.querySelector('.convert-split-vendor')?.value?.trim() || '',
         billNumber: row.querySelector('.convert-split-billno')?.value?.trim() || '',
         head: row.querySelector('.convert-split-head')?.value?.trim() || '',
+        date: row.querySelector('.convert-split-date')?.value || '',
         amount: parseFloat(row.querySelector('.convert-split-amount')?.value) || 0
       }));
     },
@@ -3621,12 +3627,9 @@ const app = {
       document.getElementById('convert-slip-vendor-display').innerText = vendor;
       document.getElementById('convert-slip-amount-display').innerText = app.ui.formatCurrency(amount);
 
-      // Split rows: pehli row slip vendor + full amount se prefill
+      // Split rows: prefill first row with slip vendor and full amount, with today's date
       const wrap = document.getElementById('convert-split-rows');
       if (wrap) wrap.innerHTML = '';
-      if (document.getElementById('convert-bill-date')) {
-        document.getElementById('convert-bill-date').value = new Date().toISOString().split('T')[0];
-      }
       
       // Clear staged convert attachment
       app.attachments.stagedConvertAttachment = null;

@@ -66,8 +66,8 @@
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261002_01" defer></script>
-  <script src="assets/staff-receipts.js?v=20261002_01" defer></script>
+  <script src="assets/app.js?v=20261006_01" defer></script>
+  <script src="assets/staff-receipts.js?v=20261006_01" defer></script>
 </head>
 <body>
 
@@ -736,7 +736,7 @@
               <div class="chart-card-header">
                 <div class="chart-header-left">
                   <div class="chart-title">Muhasib vs Hospital — Cash & Pending Bills</div>
-                  <div class="chart-subtitle">Dept-wise cash in hand and unpaid bills — kaunsa paisa kiska hai</div>
+                  <div class="chart-subtitle">Department-wise cash in hand and unpaid bills</div>
                 </div>
                 <div class="chart-legend-pills">
                   <span class="chart-pill pill-muhasib">Muhasib Cash</span>
@@ -2812,7 +2812,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="convert-bill-exptype">Destination (kahan convert karna hai)</label>
+          <label class="form-label" for="convert-bill-exptype">Destination</label>
           <select id="convert-bill-exptype" class="form-select" required onchange="app.ui.onConvertDestinationChange()">
             <option value="hospital_bill" selected>Hospital Bills (Against Hospital Cash Collection)</option>
             <option value="advance_bill">Muhasib Bills (Against Muhasib Advance Float)</option>
@@ -2821,31 +2821,25 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
           </select>
         </div>
 
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label" for="convert-bill-date">Date (sab new entries par same)</label>
-            <input type="date" id="convert-bill-date" class="form-input" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Split Total vs Slip</label>
-            <div class="detail-badge" style="margin:0;">
-              <span class="detail-badge-label">Split Total / Baqi</span>
-              <span class="detail-badge-val" id="convert-split-total-display">₹0.00 / ₹0.00</span>
-            </div>
+        <div class="form-group">
+          <label class="form-label">Split Total vs Slip</label>
+          <div class="detail-badge" style="margin:0;">
+            <span class="detail-badge-label">Split Total / Remaining</span>
+            <span class="detail-badge-val" id="convert-split-total-display">₹0.00 / ₹0.00</span>
           </div>
         </div>
 
         <div class="form-group">
           <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <label class="form-label" style="margin-bottom:0;">Split Bills — har group / vendor ke liye ek row <span class="text-error">*</span></label>
+            <label class="form-label" style="margin-bottom:0;">Split Bills — One row per vendor / group <span class="text-error">*</span></label>
             <button type="button" class="btn-vendor-quick-add" onclick="app.ui.addConvertSplitRow()">+ Add Bill Row</button>
           </div>
           <div id="convert-split-rows" style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem;"></div>
-          <p class="text-muted" style="font-size:0.75rem; margin-top:0.4rem;">Bill destination par har row me alag vendor / bill no / head (example: 500 slip → 100 + 100 + 200 + 100). Slip destination par sirf vendor + amount use hoga. Total slip se zyada nahi ho sakta.</p>
+          <p class="text-muted" style="font-size:0.75rem; margin-top:0.4rem;">Each row creates a separate bill with its own bill number and date (example: 500 slip → 100 + 100 + 200 + 100). For slip destination only vendor + amount + date are used. Total cannot exceed slip amount.</p>
         </div>
         <input type="hidden" id="convert-bill-category" value="General">
         <div class="form-group">
-          <label class="form-label" for="convert-bill-remarks">Remarks (all split bills par lagega, optional)</label>
+          <label class="form-label" for="convert-bill-remarks">Remarks (applied to all split bills, optional)</label>
           <textarea id="convert-bill-remarks" class="form-textarea" placeholder="Final bill adjustments..." rows="2"></textarea>
         </div>
         <div class="form-group">
