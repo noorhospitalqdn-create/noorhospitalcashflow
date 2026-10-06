@@ -691,6 +691,15 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.quick-actions-bar .btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 /* ---------- 6. BUTTON SYSTEM ---------- */
@@ -885,17 +894,20 @@ html[data-theme="light"] .dash-exec-hero {
   border-color: rgba(99, 102, 241, 0.65);
 }
 
-/* 4 Financial Pillar Cards Strip (Executive Master Row) */
+/* 4 Financial Pillar Cards Strip (Executive Master Row) — fluid auto-fit */
 .dash-pillar-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 15px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-@media (max-width: 1100px) {
-  .dash-pillar-grid { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1400px) {
+  .dash-pillar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-  .dash-pillar-grid { grid-template-columns: 1fr; }
+  .dash-pillar-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .dash-pillar-card {
@@ -910,6 +922,11 @@ html[data-theme="light"] .dash-exec-hero {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  height: 100%;
 }
 .dash-pillar-card:hover {
   background: rgba(255, 255, 255, 0.075);
@@ -956,6 +973,8 @@ html[data-theme="light"] .dash-exec-hero {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .pillar-label {
   font-size: 0.72rem;
@@ -963,6 +982,11 @@ html[data-theme="light"] .dash-exec-hero {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #94a3b8;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 .pillar-pill {
   font-size: 0.62rem;
@@ -972,6 +996,9 @@ html[data-theme="light"] .dash-exec-hero {
   padding: 2px 8px;
   border-radius: 99px;
   border: 1px solid transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
+  max-width: 100%;
 }
 .pill-liquid { background: rgba(16, 185, 129, 0.22); color: #34d399; border-color: rgba(16, 185, 129, 0.45); }
 .pill-muhasib { background: rgba(168, 85, 247, 0.22); color: #c084fc; border-color: rgba(168, 85, 247, 0.45); }
@@ -980,17 +1007,22 @@ html[data-theme="light"] .dash-exec-hero {
 
 .pillar-val {
   font-family: var(--font-mono);
-  font-size: 1.65rem;
+  font-size: clamp(1.15rem, 1.05rem + 1.2vw, 1.65rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #ffffff;
   font-variant-numeric: tabular-nums;
   margin: 4px 0 3px;
   line-height: 1.15;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 .pillar-hero-liquid .pillar-val {
   color: #34d399;
-  font-size: 1.85rem;
+  font-size: clamp(1.3rem, 1.15rem + 1.4vw, 1.85rem);
   text-shadow: 0 0 16px rgba(52, 211, 153, 0.3);
 }
 .text-muhasib { color: #c084fc; }
@@ -1002,9 +1034,14 @@ html[data-theme="light"] .dash-exec-hero {
   color: #94a3b8;
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  column-gap: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 9px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .pillar-meta-dot {
   width: 6px;
@@ -1019,10 +1056,16 @@ html[data-theme="light"] .dash-exec-hero {
   font-weight: 700;
   color: #f1f5f9;
   margin-left: auto;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+  text-align: right;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ---------- 8. REFINED DASHBOARD GROUP SECTIONS ---------- */
-.dash-groups { display: flex; flex-direction: column; gap: 20px; }
+.dash-groups { display: flex; flex-direction: column; gap: 20px; min-width: 0; width: 100%; max-width: 100%; box-sizing: border-box; }
 .dash-group {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -1032,6 +1075,10 @@ html[data-theme="light"] .dash-exec-hero {
   position: relative;
   overflow: visible;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 html[data-theme="dark"] .dash-group {
   box-shadow: 0 8px 30px -8px rgba(0, 0, 0, 0.4);
@@ -1041,13 +1088,20 @@ html[data-theme="dark"] .dash-group {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 10px;
+  column-gap: 12px;
   margin-bottom: 18px;
   padding: 0 2px;
+  min-width: 0;
 }
 .dash-group-head-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
 }
 .dash-group-dot {
   width: 13px;
@@ -1141,29 +1195,49 @@ html[data-theme="dark"] .tag-accounts { color: #a78bfa; border-color: rgba(99, 1
 .dash-group-upi .dash-group-dot { background: #0ea5e9; box-shadow: 0 0 10px rgba(14, 165, 233, 0.5); }
 .dash-group-accounts .dash-group-dot { background: #8b5cf6; box-shadow: 0 0 10px rgba(139, 92, 246, 0.5); }
 
-/* Financial Metrics Grid */
+/* Financial Metrics Grid — fluid auto-adjust (laptop vs PC) */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 15px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .metrics-grid-3 {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
 }
 .metrics-grid-2 {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
 }
 @media (max-width: 900px) {
-  .metrics-grid-3, .metrics-grid-2 { grid-template-columns: 1fr; }
+  .metrics-grid-3, .metrics-grid-2 { grid-template-columns: minmax(0, 1fr); }
 }
 
 .dash-reconcile-matrix {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
-@media (max-width: 1050px) {
-  .dash-reconcile-matrix { grid-template-columns: 1fr; }
+@media (max-width: 1400px) {
+  .dash-reconcile-matrix { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Laptop/PC fluid spacing — more room for cards on smaller screens */
+@media (max-width: 1400px) {
+  .panel-container { padding: 20px 20px 40px; }
+  .dash-exec-hero { padding: 20px; }
+}
+@media (max-width: 1100px) {
+  .panel-container { padding: 16px 16px 32px; }
+  .dash-exec-hero { padding: 18px 16px; }
+  .dash-group { padding: 16px 16px 18px; }
+  .dash-pillar-card { padding: 14px 15px 12px; }
+  .metric-card { min-height: 0; }
 }
 
 /* Metric Cards */
@@ -1177,6 +1251,7 @@ html[data-theme="dark"] .tag-accounts { color: #a78bfa; border-color: rgba(99, 1
 }
 .metric-card {
   min-height: 130px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1187,6 +1262,11 @@ html[data-theme="dark"] .tag-accounts { color: #a78bfa; border-color: rgba(99, 1
   border: 1px solid var(--border-color);
   padding: 16px 18px;
   overflow: visible;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
 }
 .metric-card:hover {
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.12);
@@ -1269,7 +1349,7 @@ html[data-theme="dark"] .dash-group-accounts .metric-icon {
 
 .card-metric-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
   font-size: 0.72rem;
@@ -1277,6 +1357,16 @@ html[data-theme="dark"] .dash-group-accounts .metric-icon {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.card-metric-header > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.4;
+  white-space: normal;
 }
 .metric-icon {
   width: 34px;
@@ -1298,23 +1388,39 @@ html[data-theme="dark"] .dash-group-accounts .metric-icon {
 
 .card-metric-value {
   font-family: var(--font-mono);
-  font-size: 1.68rem;
+  font-size: clamp(1.15rem, 1.05rem + 1.1vw, 1.68rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--text-main);
   font-variant-numeric: tabular-nums;
   margin: 3px 0 2px;
   line-height: 1.2;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 .card-metric-footer {
   font-size: 0.71rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  column-gap: 6px;
   border-top: 1px solid var(--border-subtle);
   padding-top: 8px;
   font-weight: 500;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.card-metric-footer > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 /* Colors on values */
@@ -2316,7 +2422,6 @@ dialog::backdrop {
 
 /* ---------- 14. RESPONSIVE DESIGN (MOBILE & TABLET) ---------- */
 @media (max-width: 1180px) {
-  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
   .dashboard-details-row { grid-template-columns: 1fr; }
   .charts-row { grid-template-columns: 1fr; }
 }
@@ -2411,15 +2516,18 @@ dialog::backdrop {
   }
   .user-profile-badge { font-size: 0.68rem; padding: 3px 8px 3px 5px; }
 
-  /* Quick Actions Bar - Clean 3-column Grid (Zero Overflow) */
+  /* Quick Actions Bar - 5 shortcuts: 2-column grid on mobile, last spans full */
   .quick-actions-bar {
     display: grid !important;
-    grid-template-columns: 1fr 1fr 1.35fr !important;
+    grid-template-columns: 1fr 1fr !important;
     gap: 6px !important;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
+  }
+  .quick-actions-bar .btn:last-child {
+    grid-column: 1 / -1 !important;
   }
   .quick-actions-bar .btn {
     min-height: 38px !important;

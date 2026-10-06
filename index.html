@@ -58,7 +58,7 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261001_03">
+  <link rel="stylesheet" href="assets/app.css?v=20261006_02">
   <link rel="stylesheet" href="assets/staff-receipts.css?v=20261001_03">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
@@ -338,7 +338,6 @@
             </button>
             <div class="top-bar-title-wrap">
               <h1 class="panel-heading" id="main-panel-title">Overview Dashboard</h1>
-              <div class="page-sub" id="main-panel-sub">Noor Hospital • Live cash position • Offline-first</div>
             </div>
           </div>
           <div class="sync-status-indicator" id="sync-status-indicator">
@@ -357,21 +356,6 @@
               <span id="user-display-name">MUBASHAR</span>
             </div>
           </div>
-        </div>
-        <!-- Quick Action Buttons Row -->
-        <div class="quick-actions-bar">
-          <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-slip-add')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
-            <span>Slip</span>
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="app.ui.openModal('dialog-bill-add')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5v14"/></svg>
-            <span>Bill</span>
-          </button>
-          <button class="btn btn-secondary btn-sm" onclick="if(window.app&&app.receipts)app.receipts.openAddModal()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
-            <span>Receipt</span>
-          </button>
         </div>
       </header>
 
@@ -395,21 +379,25 @@
 
               <!-- Quick Action Command Strip -->
               <div class="dash-quick-actions">
+                <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('advance')" title="Add Muhasib Bill">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
+                  <span>+ Muhasib Bill</span>
+                </button>
+                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'advance')" title="Add Muhasib Advance Slip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  <span>+ Muhasib Adv</span>
+                </button>
+                <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('hospital')" title="Add Hospital Bill">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
+                  <span>+ Hospital Bill</span>
+                </button>
+                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'hospital')" title="Add Hospital Advance Slip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  <span>+ Hospital Adv</span>
+                </button>
                 <button type="button" class="dash-action-btn dash-action-primary" onclick="if(window.app&&app.receipts)app.receipts.openAddModal()" title="Issue Staff Cash Advance Slip">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
                   <span>+ Staff Receipt</span>
-                </button>
-                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-advance-add')" title="Add Float Entry">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  <span>+ Muhasib Cash</span>
-                </button>
-                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-hospital-add')" title="Record Hospital Collection">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  <span>+ Collection</span>
-                </button>
-                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-bill-add')" title="Record Vendor Bill">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-                  <span>+ Bill</span>
                 </button>
               </div>
             </div>
