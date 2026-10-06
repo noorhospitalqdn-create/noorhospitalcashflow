@@ -5142,25 +5142,30 @@ const app = {
         const idx = app.state.vendors.findIndex(v => v.id === editId);
         if (idx !== -1) app.state.vendors[idx] = updated;
 
-        // Cascade rename to every past record carrying the old name (any change, including case-only)
+        // Cascade the exact vendor spelling to every past record of this vendor.
+        // Always runs on update (not only when the name changed) so stale entries
+        // left behind by earlier renames get repaired too.
         let touched = 0;
-        if (oldName && oldName !== name) {
-          const normOld = oldName.toLowerCase();
+        {
+          const norms = new Set();
+          if (oldName) norms.add(oldName.toLowerCase());
+          norms.add(name.trim().toLowerCase());
+          const matches = (v) => norms.has((v || '').trim().toLowerCase());
           for (const b of (app.state.bills || [])) {
-            if ((b.vendor || '').trim().toLowerCase() === normOld) {
+            if (matches(b.vendor) && b.vendor !== name) {
               b.vendor = name;
               try { await app.db.put('bills', b.id, b); touched++; } catch (_) {}
             }
           }
           for (const s of (app.state.temporarySlips || [])) {
-            if ((s.vendor || '').trim().toLowerCase() === normOld) {
+            if (matches(s.vendor) && s.vendor !== name) {
               s.vendor = name;
               try { await app.db.put('temporary_slips', s.id, s); touched++; } catch (_) {}
             }
           }
           try {
             if (window.app && app.receipts && app.receipts.renameVendor) {
-              touched += (await app.receipts.renameVendor(oldName, name)) || 0;
+              touched += (await app.receipts.renameVendor(oldName || name, name)) || 0;
             }
           } catch (_) {}
         }
@@ -5192,6 +5197,8 @@ const app = {
             : `Vendor "${name}" updated successfully!${touched ? ` (${touched} records).` : ''}`,
           'success'
         );
+        // Re-render all registers from the database so updated entries show immediately
+        try { if (app.syncState) await app.syncState(); } catch (_) {}
       } else {
         const newVendor = {
           name: name,
