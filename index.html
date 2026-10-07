@@ -66,7 +66,7 @@
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261007_03" defer></script>
+  <script src="assets/app.js?v=20261007_04" defer></script>
   <script src="assets/staff-receipts.js?v=20261007_01" defer></script>
 </head>
 <body>
@@ -475,6 +475,19 @@
                 <span class="dash-dept-tag tag-muhasib">MUHASIB TREASURY</span>
               </div>
               <div class="metrics-grid">
+                <div class="card metric-card card-gradient-secondary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-cash\']').click()">
+                  <div class="card-metric-header">
+                    <span>Muhasib Total Cash</span>
+                    <span class="metric-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </span>
+                  </div>
+                  <div class="card-metric-value" id="dash-advance-total-cash">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span>Gross cash received including opening balance</span>
+                  </div>
+                </div>
+
                 <div class="card metric-card card-gradient-primary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-cash\']').click()">
                   <div class="card-metric-header">
                     <span>Current Muhasib Cash Available</span>
@@ -608,10 +621,8 @@
               </div>
             </div>
 
-            <!-- GROUP 3: Digital Banking & Accounts Transit Matrix -->
-            <div class="dash-reconcile-matrix">
-              
-              <!-- Subgroup A: UPI Reconciliation -->
+            <!-- GROUP 3: Digital Banking -->
+              <!-- UPI Reconciliation -->
               <div class="dash-group dash-group-upi">
                 <div class="dash-group-head">
                   <div class="dash-group-head-left">
@@ -663,49 +674,6 @@
                   </div>
                 </div>
               </div>
-
-              <!-- Subgroup B: Accounts Department & Transit -->
-              <div class="dash-group dash-group-accounts">
-                <div class="dash-group-head">
-                  <div class="dash-group-head-left">
-                    <span class="dash-group-dot"></span>
-                    <div>
-                      <div class="dash-group-title">Accounts Audit & Transit</div>
-                      <div class="dash-group-sub">Bills submitted to accounts department & awaiting verification</div>
-                    </div>
-                  </div>
-                  <span class="dash-dept-tag tag-accounts">AUDIT & TRANSIT</span>
-                </div>
-                <div class="metrics-grid metrics-grid-2">
-                  <div class="card metric-card card-gradient-secondary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'accounts\']').click()">
-                    <div class="card-metric-header">
-                      <span>Total Sent To Accounts</span>
-                      <span class="metric-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline>
-                      </span>
-                    </div>
-                    <div class="card-metric-value" id="dash-total-sent-to-accounts">₹0.00</div>
-                    <div class="card-metric-footer">
-                      <span>Cumulative bills sent to accounts dept</span>
-                    </div>
-                  </div>
-
-                  <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'balance-sheet\']').click()">
-                    <div class="card-metric-header">
-                      <span>Total Outstanding Bills</span>
-                      <span class="metric-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                      </span>
-                    </div>
-                    <div class="card-metric-value text-error" id="dash-total-pending-bills">₹0.00</div>
-                    <div class="card-metric-footer">
-                      <span>Total outstanding unpaid bills</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
 
             <!-- Optional Hidden Mirror Elements so app.js setters never throw -->
             <div style="display:none;" aria-hidden="true">
@@ -3096,11 +3064,11 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     </form>
   </dialog>
 
-  <!-- MODAL: Bill Payment Request - Print Options -->
+  <!-- MODAL: Cash Advance Adjustment - Print Options -->
   <dialog id="dialog-print-options" closedby="any" class="modal-dialog modal-dialog-sm">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3>Bill Payment Request Form</h3>
+        <h3>Cash Advance Adjustment Form</h3>
         <p class="modal-subtitle">Print header options — defaults already filled</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-print-options')">

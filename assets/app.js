@@ -3704,6 +3704,7 @@ const app = {
       setSafeText('dash-total-cash-me', app.ui.formatCurrency(app.state.totalCashWithMe));
       
       setSafeText('dash-total-advance-received', app.ui.formatCurrency(app.state.totalAdvanceCashReceived));
+      setSafeText('dash-advance-total-cash', app.ui.formatCurrency(app.state.totalAdvanceCashReceived));
       setSafeText('dash-total-hospital-collected', app.ui.formatCurrency(app.state.totalHospitalCashCollected));
       
       setSafeText('dash-advance-bills-pending', app.ui.formatCurrency(app.state.advanceBillsPending));
@@ -9591,7 +9592,7 @@ const app = {
     _billPrintHeaderHtml(opts, subLine){
       const esc=s=>app.ui.escapeHTML(s==null?'':String(s));
       const printDate=new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-      return `<h1>BILL PAYMENT REQUEST FORM</h1>`
+      return `<h1>CASH ADVANCE ADJUSTMENT FORM</h1>`
       + (subLine?`<div class="sub">${esc(subLine)}</div>`:'')
       + `<div class="rule"></div>`
       + `<div class="meta-grid">`
@@ -9676,7 +9677,7 @@ tfoot .r{text-align:right;}
         const vid=app.reports._resolvePrintVendorId(b.vendor, b.vendorId);
         return `<tr><td class="c">${i+1}</td><td>${esc(b.vendor||'-')}</td><td class="c">${esc(vid)}</td><td class="c">${esc(b.num||'-')}</td>${showHead?`<td>${esc(b.head||'-')}</td>`:''}<td class="r">₹${fmt(Number(b.amount)||0)}</td></tr>`;
       }).join('');
-      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Payment Request Form</title><style>`
+      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Cash Advance Adjustment Form</title><style>`
       + app.reports._billPrintCss()
       + `</head><body>`
       + app.reports._billPrintHeaderHtml(o, `Total: ₹${fmt(total)} (${list.length} bills)`)
@@ -9707,7 +9708,7 @@ tfoot .r{text-align:right;}
       });
       const sortedCount=list.length;
       const subTitle=title||'Batch Detail';
-      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Bill Payment Request Form</title><style>`
+      const html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Cash Advance Adjustment Form</title><style>`
       + app.reports._billPrintCss()
       + `</head><body>`
       + app.reports._billPrintHeaderHtml(o, `${subTitle} • Bills grouped by batch • Total: \u20B9${fmt(total)} (${sortedCount} bills)`)
