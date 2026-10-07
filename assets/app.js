@@ -1677,17 +1677,18 @@ const app = {
         .filter(t => t.type === 'amanat')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      // Pending Bills = Non-cleared Bills - Total Transferred (adv-cleared bills settle against advance float)
+      // Pending Bills = Non-cleared Bills only (verification transfers discontinued; accounts flow only).
+      // Advance slips are NOT part of pending bills — they are tracked separately.
       const pendingAdvanceBillsAmount = app.state.bills
         .filter(b => b.expenseType === 'advance' && b.status !== 'adv_cleared')
         .reduce((sum, b) => sum + b.amount, 0);
       app.state.advanceClearedAmount = allAdvanceBillsAmount - pendingAdvanceBillsAmount;
-      app.state.advanceBillsPending = pendingAdvanceBillsAmount - imprestTransfersAmount;
+      app.state.advanceBillsPending = pendingAdvanceBillsAmount;
       const pendingHospitalBillsAmount = app.state.bills
         .filter(b => String(b.expenseType||'').toLowerCase().trim() === 'hospital' && b.status !== 'hosp_cleared')
         .reduce((sum, b) => sum + b.amount, 0);
       app.state.hospitalClearedAmount = allHospitalBillsAmount - pendingHospitalBillsAmount;
-      app.state.hospitalBillsPending = pendingHospitalBillsAmount - amanatTransfersAmount;
+      app.state.hospitalBillsPending = pendingHospitalBillsAmount;
       app.state.totalPendingBills = app.state.advanceBillsPending + app.state.hospitalBillsPending;
 
       // Available to send to accounts = Total Bills - Already Sent to Accounts
@@ -3702,6 +3703,12 @@ const app = {
       setSafeText('dash-advance-cash', app.ui.formatCurrency(app.state.advanceCashAvailable));
       setSafeText('dash-hospital-cash', app.ui.formatCurrency(app.state.hospitalCashAvailable));
       setSafeText('dash-total-cash-me', app.ui.formatCurrency(app.state.totalCashWithMe));
+      // Hero pillar cards (set directly — no mirror dependency)
+      setSafeText('hero-adv-cash', app.ui.formatCurrency(app.state.advanceCashAvailable));
+      setSafeText('hero-hosp-cash', app.ui.formatCurrency(app.state.hospitalCashAvailable));
+      setSafeText('hero-pending', app.ui.formatCurrency(app.state.totalPendingBills));
+      setSafeText('hero-pending-adv', app.ui.formatCurrency(app.state.advanceBillsPending));
+      setSafeText('hero-pending-hosp', app.ui.formatCurrency(app.state.hospitalBillsPending));
       
       setSafeText('dash-total-advance-received', app.ui.formatCurrency(app.state.totalAdvanceCashReceived));
       setSafeText('dash-advance-total-cash', app.ui.formatCurrency(app.state.totalAdvanceCashReceived));
