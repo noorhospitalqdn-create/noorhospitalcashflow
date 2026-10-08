@@ -12193,61 +12193,14 @@ tfoot .r{text-align:right;}
 `;
     },
     bindForm() {
-      const form = document.getElementById('form-sidebar-colors');
-      if (!form) return;
-      const c = app.sidebarColors.get();
-      const setVal = (sel, cust, val) => {
-        const s = document.getElementById(sel);
-        const cu = document.getElementById(cust);
-        if (!s || !cu) return;
-        const opts = Array.from(s.options).map(o=>o.value);
-        if (opts.includes(val)) { s.value = val; cu.value = val; } else { s.value = 'custom'; cu.value = val; }
-      };
-      setVal('color-muhasib','color-muhasib-custom', c.muhasib);
-      setVal('color-hospital','color-hospital-custom', c.hospital);
-      setVal('color-accounts','color-accounts-custom', c.hospital);
-      setVal('color-transfers','color-transfers-custom', c.transfers);
-      const bind = (sel, cust) => {
-        const s = document.getElementById(sel), cu = document.getElementById(cust);
-        if (!s || !cu) return;
-        s.addEventListener('change', () => { if (s.value !== 'custom') cu.value = s.value; });
-        cu.addEventListener('input', () => { s.value = 'custom'; });
-      };
-      bind('color-muhasib','color-muhasib-custom');
-      bind('color-hospital','color-hospital-custom');
-      bind('color-accounts','color-accounts-custom');
-      bind('color-transfers','color-transfers-custom');
-      const hospSel = document.getElementById('color-hospital'), hospCust = document.getElementById('color-hospital-custom');
-      const accSel = document.getElementById('color-accounts'), accCust = document.getElementById('color-accounts-custom');
-      const syncAccToHosp = () => {
-        const hv = hospSel.value === 'custom' ? hospCust.value : hospSel.value;
-        const opts = Array.from(accSel.options).map(o=>o.value);
-        if (opts.includes(hv)) { accSel.value = hv; accCust.value = hv; } else { accSel.value = 'custom'; accCust.value = hv; }
-      };
-      if (hospSel) hospSel.addEventListener('change', syncAccToHosp);
-      if (hospCust) hospCust.addEventListener('input', syncAccToHosp);
-      const form = document.getElementById('form-sidebar-colors');
-      if (form) form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const getVal = (sel, cust) => {
-          const s = document.getElementById(sel).value;
-          const cu = document.getElementById(cust).value;
-          return s === 'custom' ? cu : s;
-        };
-        const hospVal = getVal('color-hospital','color-hospital-custom');
-        const nc = { muhasib: getVal('color-muhasib','color-muhasib-custom'), hospital: hospVal, accounts: hospVal, transfers: getVal('color-transfers','color-transfers-custom') };
-        app.sidebarColors.save(nc);
-        app.sidebarColors.apply();
-        app.ui.showToast('Sidebar colors saved!');
-      });
+      // Form removed from settings
     },
     reset() {
       localStorage.removeItem('noor_sidebar_colors');
       app.sidebarColors.apply();
-      app.sidebarColors.bindForm();
       app.ui.showToast('Colors reset to default');
     },
-    init() { app.sidebarColors.apply(); app.sidebarColors.bindForm(); }
+    init() { app.sidebarColors.apply(); }
   },
 
   // ==========================================
