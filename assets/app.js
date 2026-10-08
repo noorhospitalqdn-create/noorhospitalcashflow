@@ -12193,6 +12193,8 @@ tfoot .r{text-align:right;}
 `;
     },
     bindForm() {
+      const form = document.getElementById('form-sidebar-colors');
+      if (!form) return;
       const c = app.sidebarColors.get();
       const setVal = (sel, cust, val) => {
         const s = document.getElementById(sel);
