@@ -1741,8 +1741,8 @@ const app = {
       'advance-slips':{search:'',from:'',to:'',sort:'date_desc'},
       bills:{search:'',from:'',to:'',sort:'date_desc',head:''},
       'advance-bills':{search:'',from:'',to:'',sort:'date_desc',head:''},
-      'advance-cleared':{search:'',from:'',to:'',sort:'date_desc',head:''},
-      'hospital-cleared':{search:'',from:'',to:'',sort:'date_desc',head:''},
+      'advance-cleared':{search:'',from:'',to:'',sort:'date_desc',head:'',batch:''},
+      'hospital-cleared':{search:'',from:'',to:'',sort:'date_desc',head:'',batch:''},
       accounts:{search:'',from:'',to:'',sort:'date_desc'},
       transfers:{search:'',from:'',to:'',sort:'date_desc'}
     },
@@ -1756,14 +1756,15 @@ const app = {
       if(app.mobile.isMobile() && app.mobile[mmap[page]]) app.mobile[mmap[page]]();
     },
     clearFilters(page){
-      app.ui.filters[page]={search:'',from:'',to:'',sort:'date_desc'};
+      app.ui.filters[page]={search:'',from:'',to:'',sort:'date_desc',head:'',batch:''};
       const s=document.getElementById('search-'+page); if(s) s.value='';
       const f=document.getElementById('filter-'+page+'-from'); if(f) f.value='';
       const t=document.getElementById('filter-'+page+'-to'); if(t) t.value='';
       const so=document.getElementById('sort-'+page); if(so) so.value='date_desc';
       const hf=document.getElementById('filter-'+page+'-head'); if(hf) hf.value='';
-      const bf=document.getElementById('filter-advance-cleared-batch'); if(bf && page==='advance-cleared') bf.value='';
-      const hbf=document.getElementById('filter-hospital-cleared-batch'); if(hbf && page==='hospital-cleared') hbf.value='';
+      const bf=document.getElementById('filter-'+page+'-batch'); if(bf) bf.value='';
+      const oldBf=document.getElementById('filter-advance-cleared-batch'); if(oldBf && page==='advance-cleared') oldBf.value='';
+      const oldHbf=document.getElementById('filter-hospital-cleared-batch'); if(oldHbf && page==='hospital-cleared') oldHbf.value='';
       app.ui.applyFilter(page,{});
     },
     refreshHeadFilter(page, items){
@@ -1771,13 +1772,63 @@ const app = {
       if(!sel) return;
       const heads=[...new Set((items||[]).map(b=>String(b&&b.head!=null&&b.head!==''?b.head:(b&&b.category!=null?b.category:'')).trim()).filter(Boolean))]
         .sort((a,b)=>a.localeCompare(b));
-      const cur=sel.value;
-      sel.innerHTML='<option value="">All Heads</option>'+heads.map(h=>`<option value="${app.ui.escapeHTML(h)}">${app.ui.escapeHTML(h)}</option>`).join('');
+      const cur=(app.ui.filters[page] && app.ui.filters[page].head !== undefined) ? app.ui.filters[page].head : sel.value;
+      const optionsHash = heads.join('||');
+      if(sel._lastOptionsHash !== optionsHash){
+        sel._lastOptionsHash = optionsHash;
+        sel.innerHTML='<option value="">All Heads</option>'+heads.map(h=>`<option value="${app.ui.escapeHTML(h)}">${app.ui.escapeHTML(h)}</option>`).join('');
+      }
       if(cur && heads.includes(cur)) sel.value=cur;
-      else if(app.ui.filters[page]) app.ui.filters[page].head='';
+      else {
+        sel.value='';
+        if(app.ui.filters[page]) app.ui.filters[page].head='';
+      }
+    },
+    refreshBatchFilter(page, items){
+      const sel=document.getElementById('filter-'+page+'-batch');
+      if(!sel) return;
+      const batches=[...new Set((items||[]).map(b=>String(b&&b.clearBatch?b.clearBatch:'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+      const hasUnassigned = (items||[]).some(b=>!b || !b.clearBatch || !String(b.clearBatch).trim());
+      const cur=(app.ui.filters[page] && app.ui.filters[page].batch !== undefined) ? app.ui.filters[page].batch : sel.value;
+      const optionsHash = batches.join('||') + '||' + (hasUnassigned ? 'none' : '');
+      if(sel._lastOptionsHash !== optionsHash){
+        sel._lastOptionsHash = optionsHash;
+        let html='<option value="">All Batches</option>';
+        if(hasUnassigned) html+='<option value="__none__">Without Batch</option>';
+        html+=batches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join('');
+        sel.innerHTML=html;
+      }
+      if(cur && (batches.includes(cur) || (cur==='__none__' && hasUnassigned))) {
+        sel.value=cur;
+      } else {
+        sel.value='';
+        if(app.ui.filters[page]) app.ui.filters[page].batch='';
+      }
+      const dl=document.getElementById(page==='advance-cleared'?'advance-batch-list':'hospital-batch-list');
+      if(dl) dl.innerHTML=batches.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
+    },
+    undoCurrentAdvanceBatch(){
+      const b=app.ui.filters['advance-cleared']?.batch || document.getElementById('filter-advance-cleared-batch')?.value;
+      if(!b || b==='__none__'){ app.ui.showToast('Please select a specific batch to undo.','warning'); return; }
+      app.ui.undoAdvanceClearBatch(b);
+    },
+    undoCurrentHospitalBatch(){
+      const b=app.ui.filters['hospital-cleared']?.batch || document.getElementById('filter-hospital-cleared-batch')?.value;
+      if(!b || b==='__none__'){ app.ui.showToast('Please select a specific batch to undo.','warning'); return; }
+      app.ui.undoHospitalClearBatch(b);
+    },
+    promptRenameAdvanceBatch(){
+      const b=app.ui.filters['advance-cleared']?.batch || document.getElementById('filter-advance-cleared-batch')?.value;
+      if(!b){ app.ui.showToast('Please select a batch from the dropdown or click a batch badge.','warning'); return; }
+      app.ui.openRenameBatchModal('advance', b==='__none__' ? '' : b);
+    },
+    promptRenameHospitalBatch(){
+      const b=app.ui.filters['hospital-cleared']?.batch || document.getElementById('filter-hospital-cleared-batch')?.value;
+      if(!b){ app.ui.showToast('Please select a batch from the dropdown or click a batch badge.','warning'); return; }
+      app.ui.openRenameBatchModal('hospital', b==='__none__' ? '' : b);
     },
     getFiltered(list, page, opts={}){
-      const f=app.ui.filters[page]||{search:'',from:'',to:'',sort:'date_desc'};
+      const f=app.ui.filters[page]||{search:'',from:'',to:'',sort:'date_desc',head:'',batch:''};
       let out=[...list];
       if(f.from) out=out.filter(x=>{const d=x.date||x.dateSent||''; return d>=f.from});
       if(f.to) out=out.filter(x=>{const d=x.date||x.dateSent||''; return d<=f.to});
@@ -1786,12 +1837,14 @@ const app = {
         out=out.filter(x=>JSON.stringify(x).toLowerCase().includes(q));
       }
       if(page==='advance-cleared'){
-        const bv=document.getElementById('filter-advance-cleared-batch')?.value || '';
-        if(bv) out=out.filter(x=>String(x.clearBatch||'')===bv);
+        const bv=(f.batch !== undefined && f.batch !== '') ? f.batch : (document.getElementById('filter-advance-cleared-batch')?.value || '');
+        if(bv==='__none__') out=out.filter(x=>!x.clearBatch || !String(x.clearBatch).trim());
+        else if(bv) out=out.filter(x=>String(x.clearBatch||'').trim()===bv.trim());
       }
       if(page==='hospital-cleared'){
-        const bv=document.getElementById('filter-hospital-cleared-batch')?.value || '';
-        if(bv) out=out.filter(x=>String(x.clearBatch||'')===bv);
+        const bv=(f.batch !== undefined && f.batch !== '') ? f.batch : (document.getElementById('filter-hospital-cleared-batch')?.value || '');
+        if(bv==='__none__') out=out.filter(x=>!x.clearBatch || !String(x.clearBatch).trim());
+        else if(bv) out=out.filter(x=>String(x.clearBatch||'').trim()===bv.trim());
       }
       if(page==='bills' && opts.billsType!==undefined){
         const bt=document.getElementById('filter-bills-type')?.value;
@@ -2660,6 +2713,35 @@ const app = {
             remarks: document.getElementById('vendor-remarks')?.value
           };
           await app.vendors.saveVendor(vendorData);
+        });
+      }
+      const vendorNameInput = document.getElementById('vendor-name');
+      if (vendorNameInput) {
+        vendorNameInput.addEventListener('input', () => {
+          const val = vendorNameInput.value.trim().toLowerCase();
+          const editId = String(document.getElementById('edit-vendor-id')?.value || '').trim();
+          const errEl = document.getElementById('vendor-name-error');
+          if (!val) {
+            vendorNameInput.style.borderColor = '';
+            if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+            return;
+          }
+          const exists = (app.state.vendors || []).some(v => {
+            if (!v || !v.name) return false;
+            const vNorm = String(v.name).trim().toLowerCase();
+            const vId = v.id != null ? String(v.id).trim() : '';
+            return vNorm === val && (!editId || vId !== editId);
+          });
+          if (exists) {
+            vendorNameInput.style.borderColor = 'var(--error)';
+            if (errEl) {
+              errEl.textContent = `⚠️ Duplicate Error: A vendor with this name already exists!`;
+              errEl.style.display = 'block';
+            }
+          } else {
+            vendorNameInput.style.borderColor = '';
+            if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+          }
         });
       }
 
@@ -3933,22 +4015,15 @@ const app = {
       const totEl=document.getElementById('total-deposits'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.deposits; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No deposits to Muhasib recorded.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="5" class="text-center text-muted">${isF?'No records match filter.':'No deposits to Muhasib recorded.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(deposit => {
-        let attachmentHtml = '-';
-        if (deposit.attachmentUrl) {
-          const syncClass = deposit.pendingUpload ? 'pending-sync' : '';
-          const label = deposit.pendingUpload ? '⏳ Syncing' : (deposit.fileType === 'application/pdf' ? '📄 PDF Attached' : '📷 Image Attached');
-          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('hospital_deposits', ${deposit.id})">${label}</span>`;
-        }
         return `
           <tr>
             <td class="num-val">${app.ui.escapeHTML(deposit.date)}</td>
             <td class="num-val text-bold">${app.ui.escapeHTML(deposit.receiptNumber)}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(deposit.amount)}</td>
-            <td>${attachmentHtml}</td>
             <td>${app.ui.escapeHTML(deposit.remarks || '-')}</td>
             <td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_deposits', ${deposit.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_deposits', ${deposit.id})">Delete</button></div></td>
           </tr>
@@ -3966,7 +4041,7 @@ const app = {
       const totEl=document.getElementById('total-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.slips; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(slip => {
@@ -4000,22 +4075,13 @@ const app = {
             </div>
           `;
         }
- 
-        let attachmentHtml = '-';
-        if (slip.attachmentUrl) {
-          const syncClass = slip.pendingUpload ? 'pending-sync' : '';
-          const label = slip.pendingUpload ? '⏳ Syncing' : (slip.fileType === 'application/pdf' ? '📄 PDF Attached' : '📷 Image Attached');
-          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('temporary_slips', ${slip.id})">${label}</span>`;
-        }
 
         return `
           <tr>
             <td class="num-val">${app.ui.formatDate(slip.date)}</td>
-            <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
-            <td>${attachmentHtml}</td>
             <td>${slip.remarks || '-'}</td>
             <td class="text-center">${actionBtn}</td>
           </tr>
@@ -4033,7 +4099,7 @@ const app = {
       const totEl=document.getElementById('total-advance-slips'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-slips']||{}; const isF=f.search||f.from||f.to;
-        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(slip => {
@@ -4067,22 +4133,13 @@ const app = {
             </div>
           `;
         }
- 
-        let attachmentHtml = '-';
-        if (slip.attachmentUrl) {
-          const syncClass = slip.pendingUpload ? 'pending-sync' : '';
-          const label = slip.pendingUpload ? '⏳ Syncing' : (slip.fileType === 'application/pdf' ? '📄 PDF Attached' : '📷 Image Attached');
-          attachmentHtml = `<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('temporary_slips', ${slip.id})">${label}</span>`;
-        }
 
         return `
           <tr>
             <td class="num-val">${app.ui.formatDate(slip.date)}</td>
-            <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
             <td class="text-bold">${slip.vendor}</td>
             <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
-            <td>${attachmentHtml}</td>
             <td>${slip.remarks || '-'}</td>
             <td class="text-center">${actionBtn}</td>
           </tr>
@@ -4106,21 +4163,15 @@ const app = {
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to||f.head;
-        list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
-        let attachmentHtml='-';
-        if(bill.attachmentUrl){
-          const syncClass=bill.pendingUpload?'pending-sync':'';
-          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
-          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
-        }
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
         const isSel=app.ui.selectedAdvanceBills && app.ui.selectedAdvanceBills.has(bill.id);
-        return `<tr class="${isSel?'row-selected':''}"><td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleAdvanceBillSelect(${bill.id},this.checked)" title="Select for batch"></td><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Clear against Muhasib Advance" onclick="app.ui.clearAdvanceBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
+        return `<tr class="${isSel?'row-selected':''}"><td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleAdvanceBillSelect(${bill.id},this.checked)" title="Select for batch"></td><td class="num-val">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Clear against Muhasib Advance" onclick="app.ui.clearAdvanceBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
       }).join('');
       try{ app.ui.updateAdvanceBatchBar(); }catch(e){}
     },
@@ -4270,37 +4321,395 @@ const app = {
         }catch(e){ app.ui.showToast('Undo failed: '+(e.message||e),'error'); }
       });
     },
+    openRenameBatchModal(type, oldBatchName){
+      type = (type || 'advance').toLowerCase();
+      oldBatchName = oldBatchName != null ? String(oldBatchName).trim() : '';
+      const isAdvance = type === 'advance';
+      const targetType = isAdvance ? 'advance' : 'hospital';
+      const targetStatus = isAdvance ? 'adv_cleared' : 'hosp_cleared';
+      const isUnassigned = !oldBatchName || oldBatchName === '__none__';
+
+      const items = (app.state.bills||[]).filter(b => {
+        const t = String(b.expenseType||'').toLowerCase().trim();
+        if(t !== targetType || b.status !== targetStatus) return false;
+        if(isUnassigned) return !b.clearBatch || !String(b.clearBatch).trim();
+        return String(b.clearBatch||'').trim() === oldBatchName;
+      });
+
+      if(!items.length){
+        app.ui.showToast('No bills found matching this batch.','warning');
+        return;
+      }
+
+      const totalAmt = items.reduce((s,b)=>s+(Number(b.amount)||0), 0);
+      
+      const typeInput = document.getElementById('rename-batch-type');
+      const oldNameInput = document.getElementById('rename-batch-old-name');
+      const newNameInput = document.getElementById('rename-batch-new-name');
+      const curDisplay = document.getElementById('rename-batch-current-display');
+      const countDisplay = document.getElementById('rename-batch-affected-count');
+      const totalDisplay = document.getElementById('rename-batch-affected-total');
+      const titleEl = document.getElementById('rename-batch-modal-title');
+      const subTitleEl = document.getElementById('rename-batch-modal-subtitle');
+      const btnConfirm = document.getElementById('btn-rename-batch-confirm');
+
+      if(typeInput) typeInput.value = type;
+      if(oldNameInput) oldNameInput.value = isUnassigned ? '__none__' : oldBatchName;
+      if(curDisplay) curDisplay.textContent = isUnassigned ? 'Without Batch (Unassigned)' : oldBatchName;
+      if(countDisplay) countDisplay.textContent = `${items.length} bill(s)`;
+      if(totalDisplay) totalDisplay.textContent = app.ui.formatCurrency(totalAmt);
+
+      if(isUnassigned){
+        if(titleEl) titleEl.textContent = 'Assign Batch Name';
+        if(subTitleEl) subTitleEl.textContent = `Assign a batch name to ${items.length} unassigned bills`;
+        if(btnConfirm) btnConfirm.textContent = 'Assign Batch Name';
+        if(newNameInput){
+          newNameInput.value = isAdvance ? 'Batch-Legacy' : 'HBatch-Legacy';
+          newNameInput.placeholder = 'e.g. Batch-01, Legacy Bills, etc.';
+        }
+      } else {
+        if(titleEl) titleEl.textContent = `Rename Batch "${oldBatchName}"`;
+        if(subTitleEl) subTitleEl.textContent = `Rename batch for all ${items.length} bills in this batch`;
+        if(btnConfirm) btnConfirm.textContent = 'Save New Name';
+        if(newNameInput){
+          newNameInput.value = oldBatchName;
+          newNameInput.placeholder = 'e.g. ' + oldBatchName;
+        }
+      }
+
+      app.ui.openModal('dialog-rename-batch');
+      setTimeout(()=>{
+        if(newNameInput){
+          newNameInput.focus();
+          newNameInput.select();
+        }
+      }, 120);
+    },
+
+    async confirmRenameBatch(){
+      const type = (document.getElementById('rename-batch-type')?.value || 'advance').toLowerCase();
+      const oldName = (document.getElementById('rename-batch-old-name')?.value || '').trim();
+      const newName = (document.getElementById('rename-batch-new-name')?.value || '').trim();
+
+      if(!newName){
+        app.ui.showToast('Please enter a valid batch name.','warning');
+        document.getElementById('rename-batch-new-name')?.focus();
+        return;
+      }
+      if(newName === '__none__'){
+        app.ui.showToast('Batch name cannot be "__none__". Please enter a valid name.','warning');
+        return;
+      }
+      if(oldName !== '__none__' && newName === oldName){
+        app.ui.showToast('The new batch name is the same as the current name.','warning');
+        return;
+      }
+
+      const isAdvance = type === 'advance';
+      const targetType = isAdvance ? 'advance' : 'hospital';
+      const targetStatus = isAdvance ? 'adv_cleared' : 'hosp_cleared';
+      const isUnassigned = !oldName || oldName === '__none__';
+
+      const items = (app.state.bills||[]).filter(b => {
+        const t = String(b.expenseType||'').toLowerCase().trim();
+        if(t !== targetType || b.status !== targetStatus) return false;
+        if(isUnassigned) return !b.clearBatch || !String(b.clearBatch).trim();
+        return String(b.clearBatch||'').trim() === oldName;
+      });
+
+      if(!items.length){
+        app.ui.showToast('No matching bills found to rename.','warning');
+        app.ui.closeModal('dialog-rename-batch');
+        return;
+      }
+
+      const btnConfirm = document.getElementById('btn-rename-batch-confirm');
+      if(btnConfirm) btnConfirm.disabled = true;
+
+      try {
+        const now = new Date().toISOString();
+        for(const b of items){
+          b.clearBatch = newName;
+          if(!b.clearedAt) b.clearedAt = now;
+          await app.db.put('bills', b.id, b);
+        }
+
+        app.ui.closeModal('dialog-rename-batch');
+
+        const page = isAdvance ? 'advance-cleared' : 'hospital-cleared';
+        if(!app.ui.filters[page]) app.ui.filters[page] = {};
+        app.ui.filters[page].batch = newName;
+
+        const sel = document.getElementById(isAdvance ? 'filter-advance-cleared-batch' : 'filter-hospital-cleared-batch');
+        if(sel) sel.value = newName;
+
+        if(isAdvance) {
+          app.ui.renderAdvanceClearedTable();
+          try{ app.ui.renderAdvanceClearedCards(); }catch(e){}
+        } else {
+          app.ui.renderHospitalClearedTable();
+          try{ app.ui.renderHospitalClearedCards(); }catch(e){}
+        }
+
+        app.ui.showToast(`Batch updated to "${newName}" (${items.length} bills updated).`, 'success');
+        app.syncState();
+      } catch(e) {
+        app.ui.showToast('Failed to rename batch: ' + (e.message || e), 'error');
+      } finally {
+        if(btnConfirm) btnConfirm.disabled = false;
+      }
+    },
+
+    openMoveBillBatchModal(billId){
+      const bill = (app.state.bills||[]).find(b => b.id === Number(billId));
+      if(!bill){ app.ui.showToast('Bill not found.','error'); return; }
+
+      const isAdvance = String(bill.expenseType || '').toLowerCase().trim() === 'advance';
+      const targetType = isAdvance ? 'advance' : 'hospital';
+      const targetStatus = isAdvance ? 'adv_cleared' : 'hosp_cleared';
+      const curBatch = String(bill.clearBatch || '').trim();
+
+      // Find co-bills in the same batch (or same unassigned status)
+      const coBills = (app.state.bills||[]).filter(b => {
+        if(b.id === bill.id) return false;
+        const t = String(b.expenseType || '').toLowerCase().trim();
+        if(t !== targetType || b.status !== targetStatus) return false;
+        const bBatch = String(b.clearBatch || '').trim();
+        return curBatch ? bBatch === curBatch : !bBatch;
+      });
+
+      // Find all available target batches for this category
+      const allBatches = [...new Set((app.state.bills||[]).filter(b => {
+        const t = String(b.expenseType || '').toLowerCase().trim();
+        return t === targetType && b.status === targetStatus && b.clearBatch && String(b.clearBatch).trim();
+      }).map(b => String(b.clearBatch).trim()))].sort((a,b)=>a.localeCompare(b));
+
+      document.getElementById('move-bill-batch-primary-id').value = bill.id;
+      document.getElementById('move-bill-batch-type').value = targetType;
+
+      const titleEl = document.getElementById('move-bill-modal-title');
+      if(titleEl) titleEl.textContent = isAdvance ? 'Move Muhasib Cleared Bill Batch' : 'Move Hospital Cleared Bill Batch';
+
+      const badgeEl = document.getElementById('move-bill-current-batch-badge');
+      if(badgeEl){
+        badgeEl.textContent = curBatch || 'Without Batch';
+        badgeEl.className = curBatch ? 'batch-badge' : 'batch-badge-unassigned';
+      }
+
+      const descEl = document.getElementById('move-bill-primary-desc');
+      if(descEl) descEl.textContent = `#${bill.billNumber} • ${bill.vendor} (${app.ui.formatCurrency(bill.amount)})`;
+
+      // Set up co-bills list
+      const coWrap = document.getElementById('move-bill-co-bills-wrap');
+      const coList = document.getElementById('move-bill-co-bills-list');
+      if(coBills.length > 0 && coWrap && coList){
+        coWrap.style.display = 'block';
+        coList.innerHTML = coBills.map(b => `
+          <label class="batch-clear-item" style="cursor:pointer;margin:0" onclick="event.stopPropagation()">
+            <input type="checkbox" class="move-co-bill-checkbox" value="${b.id}" data-amount="${b.amount||0}" onchange="app.ui.updateMoveBatchSummary()" style="width:16px;height:16px;accent-color:var(--tertiary)">
+            <span class="batch-clear-bill">#${app.ui.escapeHTML(String(b.billNumber||'-'))} • ${app.ui.escapeHTML(b.vendor||'-')}</span>
+            <span class="batch-clear-amt text-error">-${app.ui.formatCurrency(b.amount)}</span>
+          </label>
+        `).join('');
+      } else if(coWrap) {
+        coWrap.style.display = 'none';
+        if(coList) coList.innerHTML = '';
+      }
+
+      // Populate target batch select
+      const sel = document.getElementById('move-bill-target-batch-select');
+      if(sel){
+        let opts = `<option value="">-- Choose Existing Batch --</option>`;
+        allBatches.forEach(b => {
+          if(b === curBatch) return;
+          opts += `<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`;
+        });
+        if(curBatch){
+          opts += `<option value="__none__">🏷️ Remove from Batch (Set as Without Batch)</option>`;
+        }
+        opts += `<option value="__custom__">➕ Create New Batch...</option>`;
+        sel.innerHTML = opts;
+        sel.value = '';
+      }
+
+      // Hide custom input initially
+      const custGroup = document.getElementById('move-bill-custom-batch-group');
+      const custInput = document.getElementById('move-bill-target-batch-custom');
+      if(custGroup) custGroup.style.display = 'none';
+      if(custInput) custInput.value = '';
+
+      app.ui.updateMoveBatchSummary();
+      app.ui.openModal('dialog-move-bill-batch');
+    },
+
+    toggleMoveCoBillsSelectAll(){
+      const boxes = document.querySelectorAll('.move-co-bill-checkbox');
+      if(!boxes.length) return;
+      const allChecked = Array.from(boxes).every(b => b.checked);
+      boxes.forEach(b => b.checked = !allChecked);
+      const btn = document.getElementById('btn-move-co-bills-toggle-all');
+      if(btn) btn.textContent = allChecked ? 'Select All' : 'Deselect All';
+      app.ui.updateMoveBatchSummary();
+    },
+
+    updateMoveBatchSummary(){
+      const primaryId = Number(document.getElementById('move-bill-batch-primary-id')?.value);
+      const primaryBill = (app.state.bills||[]).find(b => b.id === primaryId);
+      if(!primaryBill) return;
+
+      const checkedBoxes = document.querySelectorAll('.move-co-bill-checkbox:checked');
+      let count = 1 + checkedBoxes.length;
+      let total = Number(primaryBill.amount) || 0;
+      checkedBoxes.forEach(cb => {
+        total += Number(cb.getAttribute('data-amount')) || 0;
+      });
+
+      const sumEl = document.getElementById('move-bill-total-summary');
+      if(sumEl) sumEl.textContent = `${count} bill(s) • ${app.ui.formatCurrency(total)}`;
+      
+      const confirmBtn = document.getElementById('btn-move-bill-batch-confirm');
+      if(confirmBtn) confirmBtn.textContent = count > 1 ? `Move ${count} Bills` : 'Move Bill';
+    },
+
+    onMoveBillBatchSelectChange(val){
+      const custGroup = document.getElementById('move-bill-custom-batch-group');
+      const custInput = document.getElementById('move-bill-target-batch-custom');
+      if(val === '__custom__'){
+        if(custGroup) custGroup.style.display = 'block';
+        if(custInput){
+          custInput.focus();
+        }
+      } else {
+        if(custGroup) custGroup.style.display = 'none';
+      }
+    },
+
+    async confirmMoveBillBatch(){
+      const primaryId = Number(document.getElementById('move-bill-batch-primary-id')?.value);
+      const primaryBill = (app.state.bills||[]).find(b => b.id === primaryId);
+      if(!primaryBill){ app.ui.showToast('Primary bill not found.','error'); return; }
+
+      const type = document.getElementById('move-bill-batch-type')?.value || 'advance';
+      const isAdvance = type === 'advance';
+
+      const billIds = [primaryId];
+      document.querySelectorAll('.move-co-bill-checkbox:checked').forEach(cb => {
+        const id = Number(cb.value);
+        if(id && !billIds.includes(id)) billIds.push(id);
+      });
+
+      const selVal = document.getElementById('move-bill-target-batch-select')?.value;
+      let targetBatch = '';
+
+      if(selVal === '__custom__'){
+        targetBatch = (document.getElementById('move-bill-target-batch-custom')?.value || '').trim();
+        if(!targetBatch){
+          app.ui.showToast('Please type a new batch name.','warning');
+          document.getElementById('move-bill-target-batch-custom')?.focus();
+          return;
+        }
+        if(targetBatch === '__none__'){
+          app.ui.showToast('Invalid batch name.','warning');
+          return;
+        }
+      } else if(selVal === '__none__'){
+        targetBatch = '';
+      } else {
+        targetBatch = (selVal || '').trim();
+        if(!targetBatch){
+          app.ui.showToast('Please select a target batch or choose "Create New Batch".','warning');
+          return;
+        }
+      }
+
+      const curBatch = String(primaryBill.clearBatch || '').trim();
+      if(targetBatch === curBatch){
+        app.ui.showToast(`Bill is already in batch "${curBatch || 'Without Batch'}".`,'warning');
+        return;
+      }
+
+      const btnConfirm = document.getElementById('btn-move-bill-batch-confirm');
+      if(btnConfirm) btnConfirm.disabled = true;
+
+      try {
+        const now = new Date().toISOString();
+        const updatedBills = [];
+        for(const id of billIds){
+          const b = (app.state.bills||[]).find(x => x.id === id);
+          if(b){
+            b.clearBatch = targetBatch;
+            if(!b.clearedAt) b.clearedAt = now;
+            await app.db.put('bills', b.id, b);
+            updatedBills.push(b);
+          }
+        }
+
+        app.ui.closeModal('dialog-move-bill-batch');
+
+        if(isAdvance){
+          app.ui.renderAdvanceClearedTable();
+          try{ app.ui.renderAdvanceClearedCards(); }catch(e){}
+        } else {
+          app.ui.renderHospitalClearedTable();
+          try{ app.ui.renderHospitalClearedCards(); }catch(e){}
+        }
+
+        const msg = targetBatch
+          ? `${updatedBills.length} bill(s) moved to batch "${targetBatch}".`
+          : `${updatedBills.length} bill(s) removed from batch.`;
+        app.ui.showToast(msg, 'success');
+        app.syncState();
+      } catch(e) {
+        app.ui.showToast('Failed to move bills: ' + (e.message || e), 'error');
+      } finally {
+        if(btnConfirm) btnConfirm.disabled = false;
+      }
+    },
+
     renderAdvanceClearedTable(){
       const list=document.getElementById('list-advance-cleared');
       if(!list) return;
-      try{
-        const allBatches=[...new Set((app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared' && b.clearBatch).map(b=>b.clearBatch))].sort();
-        const bf=document.getElementById('filter-advance-cleared-batch');
-        if(bf){ const cur=bf.value; bf.innerHTML='<option value="">All Batches</option>'+allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join(''); if(allBatches.includes(cur)) bf.value=cur; }
-        const dl=document.getElementById('advance-batch-list'); if(dl) dl.innerHTML=allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
-      }catch(e){}
-      try{ app.ui.refreshHeadFilter('advance-cleared', (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared')); }catch(e){}
+      const advClearedAll = (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared');
+      try{ app.ui.refreshBatchFilter('advance-cleared', advClearedAll); }catch(e){}
+      try{ app.ui.refreshHeadFilter('advance-cleared', advClearedAll); }catch(e){}
+      const curBatch = app.ui.filters['advance-cleared']?.batch || document.getElementById('filter-advance-cleared-batch')?.value || '';
+      const undoBtn = document.getElementById('btn-undo-advance-batch');
+      if(undoBtn){
+        undoBtn.style.display = (curBatch && curBatch !== '__none__') ? 'inline-flex' : 'none';
+        if(curBatch && curBatch !== '__none__') undoBtn.textContent = `↩ Undo Batch "${curBatch}"`;
+      }
+      const renameBtn = document.getElementById('btn-rename-advance-batch');
+      if(renameBtn){
+        if(curBatch && curBatch !== '__none__'){
+          renameBtn.style.display = 'inline-flex';
+          renameBtn.textContent = `✏️ Rename "${curBatch}"`;
+          renameBtn.title = `Rename batch "${curBatch}"`;
+        } else if(curBatch === '__none__'){
+          renameBtn.style.display = 'inline-flex';
+          renameBtn.textContent = `🏷️ Assign Batch Name`;
+          renameBtn.title = `Assign a batch name to all unassigned bills`;
+        } else {
+          renameBtn.style.display = 'none';
+        }
+      }
       const allFiltered=app.ui.getFiltered(app.state.bills,'advance-cleared');
       const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared');
       const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const totEl=document.getElementById('total-advance-cleared'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       const navBadge=document.getElementById('sidebar-advance-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
       if(!filtered.length){
-        const f=app.ui.filters['advance-cleared']; const isF=f && (f.search||f.from||f.to||f.head);
-        list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No cleared bills yet. Clear bills from Muhasib Bills via ✓ Adv Clear.'}</td></tr>`;
+        const f=app.ui.filters['advance-cleared']; const isF=f && (f.search||f.from||f.to||f.head||f.batch);
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No cleared bills yet. Clear bills from Muhasib Bills via ✓ Adv Clear.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
-        let attachmentHtml='-';
-        if(bill.attachmentUrl){
-          const syncClass=bill.pendingUpload?'pending-sync':'';
-          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
-          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
-        }
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
-        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${bill.clearBatch?`<span class="batch-badge" title="Batch: ${app.ui.escapeHTML(bill.clearBatch)}">${app.ui.escapeHTML(bill.clearBatch)}</span>`:'<span class="text-muted">-</span>'}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Muhasib Bills" onclick="app.ui.undoAdvanceClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
+        const batchHtml = bill.clearBatch
+          ? `<span class="batch-badge">${app.ui.escapeHTML(bill.clearBatch)}</span>`
+          : `<span class="batch-badge-unassigned">No Batch</span>`;
+        return `<tr><td class="num-val">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${batchHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Muhasib Bills" onclick="app.ui.undoAdvanceClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
       }).join('');
     },
     renderBillsTable() {
@@ -4319,22 +4728,16 @@ const app = {
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to||f.head;
-        list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
         try{ app.ui.updateHospitalBatchBar(); }catch(e){}
         return;
       }
       list.innerHTML = filtered.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
-        let attachmentHtml='-';
-        if(bill.attachmentUrl){
-          const syncClass=bill.pendingUpload?'pending-sync':'';
-          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
-          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
-        }
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
         const isSel=app.ui.selectedHospitalBills && app.ui.selectedHospitalBills.has(bill.id);
-        return `<tr class="${isSel?'row-selected':''}"><td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleHospitalBillSelect(${bill.id},this.checked)" title="Select for batch"></td><td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Move to Hospital Bill Clear" onclick="app.ui.clearHospitalBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
+        return `<tr class="${isSel?'row-selected':''}"><td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleHospitalBillSelect(${bill.id},this.checked)" title="Select for batch"></td><td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Move to Hospital Bill Clear" onclick="app.ui.clearHospitalBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
       }).join('');
       try{ app.ui.updateHospitalBatchBar(); }catch(e){}
     },
@@ -4465,34 +4868,47 @@ const app = {
     renderHospitalClearedTable(){
       const list=document.getElementById('list-hospital-cleared');
       if(!list) return;
-      try{
-        const allBatches=[...new Set((app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared' && b.clearBatch).map(b=>b.clearBatch))].sort();
-        const bf=document.getElementById('filter-hospital-cleared-batch');
-        if(bf){ const cur=bf.value; bf.innerHTML='<option value="">All Batches</option>'+allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join(''); if(allBatches.includes(cur)) bf.value=cur; }
-        const dl=document.getElementById('hospital-batch-list'); if(dl) dl.innerHTML=allBatches.map(b=>`<option value="${app.ui.escapeHTML(b)}">`).join('');
-      }catch(e){}
-      try{ app.ui.refreshHeadFilter('hospital-cleared', (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared')); }catch(e){}
+      const hospClearedAll = (app.state.bills||[]).filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
+      try{ app.ui.refreshBatchFilter('hospital-cleared', hospClearedAll); }catch(e){}
+      try{ app.ui.refreshHeadFilter('hospital-cleared', hospClearedAll); }catch(e){}
+      const curBatch = app.ui.filters['hospital-cleared']?.batch || document.getElementById('filter-hospital-cleared-batch')?.value || '';
+      const undoBtn = document.getElementById('btn-undo-hospital-batch');
+      if(undoBtn){
+        undoBtn.style.display = (curBatch && curBatch !== '__none__') ? 'inline-flex' : 'none';
+        if(curBatch && curBatch !== '__none__') undoBtn.textContent = `↩ Undo Batch "${curBatch}"`;
+      }
+      const renameBtn = document.getElementById('btn-rename-hospital-batch');
+      if(renameBtn){
+        if(curBatch && curBatch !== '__none__'){
+          renameBtn.style.display = 'inline-flex';
+          renameBtn.textContent = `✏️ Rename "${curBatch}"`;
+          renameBtn.title = `Rename batch "${curBatch}"`;
+        } else if(curBatch === '__none__'){
+          renameBtn.style.display = 'inline-flex';
+          renameBtn.textContent = `🏷️ Assign Batch Name`;
+          renameBtn.title = `Assign a batch name to all unassigned bills`;
+        } else {
+          renameBtn.style.display = 'none';
+        }
+      }
       const allFiltered=app.ui.getFiltered(app.state.bills,'hospital-cleared');
       const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
       const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
       const totEl=document.getElementById('total-hospital-cleared'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       const navBadge=document.getElementById('sidebar-hospital-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
       if(!filtered.length){
-        const f=app.ui.filters['hospital-cleared']; const isF=f && (f.search||f.from||f.to||f.head);
-        list.innerHTML=`<tr><td colspan="10" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
+        const f=app.ui.filters['hospital-cleared']; const isF=f && (f.search||f.from||f.to||f.head||f.batch);
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
-        let attachmentHtml='-';
-        if(bill.attachmentUrl){
-          const syncClass=bill.pendingUpload?'pending-sync':'';
-          const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF Attached':'📷 Image Attached');
-          attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})">${label}</span>`;
-        }
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
-        return `<tr><td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td><td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${bill.clearBatch?`<span class="batch-badge" title="Batch: ${app.ui.escapeHTML(bill.clearBatch)}">${app.ui.escapeHTML(bill.clearBatch)}</span>`:'<span class="text-muted">-</span>'}</td><td>${attachmentHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Hospital Bills" onclick="app.ui.undoHospitalClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
+        const batchHtml = bill.clearBatch
+          ? `<span class="batch-badge">${app.ui.escapeHTML(bill.clearBatch)}</span>`
+          : `<span class="batch-badge-unassigned">No Batch</span>`;
+        return `<tr><td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td><td class="num-val text-bold">${bill.billNumber}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.7rem;font-weight:normal;">${note}</span></td><td>${bill.vendor}</td><td><span class="source-tag" style="font-size:0.72rem;white-space:normal">${headTxt}</span></td><td class="num-val text-bold text-error">-${app.ui.formatCurrency(bill.amount)}</td><td>${batchHtml}</td><td>${bill.remarks||'-'}</td><td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Hospital Bills" onclick="app.ui.undoHospitalClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td></tr>`;
       }).join('');
     },
 
@@ -5077,7 +5493,12 @@ const app = {
       const btn = document.getElementById('btn-save-vendor');
       if (btn) btn.innerText = 'Save Vendor';
       const nameInput = document.getElementById('vendor-name');
-      if (nameInput) nameInput.value = initialName || '';
+      if (nameInput) {
+        nameInput.value = initialName || '';
+        nameInput.style.borderColor = '';
+      }
+      const errEl = document.getElementById('vendor-name-error');
+      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
       const codeInput = document.getElementById('vendor-code');
       if (codeInput) codeInput.value = '';
       app.ui.openModal('dialog-vendor-add');
@@ -5097,7 +5518,13 @@ const app = {
       document.getElementById('dialog-vendor-title').innerText = 'Edit Vendor Details';
       const btn = document.getElementById('btn-save-vendor');
       if (btn) btn.innerText = 'Update Vendor';
-      document.getElementById('vendor-name').value = vendor.name || '';
+      const nameInput = document.getElementById('vendor-name');
+      if (nameInput) {
+        nameInput.value = vendor.name || '';
+        nameInput.style.borderColor = '';
+      }
+      const errEl = document.getElementById('vendor-name-error');
+      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
       const vcEl = document.getElementById('vendor-code');
       if (vcEl) vcEl.value = vendor.vendorCode || vendor.code || '';
       document.getElementById('vendor-category-input').value = vendor.category || 'General';
@@ -5112,22 +5539,45 @@ const app = {
         app.ui.showToast('Vendor name is required.', 'warning');
         return false;
       }
-      const editId = formData.id ? parseInt(formData.id, 10) : null;
+      const editId = formData.id ? String(formData.id).trim() : null;
       const vendorCode = (formData.vendorCode || '').trim();
 
-      // Case-insensitive duplicate check against clean unique list
+      const normName = name.toLowerCase();
+
+      // Case-insensitive duplicate check against ALL vendors (raw + clean)
       const cleanList = app.vendors.getUniqueVendors();
-      const duplicate = cleanList.find(v =>
-        v.name && v.name.trim().toLowerCase() === name.toLowerCase() && v.id !== editId
-      );
+      const duplicate = (app.state.vendors || []).find(v => {
+        if (!v || !v.name) return false;
+        const vNorm = String(v.name).trim().toLowerCase();
+        const vId = v.id != null ? String(v.id).trim() : '';
+        return vNorm === normName && (!editId || vId !== editId);
+      }) || cleanList.find(v => {
+        if (!v || !v.name) return false;
+        const vNorm = String(v.name).trim().toLowerCase();
+        const vId = v.id != null ? String(v.id).trim() : '';
+        return vNorm === normName && (!editId || vId !== editId);
+      });
+
       if (duplicate) {
-        app.ui.showToast(`A vendor named "${name}" is already registered!`, 'error');
+        app.ui.showToast(`Duplicate Vendor Error: A vendor named "${duplicate.name || name}" is already registered! Duplicate names are not allowed.`, 'error');
+        const nameInput = document.getElementById('vendor-name');
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.style.borderColor = 'var(--error)';
+        }
+        const errEl = document.getElementById('vendor-name-error');
+        if (errEl) {
+          errEl.textContent = `⚠️ Duplicate Error: A vendor with the name "${duplicate.name || name}" is already registered!`;
+          errEl.style.display = 'block';
+        }
         return false;
       }
       if (vendorCode) {
-        const dupCode = cleanList.find(v =>
-          String(v.vendorCode || v.code || '').trim().toLowerCase() === vendorCode.toLowerCase() && v.id !== editId
-        );
+        const dupCode = cleanList.find(v => {
+          const vCode = String(v.vendorCode || v.code || '').trim().toLowerCase();
+          const vId = v.id != null ? String(v.id).trim() : '';
+          return vCode === vendorCode.toLowerCase() && (!editId || vId !== editId);
+        });
         if (dupCode) {
           app.ui.showToast(`Vendor ID "${vendorCode}" already used by "${dupCode.name}"!`, 'error');
           return false;
@@ -8375,12 +8825,9 @@ const app = {
         thead.innerHTML = `
           <tr>
             <th>Date</th>
-            <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Attachment Available</th>
-            <th>Attachment File Name</th>
             <th>Remarks</th>
           </tr>
         `;
@@ -8389,24 +8836,18 @@ const app = {
         tbody.innerHTML = '';
         
         filtered.forEach(slip => {
-          const attachAvailable = slip.attachmentUrl ? 'Yes' : 'No';
-          const attachName = slip.attachmentUrl ? (slip.fileName || 'document') : '-';
-          
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(slip.date)}</td>
-              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
               <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
-              <td>${attachAvailable}</td>
-              <td class="font-mono text-xs">${attachName}</td>
               <td>${slip.remarks || '-'}</td>
             </tr>
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'muhasib_slips') {
@@ -8414,35 +8855,27 @@ const app = {
         thead.innerHTML = `
           <tr>
             <th>Date</th>
-            <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Attachment Available</th>
-            <th>Attachment File Name</th>
             <th>Remarks</th>
           </tr>
         `;
         const filtered = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'advance'));
         tbody.innerHTML = '';
         filtered.forEach(slip => {
-          const attachAvailable = slip.attachmentUrl ? 'Yes' : 'No';
-          const attachName = slip.attachmentUrl ? (slip.fileName || 'document') : '-';
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(slip.date)}</td>
-              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
               <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
-              <td>${attachAvailable}</td>
-              <td class="font-mono text-xs">${attachName}</td>
               <td>${slip.remarks || '-'}</td>
             </tr>
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'hospital_slips') {
@@ -8450,35 +8883,27 @@ const app = {
         thead.innerHTML = `
           <tr>
             <th>Date</th>
-            <th>Token No</th>
             <th>Vendor / Person</th>
             <th>Amount</th>
             <th>Status</th>
-            <th>Attachment Available</th>
-            <th>Attachment File Name</th>
             <th>Remarks</th>
           </tr>
         `;
         const filtered = filterByDateRange(app.getActiveTemporarySlips().filter(s => s.expenseType === 'hospital'));
         tbody.innerHTML = '';
         filtered.forEach(slip => {
-          const attachAvailable = slip.attachmentUrl ? 'Yes' : 'No';
-          const attachName = slip.attachmentUrl ? (slip.fileName || 'document') : '-';
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(slip.date)}</td>
-              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${slip.tokenNumber || '-'}</span></td>
               <td>${slip.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(slip.amount)}</td>
               <td><span class="status-pill ${slip.status}">${slip.status}</span></td>
-              <td>${attachAvailable}</td>
-              <td class="font-mono text-xs">${attachName}</td>
               <td>${slip.remarks || '-'}</td>
             </tr>
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'muhasib_bills') {
@@ -8486,82 +8911,63 @@ const app = {
         thead.innerHTML = `
           <tr>
             <th>Date</th>
-            <th>Token No</th>
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
-            <th>Attachment Available</th>
-            <th>Attachment File Name</th>
             <th>Remarks</th>
           </tr>
         `;
         const filtered = filterByDateRange(app.state.bills.filter(b=>b.expenseType==='advance'));
         tbody.innerHTML = '';
         filtered.forEach(bill => {
-          const attachAvailable = bill.attachmentUrl ? 'Yes' : 'No';
-          const attachName = bill.attachmentUrl ? (bill.fileName || 'document') : '-';
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(bill.date)}</td>
-              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-              <td>${attachAvailable}</td>
-              <td class="font-mono text-xs">${attachName}</td>
               <td>${bill.remarks || '-'}</td>
             </tr>
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>`;
         }
       } else if (type === 'hospital_bills') {
         titleDisplay.innerText = 'Hospital Bill Report';
         thead.innerHTML = `
           <tr>
             <th>Date</th>
-            <th>Token No</th>
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
-            <th>Attachment Available</th>
-            <th>Attachment File Name</th>
             <th>Remarks</th>
           </tr>
         `;
         const filtered = filterByDateRange(app.state.bills.filter(b=>b.expenseType==='hospital'));
         tbody.innerHTML = '';
         filtered.forEach(bill => {
-          const attachAvailable = bill.attachmentUrl ? 'Yes' : 'No';
-          const attachName = bill.attachmentUrl ? (bill.fileName || 'document') : '-';
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(bill.date)}</td>
-              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-              <td>${attachAvailable}</td>
-              <td class="font-mono text-xs">${attachName}</td>
               <td>${bill.remarks || '-'}</td>
             </tr>
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>`;
         }
       } else if (type === 'bills') {
         titleDisplay.innerText = 'All Bills Report';
         thead.innerHTML = `
           <tr>
             <th>Date</th>
-            <th>Token No</th>
             <th>Bill Number</th>
             <th>Vendor Name</th>
             <th>Amount</th>
-            <th>Attachment Available</th>
-            <th>Attachment File Name</th>
             <th>Remarks</th>
           </tr>
         `;
@@ -8570,24 +8976,18 @@ const app = {
         tbody.innerHTML = '';
 
         filtered.forEach(bill => {
-          const attachAvailable = bill.attachmentUrl ? 'Yes' : 'No';
-          const attachName = bill.attachmentUrl ? (bill.fileName || 'document') : '-';
-          
           tbody.innerHTML += `
             <tr>
               <td class="num-val">${app.ui.formatDate(bill.date)}</td>
-              <td><span class="source-tag font-mono" style="font-size:0.72rem;letter-spacing:0.5px">${bill.tokenNumber || '-'}</span></td>
               <td class="num-val">${bill.billNumber}</td>
               <td>${bill.vendor}</td>
               <td class="num-val text-error">-${app.ui.formatCurrency(bill.amount)}</td>
-              <td>${attachAvailable}</td>
-              <td class="font-mono text-xs">${attachName}</td>
               <td>${bill.remarks || '-'}</td>
             </tr>
           `;
         });
         if (!filtered.length) {
-          tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No records found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No records found.</td></tr>`;
         }
 
       } else if (type === 'accounts_register') {
@@ -11374,7 +11774,7 @@ tfoot .r{text-align:right;}
       let all=app.ui.getFiltered(app.state.bills,'advance-cleared');
       let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared');
       if(!filtered.length){
-        const f=app.ui.filters['advance-cleared']; const isF=f&&(f.search||f.from||f.to||f.head);
+        const f=app.ui.filters['advance-cleared']; const isF=f&&(f.search||f.from||f.to||f.head||f.batch);
         container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No cleared bills yet.'}</div>`;
         return;
       }
@@ -11386,7 +11786,7 @@ tfoot .r{text-align:right;}
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--success)"><div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.7rem;background:#f0fdf4;border-bottom:1px solid #bbf7d0;font-size:0.78rem;font-weight:700;color:#15803d"><span>Batch: ${app.ui.escapeHTML(bill.clearBatch||'-')}</span></div><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span><span class="source-tag" style="background:var(--success-light,#dcfce7);color:var(--success)">✓ Cleared</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.undoAdvanceClear(${bill.id})" style="flex:1">↩ Undo</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--success)"><div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.7rem;background:#f0fdf4;border-bottom:1px solid #bbf7d0;font-size:0.78rem;font-weight:700;color:#15803d"><span style="cursor:pointer" onclick="app.ui.openRenameBatchModal('advance','${app.ui.escapeHTML(bill.clearBatch||'')}')" title="Click to rename batch">${bill.clearBatch ? `Batch: ${app.ui.escapeHTML(bill.clearBatch)} ✏️` : 'Without Batch 🏷️'}</span></div><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span><span class="source-tag" style="background:var(--success-light,#dcfce7);color:var(--success)">✓ Cleared</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.undoAdvanceClear(${bill.id})" style="flex:1">↩ Undo</button><button class="btn btn-secondary btn-sm" onclick="app.ui.openMoveBillBatchModal(${bill.id})" style="flex:1" title="Move to another batch">⇄ Move Batch</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
     renderBillsCards() {
@@ -11422,7 +11822,7 @@ tfoot .r{text-align:right;}
       let all=app.ui.getFiltered(app.state.bills,'hospital-cleared');
       let filtered=all.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
       if(!filtered.length){
-        const f=app.ui.filters['hospital-cleared']; const isF=f&&(f.search||f.from||f.to||f.head);
+        const f=app.ui.filters['hospital-cleared']; const isF=f&&(f.search||f.from||f.to||f.head||f.batch);
         container.innerHTML=`<div class="mobile-card-empty">${isF?'No records match filter.':'No cleared bills yet.'}</div>`;
         return;
       }
@@ -11434,7 +11834,7 @@ tfoot .r{text-align:right;}
           const label=bill.pendingUpload?'⏳ Syncing':(bill.fileType==='application/pdf'?'📄 PDF':'📷 Image');
           attachmentHtml=`<span class="attachment-badge ${syncClass}" onclick="app.attachments.viewAttachment('bills', ${bill.id})" style="cursor:pointer;">${label}</span>`;
         } else { attachmentHtml=`<span class="source-tag" style="opacity:0.6">No Attachment</span>`; }
-        return `<div class="mobile-record-card" style="border-left:3px solid var(--success)"><div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.7rem;background:#f0fdf4;border-bottom:1px solid #bbf7d0;font-size:0.78rem;font-weight:700;color:#15803d"><span>Batch: ${app.ui.escapeHTML(bill.clearBatch||'-')}</span></div><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span><span class="source-tag" style="background:var(--success-light,#dcfce7);color:var(--success)">✓ Cleared</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.undoAdvanceClear(${bill.id})" style="flex:1">↩ Undo</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
+        return `<div class="mobile-record-card" style="border-left:3px solid var(--success)"><div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.7rem;background:#f0fdf4;border-bottom:1px solid #bbf7d0;font-size:0.78rem;font-weight:700;color:#15803d"><span style="cursor:pointer" onclick="app.ui.openRenameBatchModal('hospital','${app.ui.escapeHTML(bill.clearBatch||'')}')" title="Click to rename batch">${bill.clearBatch ? `Batch: ${app.ui.escapeHTML(bill.clearBatch)} ✏️` : 'Without Batch 🏷️'}</span></div><div class="mobile-card-header"><div style="min-width:0;flex:1"><div class="mobile-card-title" style="white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.vendor)}</div><div class="mobile-card-date">#${app.ui.escapeHTML(bill.billNumber)} • ${app.ui.formatDate(bill.date)}</div></div><div class="mobile-card-amount outflow" style="font-size:1rem">-${app.ui.formatCurrency(bill.amount)}</div></div><div class="mobile-card-meta" style="gap:0.4rem">${bill.tokenNumber ? `<span class="source-tag font-mono" style="font-size:0.7rem;letter-spacing:0.5px">${app.ui.escapeHTML(bill.tokenNumber)}</span>` : ''}<span class="source-tag">${note}</span><span class="source-tag" style="background:var(--success-light,#dcfce7);color:var(--success)">✓ Cleared</span>${attachmentHtml}</div><div style="display:flex;flex-direction:column;gap:0.35rem;background:var(--bg-app);border:1px solid var(--border-color);border-radius:8px;padding:0.6rem 0.7rem"><div class="mobile-card-row"><span class="mobile-card-label">Vendor</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.vendor)}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Head</span><span class="mobile-card-val" style="font-size:0.8rem;white-space:normal;text-align:right;max-width:55%">${app.ui.escapeHTML(bill.head||bill.category||'-')}</span></div><div class="mobile-card-row"><span class="mobile-card-label">Amount</span><span class="mobile-card-val" style="color:var(--error)">${app.ui.formatCurrency(bill.amount)}</span></div>${bill.remarks?`<div style="border-top:1px dashed var(--border-color);padding-top:0.35rem;margin-top:0.15rem"><span class="mobile-card-label">Remarks</span><div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;white-space:normal;word-break:break-word">${app.ui.escapeHTML(bill.remarks)}</div></div>`:''}</div><div class="mobile-card-footer" style="flex-wrap:wrap"><button class="btn btn-secondary btn-sm" onclick="app.ui.undoHospitalClear(${bill.id})" style="flex:1">↩ Undo</button><button class="btn btn-secondary btn-sm" onclick="app.ui.openMoveBillBatchModal(${bill.id})" style="flex:1" title="Move to another batch">⇄ Move Batch</button><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('bills', ${bill.id})" style="flex:1">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('bills', ${bill.id})" style="flex:1">Delete</button></div></div>`;
       }).join('');
     },
 

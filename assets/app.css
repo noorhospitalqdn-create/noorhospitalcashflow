@@ -193,20 +193,22 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 24px 28px 48px;
+  padding: 16px 18px 40px;
   position: relative;
   scroll-behavior: smooth;
   width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
 .panel {
   display: none;
   flex-direction: column;
   animation: panelFade .22s var(--ease);
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: 100%;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .panel.active { display: flex; }
 @keyframes panelFade {
@@ -322,7 +324,37 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #334155; }
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 4px 14px rgba(13, 148, 136, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
+.brand-icon.brand-icon-img {
+  background: #000000;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  padding: 0;
+}
+.brand-icon.brand-icon-img img,
+.brand-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}
 .brand-icon svg { width: 20px; height: 20px; }
+.topbar-mobile-logo {
+  display: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  margin-right: 8px;
+  background: #000000;
+}
+@media (max-width: 768px) {
+  .topbar-mobile-logo {
+    display: inline-block;
+  }
+}
 .brand-title-row {
   display: flex;
   align-items: center;
@@ -1602,29 +1634,74 @@ html[data-theme="dark"] .chart-pill.pill-amber { color: #fbbf24; }
   padding: 5px 12px;
   border-radius: 99px;
 }
-.card.overflow-x, .overflow-x { padding: 0; overflow: hidden; }
-.overflow-x { overflow-x: auto; }
+.card.overflow-x, .overflow-x {
+  padding: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+html[data-theme="dark"] .card.overflow-x,
+html[data-theme="dark"] .overflow-x {
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+.card.overflow-x::-webkit-scrollbar,
+.overflow-x::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.card.overflow-x::-webkit-scrollbar-track,
+.overflow-x::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 99px;
+}
+html[data-theme="dark"] .card.overflow-x::-webkit-scrollbar-track,
+html[data-theme="dark"] .overflow-x::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+.card.overflow-x::-webkit-scrollbar-thumb,
+.overflow-x::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 99px;
+}
+html[data-theme="dark"] .card.overflow-x::-webkit-scrollbar-thumb,
+html[data-theme="dark"] .overflow-x::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+}
+.card.overflow-x::-webkit-scrollbar-thumb:hover,
+.overflow-x::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.7);
+}
+html[data-theme="dark"] .card.overflow-x::-webkit-scrollbar-thumb:hover,
+html[data-theme="dark"] .overflow-x::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
 
-/* Precision Accounting Table */
+/* Precision Accounting Table — auto-fit responsive */
 .data-table {
-  width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   border-collapse: collapse;
-  font-size: 0.82rem;
-  min-width: 640px;
+  font-size: 0.79rem;
 }
 .data-table thead th {
   text-align: left;
-  font-size: 0.68rem;
+  font-size: 0.67rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
   background: var(--bg-app);
-  padding: 10px 14px;
+  padding: 7px 6px;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
   position: sticky;
   top: 0;
+  z-index: 2;
 }
 html[data-theme="dark"] .data-table thead th {
   color: #cbd5e1;
@@ -1632,11 +1709,11 @@ html[data-theme="dark"] .data-table thead th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .data-table tbody td {
-  padding: 11px 14px;
+  padding: 6px 6px;
   border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
   color: var(--text-main);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
 }
 html[data-theme="dark"] .data-table tbody td {
   color: #f8fafc;
@@ -1645,6 +1722,72 @@ html[data-theme="dark"] .data-table tbody td {
 .data-table tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.012); }
 html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
 .data-table tbody tr:hover { background: rgba(20, 184, 166, 0.06); }
+
+/* Auto-fit responsive table column adjustments */
+.data-table td.num-val {
+  white-space: nowrap;
+}
+#table-advance-bills,
+#table-advance-cleared,
+#table-bills,
+#table-hospital-cleared,
+#table-slips,
+#table-advance-slips,
+#table-advance,
+#table-hospital,
+#table-deposits,
+#table-accounts,
+#table-transfers,
+#table-vendors,
+#table-staff-receipts,
+#table-upi-reconciliation {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+#table-advance-bills td:nth-child(5),
+#table-advance-cleared td:nth-child(4),
+#table-bills td:nth-child(5),
+#table-hospital-cleared td:nth-child(4) {
+  max-width: 160px;
+  word-break: break-word;
+  line-height: 1.25;
+}
+#table-advance-bills td:nth-child(6),
+#table-advance-cleared td:nth-child(5),
+#table-bills td:nth-child(6),
+#table-hospital-cleared td:nth-child(5) {
+  max-width: 140px;
+  word-break: break-word;
+  line-height: 1.25;
+}
+#table-advance-bills td:nth-child(9),
+#table-advance-cleared td:nth-child(9),
+#table-bills td:nth-child(9),
+#table-hospital-cleared td:nth-child(9) {
+  max-width: 130px;
+  word-break: break-word;
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
+/* Action button containers never squish, shrink or wrap */
+.data-table td .flex.gap-2.justify-center,
+.data-table td .table-actions,
+.data-table td .rcpt-row-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+}
+.data-table td .btn-sm {
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+  padding: 4px 8px !important;
+  font-size: 0.75rem !important;
+}
 .num-val {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -2293,11 +2436,35 @@ dialog::backdrop {
 .mobile-card-footer .btn-sm { flex: 1 1 44%; min-height: 42px; font-size: 0.8rem; }
 
 /* Bill register row actions — compact aligned icon buttons */
-.bill-actions { display:flex; align-items:center; justify-content:center; gap:6px; }
-.bill-act { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; padding:0; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-muted); cursor:pointer; transition:background .15s ease, transform .1s ease; }
+.bill-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+}
+.bill-act {
+  width: 25px !important;
+  height: 25px !important;
+  min-width: 25px !important;
+  min-height: 25px !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background .15s ease, transform .1s ease;
+  box-sizing: border-box !important;
+}
 .bill-act:hover { background:var(--bg-elevated); transform:translateY(-1px); }
 .bill-act:active { transform:translateY(0); }
-.bill-act svg { width:15px; height:15px; }
+.bill-act svg { width: 13px !important; height: 13px !important; flex-shrink: 0; }
 .bill-act.clear { color:var(--success); border-color:rgba(16,185,129,0.4); }
 .bill-act.clear:hover { background:rgba(16,185,129,0.12); }
 .bill-act.convert { color:var(--secondary); border-color:rgba(99,102,241,0.35); }
@@ -2306,14 +2473,16 @@ dialog::backdrop {
 .bill-act.undo:hover { background:rgba(245,158,11,0.12); }
 .bill-act.del { color:var(--error); border-color:rgba(239,68,68,0.3); }
 .bill-act.del:hover { background:rgba(239,68,68,0.1); }
+.bill-act.move { color:var(--tertiary,#8b5cf6); border-color:rgba(139,92,246,0.35); }
+.bill-act.move:hover { background:rgba(139,92,246,0.12); color:#7c3aed; }
 
 /* Bill register row actions — roomier click/touch targets */
 #table-advance-bills td .flex.gap-2.justify-center,
 #table-advance-cleared td .flex.gap-2.justify-center,
-#table-bills td .flex.gap-2.justify-center { gap: 10px !important; flex-wrap: wrap; row-gap: 8px; }
+#table-bills td .flex.gap-2.justify-center { gap: 8px !important; flex-wrap: nowrap !important; }
 #table-advance-bills td .btn-sm,
 #table-advance-cleared td .btn-sm,
-#table-bills td .btn-sm { padding: 7px 13px !important; min-height: 34px; font-size: 0.78rem; }
+#table-bills td .btn-sm { padding: 7px 13px !important; min-height: 34px; font-size: 0.78rem; flex-shrink: 0 !important; }
 
 /* Backdrop & Drawer */
 .sidebar-backdrop {
@@ -2713,23 +2882,23 @@ dialog::backdrop {
     font-size: 0.76rem !important;
   }
   .ledger-filter-bar .form-select {
-    grid-column: 1 !important;
+    grid-column: auto !important;
     width: 100% !important;
     max-width: none !important;
     height: 36px !important;
     font-size: 0.74rem !important;
   }
   .ledger-total-badge {
-    grid-column: 2 !important;
+    grid-column: 1 / -1 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     height: 36px !important;
-    font-size: 0.72rem !important;
+    font-size: 0.74rem !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    padding: 0 4px !important;
+    padding: 0 8px !important;
   }
   .ledger-filter-bar .btn {
     min-height: 36px !important;
@@ -3163,6 +3332,11 @@ dialog::backdrop {
     border-collapse: collapse !important;
     font-size: 9.5pt !important;
   }
+  .data-table th:last-child,
+  .data-table tbody td:last-child {
+    position: static !important;
+    box-shadow: none !important;
+  }
   .mobile-card-list { display: none !important; }
   .data-table thead th {
     background: #f1f5f9 !important;
@@ -3344,6 +3518,23 @@ html[data-theme="dark"] .login-card {
     0 0 0 4px var(--primary-light);
   color: #ffffff;
   position: relative;
+}
+.login-brand .brand-icon.brand-icon-img {
+  width: 84px;
+  height: 84px;
+  border-radius: 20px;
+  background: #000000;
+  border: 2px solid rgba(212, 175, 55, 0.5);
+  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(212, 175, 55, 0.18);
+  overflow: hidden;
+  padding: 0;
+}
+.login-brand .brand-icon.brand-icon-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
 }
 
 .login-brand .brand-icon svg {
@@ -3660,6 +3851,11 @@ html[data-theme="dark"] .login-card {
     height: 52px;
     border-radius: 14px;
   }
+  .login-brand .brand-icon.brand-icon-img {
+    width: 68px;
+    height: 68px;
+    border-radius: 16px;
+  }
   .login-brand .brand-icon svg {
     width: 28px;
     height: 28px;
@@ -3732,8 +3928,8 @@ html[data-theme="dark"] .login-card {
   overflow-x: hidden;
 }
 
-#panel-advance-bills, #panel-advance-cleared, #panel-bills { max-width: 100%; }
-#table-advance-bills, #table-advance-cleared, #table-bills { width: 100%; }
+#panel-advance-bills, #panel-advance-cleared, #panel-bills, #panel-hospital-cleared { max-width: 100%; min-width: 0; width: 100%; }
+#table-advance-bills, #table-advance-cleared, #table-bills, #table-hospital-cleared { width: 100%; max-width: 100%; }
 #panel-vendors .card.overflow-x {
   max-width: 100%;
   overflow-x: auto;
@@ -3742,7 +3938,7 @@ html[data-theme="dark"] .login-card {
 
 #panel-vendors .data-table {
   width: 100%;
-  min-width: 780px;
+  max-width: 100%;
 }
 
 #panel-vendors .data-table th {
@@ -3801,7 +3997,8 @@ html[data-theme="dark"] .login-card {
 #table-bills tr.row-selected td{background:rgba(22,163,74,.12)!important;color:inherit!important;box-shadow:inset 0 1px 0 rgba(22,163,74,.25),inset 0 -1px 0 rgba(22,163,74,.25)}  #table-bills tr.row-selected td:first-child{box-shadow:inset 3px 0 0 #16a34a,inset 0 1px 0 rgba(22,163,74,.25),inset 0 -1px 0 rgba(22,163,74,.25)}  #table-bills .row-check{accent-color:#16a34a}  #table-bills .row-check:focus{outline:2px solid #16a34a;outline-offset:1px}
 #table-bills td:nth-child(2),#table-hospital-cleared td:nth-child(1),#table-advance-bills td:nth-child(2),#table-advance-cleared td:nth-child(1){white-space:nowrap}
 #table-bills .row-check,#table-advance-bills .row-check{visibility:visible;opacity:1}
-.batch-badge{display:inline-block;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;font-size:0.75rem;border-radius:999px;padding:0.15rem 0.6rem;white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.batch-badge{display:inline-flex;align-items:center;gap:0.3rem;background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;font-weight:700;font-size:0.75rem;border-radius:999px;padding:0.15rem 0.6rem;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;transition:all .15s ease;cursor:default}
+.batch-badge-unassigned{display:inline-flex;align-items:center;gap:0.3rem;background:rgba(107,114,128,0.08);color:#6b7280;border:1px dashed #d1d5db;font-weight:600;font-size:0.75rem;border-radius:999px;padding:0.15rem 0.6rem;white-space:nowrap;cursor:default}
 .batch-summary-card{background:var(--bg-app);border:1px solid var(--border-color);border-radius:10px;padding:0.7rem 0.9rem;margin:0.8rem 0;display:flex;flex-direction:column;gap:0.35rem}
 .batch-summary-row{display:flex;justify-content:space-between;align-items:center;font-size:0.9rem}
 .batch-clear-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:0.4rem;border:1px dashed var(--border-color);border-radius:10px;padding:0.6rem}

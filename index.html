@@ -23,8 +23,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23059669'/><path d='M35 50h30M50 35v30' stroke='%23ffffff' stroke-width='14' stroke-linecap='round'/></svg>">
+  <!-- Favicon & Icons -->
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="assets/logo.png">
 
   <!-- Critical Panel Visibility Rule (Guarantees only active section is visible) -->
   <style>
@@ -89,11 +91,8 @@
       <!-- Main Login Card -->
       <div class="login-card" id="login-card">
         <div class="login-brand">
-          <div class="brand-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
+          <div class="brand-icon brand-icon-img" aria-hidden="true">
+            <img src="assets/logo.png" alt="Noor Hospital Qadian Logo" class="login-brand-logo">
           </div>
           <h2>Noor Hospital</h2>
           <p>Cash Management & Treasury System</p>
@@ -177,11 +176,8 @@
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="brand">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
+          <div class="brand-icon brand-icon-img">
+            <img src="assets/logo.png" alt="Noor Hospital Logo" class="sidebar-brand-logo">
           </div>
           <div class="brand-text">
             <div class="brand-title-row">
@@ -336,6 +332,7 @@
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
             </button>
+            <img src="assets/logo.png" alt="Noor Hospital Logo" class="topbar-mobile-logo">
             <div class="top-bar-title-wrap">
               <h1 class="panel-heading" id="main-panel-title">Overview Dashboard</h1>
             </div>
@@ -753,7 +750,7 @@
                   <th>Amount</th>
                   <th>Remarks</th>
                   <th class="text-right">Running Balance</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-advance">
@@ -804,7 +801,7 @@
                   <th>Amount</th>
                   <th>Remarks</th>
                   <th class="text-right">Running Balance</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-hospital">
@@ -853,9 +850,8 @@
                   <th>Date</th>
                   <th>Receipt / Voucher No</th>
                   <th>Amount</th>
-                  <th>Attachment</th>
                   <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-deposits">
@@ -903,13 +899,11 @@
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Token No</th>
                   <th>Vendor / Person</th>
                   <th>Amount</th>
                   <th>Status</th>
-                  <th>Attachment</th>
                   <th>Remarks</th>
-                  <th class="text-center">Action</th>
+                  <th class="text-center" style="width: 190px; min-width: 190px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-slips">
@@ -956,13 +950,11 @@
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Token No</th>
                   <th>Vendor / Person</th>
                   <th>Amount</th>
                   <th>Status</th>
-                  <th>Attachment</th>
                   <th>Remarks</th>
-                  <th class="text-center">Action</th>
+                  <th class="text-center" style="width: 190px; min-width: 190px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-advance-slips">
@@ -1013,7 +1005,7 @@
                   <th>Amount</th>
                   <th>Reference No</th>
                   <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-accounts">
@@ -1080,16 +1072,14 @@
             <table class="data-table" id="table-advance-bills">
               <thead>
                 <tr>
-                  <th class="text-center" style="width:36px;"><input type="checkbox" id="select-all-advance-bills-head" title="Select all" onchange="app.ui.toggleSelectAllAdvanceBills(this.checked)"></th>
-                  <th>Date</th>
-                  <th>Token No</th>
-                  <th>Bill Number</th>
+                  <th class="text-center" style="width: 28px; padding: 6px 4px;"><input type="checkbox" id="select-all-advance-bills-head" title="Select all" onchange="app.ui.toggleSelectAllAdvanceBills(this.checked)"></th>
+                  <th style="width: 78px;">Date</th>
+                  <th style="width: 82px;">Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Head</th>
-                  <th>Amount</th>
-                  <th>Attachment</th>
-                  <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th style="width: 78px;">Amount</th>
+                  <th style="width: 80px;">Remarks</th>
+                  <th class="text-center" style="width: 114px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-advance-bills"></tbody>
@@ -1124,9 +1114,11 @@
             <select id="filter-advance-cleared-head" class="form-select form-input-sm" style="max-width:170px" onchange="app.ui.applyFilter('advance-cleared',{head:this.value})" title="Filter by Head">
               <option value="">All Heads</option>
             </select>
-            <select id="filter-advance-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('advance-cleared',{})" title="Filter by batch">
+            <select id="filter-advance-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('advance-cleared',{batch:this.value})" title="Filter by batch">
               <option value="">All Batches</option>
             </select>
+            <button class="btn btn-secondary btn-sm" id="btn-rename-advance-batch" style="display:none;color:var(--primary);border-color:rgba(59,130,246,0.3)" onclick="app.ui.promptRenameAdvanceBatch()" title="Rename this batch or assign a batch name">✏️ Rename Batch</button>
+            <button class="btn btn-secondary btn-sm" id="btn-undo-advance-batch" style="display:none;color:var(--warning);border-color:rgba(245,158,11,0.3)" onclick="app.ui.undoCurrentAdvanceBatch()" title="Move this entire batch back to Muhasib Bills">↩ Undo Batch</button>
             <span class="ledger-total-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border-color:rgba(16,185,129,0.25)" id="total-advance-cleared">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-cleared')">Export Excel</button>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.printAdvanceClearedDetail()" style="background:var(--success);border-color:var(--success);color:#fff;font-weight:700">🖨️ PDF Print</button>
@@ -1137,16 +1129,14 @@
             <table class="data-table" id="table-advance-cleared">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Token No</th>
-                  <th>Bill Number</th>
+                  <th style="width: 78px;">Date</th>
+                  <th style="width: 82px;">Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Head</th>
-                  <th>Amount</th>
-                  <th>Batch</th>
-                  <th>Attachment</th>
-                  <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th style="width: 78px;">Amount</th>
+                  <th style="width: 90px; text-align: center;">Batch</th>
+                  <th style="width: 80px;">Remarks</th>
+                  <th class="text-center" style="width: 114px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-advance-cleared"></tbody>
@@ -1211,16 +1201,14 @@
             <table class="data-table" id="table-bills">
               <thead>
                 <tr>
-                  <th class="text-center" style="width:36px;"><input type="checkbox" id="select-all-hospital-bills-head" title="Select all" onchange="app.ui.toggleSelectAllHospitalBills(this.checked)"></th>
-                  <th>Date</th>
-                  <th>Token No</th>
-                  <th>Bill Number</th>
+                  <th class="text-center" style="width: 28px; padding: 6px 4px;"><input type="checkbox" id="select-all-hospital-bills-head" title="Select all" onchange="app.ui.toggleSelectAllHospitalBills(this.checked)"></th>
+                  <th style="width: 78px;">Date</th>
+                  <th style="width: 82px;">Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Head</th>
-                  <th>Amount</th>
-                  <th>Attachment</th>
-                  <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th style="width: 78px;">Amount</th>
+                  <th style="width: 80px;">Remarks</th>
+                  <th class="text-center" style="width: 114px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-bills"></tbody>
@@ -1255,9 +1243,11 @@
             <select id="filter-hospital-cleared-head" class="form-select form-input-sm" style="max-width:170px" onchange="app.ui.applyFilter('hospital-cleared',{head:this.value})" title="Filter by Head">
               <option value="">All Heads</option>
             </select>
-            <select id="filter-hospital-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('hospital-cleared',{})" title="Filter by batch">
+            <select id="filter-hospital-cleared-batch" class="form-select form-input-sm" style="max-width:180px" onchange="app.ui.applyFilter('hospital-cleared',{batch:this.value})" title="Filter by batch">
               <option value="">All Batches</option>
             </select>
+            <button class="btn btn-secondary btn-sm" id="btn-rename-hospital-batch" style="display:none;color:var(--primary);border-color:rgba(59,130,246,0.3)" onclick="app.ui.promptRenameHospitalBatch()" title="Rename this batch or assign a batch name">✏️ Rename Batch</button>
+            <button class="btn btn-secondary btn-sm" id="btn-undo-hospital-batch" style="display:none;color:var(--warning);border-color:rgba(245,158,11,0.3)" onclick="app.ui.undoCurrentHospitalBatch()" title="Move this entire batch back to Hospital Bills">↩ Undo Batch</button>
             <span class="ledger-total-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border-color:rgba(16,185,129,0.25)" id="total-hospital-cleared">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('hospital-cleared')">Export Excel</button>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.printHospitalClearedDetail()" style="background:var(--success);border-color:var(--success);color:#fff;font-weight:700">🖨️ PDF Print</button>
@@ -1268,16 +1258,14 @@
             <table class="data-table" id="table-hospital-cleared">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Token No</th>
-                  <th>Bill Number</th>
+                  <th style="width: 78px;">Date</th>
+                  <th style="width: 82px;">Bill Number</th>
                   <th>Vendor Name</th>
                   <th>Head</th>
-                  <th>Amount</th>
-                  <th>Batch</th>
-                  <th>Attachment</th>
-                  <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th style="width: 78px;">Amount</th>
+                  <th style="width: 90px; text-align: center;">Batch</th>
+                  <th style="width: 80px;">Remarks</th>
+                  <th class="text-center" style="width: 114px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-hospital-cleared"></tbody>
@@ -1325,7 +1313,7 @@
                   <th>Type</th>
                   <th>Amount</th>
                   <th>Remarks</th>
-                  <th class="text-center" style="width: 80px;">Action</th>
+                  <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-transfers">
@@ -1396,7 +1384,7 @@
                   <th style="width:110px;">Subject</th>
                   <th style="width:130px;">Amount</th>
                   <th style="width:170px;">Moved To</th>
-                  <th class="text-center" style="width:160px;">Action</th>
+                  <th class="text-center" style="width: 165px; min-width: 165px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-staff-receipts">
@@ -3178,6 +3166,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
         <div class="form-group">
           <label class="form-label" for="vendor-name">Vendor / Supplier Name <span class="text-error">*</span></label>
           <input type="text" id="vendor-name" class="form-input" placeholder="e.g. Apex Surgicals, Al-Shifa Pharmacy" required autocomplete="off">
+          <div id="vendor-name-error" class="text-xs text-error mt-1" style="display:none;font-weight:600;"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="vendor-code">Vendor ID <span style="font-weight:400;color:var(--text-muted)">(Optional)</span></label>
@@ -3327,6 +3316,87 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-hospital-batch-clear')">Cancel</button>
       <button type="button" class="btn btn-primary" id="btn-hospital-batch-clear-confirm" onclick="app.ui.confirmHospitalBatchClear()" style="background:var(--success);border-color:var(--success)">Confirm Move to Bill Sayer</button>
+    </div>
+  </dialog>
+
+  <!-- MODAL: Rename Batch / Assign Batch Name -->
+  <dialog id="dialog-rename-batch" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="rename-batch-modal-title">Rename Batch</h3>
+        <p class="modal-subtitle" id="rename-batch-modal-subtitle">Update the batch name for all matching cleared bills</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-rename-batch')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rename-batch-type" value="advance">
+      <input type="hidden" id="rename-batch-old-name" value="">
+      <div class="batch-summary-card" style="margin-bottom:1rem">
+        <div class="batch-summary-row"><span>Current Batch</span><strong id="rename-batch-current-display">—</strong></div>
+        <div class="batch-summary-row"><span>Affected Bills</span><strong id="rename-batch-affected-count">0</strong></div>
+        <div class="batch-summary-row"><span>Total Amount</span><strong id="rename-batch-affected-total">₹0.00</strong></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="rename-batch-new-name">New Batch Name *</label>
+        <input type="text" id="rename-batch-new-name" class="form-input" placeholder="e.g. 1-172, Batch-01, Legacy Bills" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();app.ui.confirmRenameBatch();}">
+        <small class="form-hint" id="rename-batch-hint">Enter the new batch name. All matching bills will be updated immediately and synced across devices.</small>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-rename-batch')">Cancel</button>
+      <button type="button" class="btn btn-primary" id="btn-rename-batch-confirm" onclick="app.ui.confirmRenameBatch()" style="background:var(--primary);border-color:var(--primary)">Save Batch Name</button>
+    </div>
+  </dialog>
+
+  <!-- MODAL: Move Bill(s) to Another Batch -->
+  <dialog id="dialog-move-bill-batch" closedby="any" class="modal-dialog">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="move-bill-modal-title">Move Bill to Another Batch</h3>
+        <p class="modal-subtitle">Transfer bill(s) from current batch to another existing or new batch</p>
+      </div>
+      <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-move-bill-batch')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="move-bill-batch-primary-id" value="">
+      <input type="hidden" id="move-bill-batch-type" value="advance">
+
+      <!-- Current Bill Info / Summary -->
+      <div class="batch-summary-card" style="margin-bottom:0.8rem">
+        <div class="batch-summary-row"><span>Current Batch</span><strong id="move-bill-current-batch-badge" class="batch-badge">—</strong></div>
+        <div class="batch-summary-row"><span>Primary Bill</span><strong id="move-bill-primary-desc">—</strong></div>
+        <div class="batch-summary-row"><span>Total Moving</span><strong id="move-bill-total-summary">1 bill (₹0.00)</strong></div>
+      </div>
+
+      <!-- Other bills in the same batch (optional multi-select) -->
+      <div id="move-bill-co-bills-wrap" style="display:none;margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
+          <label class="form-label" style="margin:0;font-size:0.82rem">Also move other bills from this batch?</label>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-move-co-bills-toggle-all" onclick="app.ui.toggleMoveCoBillsSelectAll()" style="font-size:0.75rem;padding:0.15rem 0.5rem">Select All</button>
+        </div>
+        <div id="move-bill-co-bills-list" class="batch-clear-list" style="max-height:160px"></div>
+      </div>
+
+      <!-- Target Batch Form -->
+      <div class="form-group">
+        <label class="form-label" for="move-bill-target-batch-select">Target Batch *</label>
+        <select id="move-bill-target-batch-select" class="form-select" onchange="app.ui.onMoveBillBatchSelectChange(this.value)">
+        </select>
+      </div>
+
+      <div class="form-group" id="move-bill-custom-batch-group" style="display:none">
+        <label class="form-label" for="move-bill-target-batch-custom">New Batch Name *</label>
+        <input type="text" id="move-bill-target-batch-custom" class="form-input" placeholder="e.g. 4-205, Batch-10, Amanat-04" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();app.ui.confirmMoveBillBatch();}">
+        <small class="form-hint">Type a new batch name for the selected bill(s).</small>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-move-bill-batch')">Cancel</button>
+      <button type="button" class="btn btn-primary" id="btn-move-bill-batch-confirm" onclick="app.ui.confirmMoveBillBatch()" style="background:var(--tertiary);border-color:var(--tertiary)">Move Bill</button>
     </div>
   </dialog>
 

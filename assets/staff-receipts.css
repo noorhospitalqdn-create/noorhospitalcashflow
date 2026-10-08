@@ -33,5 +33,5 @@
 .status-pending{background:rgba(245,158,11,.15);color:#b45309;border:1px solid rgba(245,158,11,.4)}
 .status-returned{background:rgba(16,185,129,.14);color:#047857;border:1px solid rgba(16,185,129,.4)}
 .status-adjusted{background:rgba(139,92,246,.14);color:#6d28d9;border:1px solid rgba(139,92,246,.4)}
-.rcpt-row-actions{display:flex;gap:.3rem;justify-content:center;flex-wrap:wrap}
+.rcpt-row-actions{display:inline-flex;gap:.3rem;justify-content:center;flex-wrap:nowrap;white-space:nowrap;min-width:max-content}
 @media(max-width:640px){.rcpt-share-grid{grid-template-columns:1fr 1fr}}
