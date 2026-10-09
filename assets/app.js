@@ -1824,8 +1824,71 @@ const app = {
     },
     promptRenameHospitalBatch(){
       const b=app.ui.filters['hospital-cleared']?.batch || document.getElementById('filter-hospital-cleared-batch')?.value;
-      if(!b){ app.ui.showToast('Please select a batch from the dropdown or click a batch badge.','warning'); return; }
       app.ui.openRenameBatchModal('hospital', b==='__none__' ? '' : b);
+    },
+    generateNextBillNumber() {
+      const bills = app.state.bills || [];
+      let maxNum = 0;
+      let detectedPrefix = 'INV-';
+
+      bills.forEach(b => {
+        const raw = String(b.billNumber || '').trim();
+        const match = raw.match(/^([A-Za-z_-]*?)(\d+)$/);
+        if (match) {
+          const prefix = match[1] || 'INV-';
+          const num = parseInt(match[2], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+            detectedPrefix = prefix;
+          }
+        }
+      });
+
+      if (maxNum > 0) {
+        return `${detectedPrefix}${maxNum + 1}`;
+      }
+      return 'INV-1001';
+    },
+
+    numberToWordsIndian(num) {
+      if (!num || isNaN(num) || num <= 0) return 'Zero Rupees';
+      const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      
+      const inWords = (n) => {
+        if (n === 0) return '';
+        if (n < 20) return a[n] + ' ';
+        if (n < 100) return b[Math.floor(n / 10)] + (n % 10 !== 0 ? ' ' + a[n % 10] : '') + ' ';
+        if (n < 1000) return a[Math.floor(n / 100)] + ' Hundred ' + inWords(n % 100);
+        if (n < 100000) return inWords(Math.floor(n / 1000)) + 'Thousand ' + inWords(n % 1000);
+        if (n < 10000000) return inWords(Math.floor(n / 100000)) + 'Lakh ' + inWords(n % 100000);
+        return inWords(Math.floor(n / 10000000)) + 'Crore ' + inWords(n % 10000000);
+      };
+      
+      const intPart = Math.floor(num);
+      const decPart = Math.round((num - intPart) * 100);
+      let words = inWords(intPart).trim();
+      if (!words) words = 'Zero';
+      words += ' Rupees';
+      if (decPart > 0) {
+        words += ' & ' + inWords(decPart).trim() + ' Paise';
+      }
+      return words;
+    },
+
+    updateAmountWords(inputEl) {
+      if (!inputEl) return;
+      const targetId = inputEl.id;
+      const wordsEl = document.getElementById(targetId + '-words');
+      if (!wordsEl) return;
+      const val = parseFloat(inputEl.value) || 0;
+      if (val > 0) {
+        wordsEl.innerText = app.ui.numberToWordsIndian(val);
+        wordsEl.classList.add('has-value');
+      } else {
+        wordsEl.innerText = 'Zero Rupees';
+        wordsEl.classList.remove('has-value');
+      }
     },
     getFiltered(list, page, opts={}){
       const f=app.ui.filters[page]||{search:'',from:'',to:'',sort:'date_desc',head:'',batch:''};
@@ -2076,6 +2139,228 @@ const app = {
 
       transferTypeSelect.addEventListener('change', validateTransferAmount);
       transferAmountInput.addEventListener('input', validateTransferAmount);
+
+      // ── Real-time Currency Words & Amount Formatting Listener ──
+      document.addEventListener('input', (e) => {
+        if (e.target && e.target.id && (e.target.id.endsWith('-amount') || e.target.classList.contains('amt-input'))) {
+          app.ui.updateAmountWords(e.target);
+        }
+      });
+
+      // ── Quick Amount Chips, Date Presets & Remark Chips Global Delegator ──
+      document.addEventListener('click', (e) => {
+        // ── Quick Date Pills (Today / Yesterday) ──
+        const dpill = e.target.closest('.date-pill[data-target][data-preset]');
+        if (dpill) {
+          e.preventDefault();
+          const targetId = dpill.getAttribute('data-target');
+          const targetInput = document.getElementById(targetId);
+          if (targetInput) {
+            const preset = dpill.getAttribute('data-preset');
+            const d = new Date();
+            if (preset === 'yesterday') {
+              d.setDate(d.getDate() - 1);
+            }
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            targetInput.value = `${yyyy}-${mm}-${dd}`;
+            targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+            targetInput.focus();
+          }
+          return;
+        }
+
+        // ── Quick Amount Chips (+100, +500, +1000, +5000, Clear) ──
+        const chip = e.target.closest('.qchip[data-target]');
+        if (chip) {
+          e.preventDefault();
+          const targetId = chip.getAttribute('data-target');
+          const input = document.getElementById(targetId);
+          if (!input) return;
+
+          if (chip.classList.contains('qchip-clear') || chip.getAttribute('data-clear') === '1') {
+            input.value = '';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            app.ui.updateAmountWords(input);
+            input.focus();
+            return;
+          }
+
+          const addVal = parseFloat(chip.getAttribute('data-add') || '0');
+          if (!isNaN(addVal) && addVal > 0) {
+            const curVal = parseFloat(input.value) || 0;
+            const newVal = curVal + addVal;
+            input.value = Number.isInteger(newVal) ? newVal.toString() : newVal.toFixed(2);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+            app.ui.updateAmountWords(input);
+            input.focus();
+          }
+          return;
+        }
+
+        // ── Remark Chips Delegator ──
+        const rchip = e.target.closest('.rchip[data-remark]');
+        if (rchip) {
+          e.preventDefault();
+          const remark = rchip.getAttribute('data-remark');
+          const parentModal = rchip.closest('dialog');
+          const remTextarea = parentModal ? parentModal.querySelector('textarea') : document.getElementById('bill-remarks');
+          if (remTextarea && remark) {
+            const cur = remTextarea.value.trim();
+            if (!cur) {
+              remTextarea.value = remark;
+            } else if (!cur.includes(remark)) {
+              remTextarea.value = cur + ' • ' + remark;
+            }
+            remTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+            remTextarea.focus();
+          }
+          return;
+        }
+
+        // ── Hospital Department Cards Delegator (Pro Cards) ──
+        const dcard = e.target.closest('.dept-card[data-source]');
+        if (dcard) {
+          e.preventDefault();
+          const srcVal = dcard.getAttribute('data-source');
+          const srcSelect = document.getElementById('hosp-source');
+          if (srcSelect && srcVal) {
+            srcSelect.value = srcVal;
+            srcSelect.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          document.querySelectorAll('.dept-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-source') === srcVal));
+          return;
+        }
+
+        // ── Muhasib Float Category Cards Delegator ──
+        const fcard = e.target.closest('.float-cat-card[data-cat]');
+        if (fcard) {
+          e.preventDefault();
+          const catTitle = fcard.getAttribute('data-cat');
+          const remArea = document.getElementById('adv-remarks');
+          if (remArea && catTitle) {
+            remArea.value = catTitle;
+            remArea.dispatchEvent(new Event('input', { bubbles: true }));
+            remArea.focus();
+          }
+          document.querySelectorAll('.float-cat-card').forEach(c => c.classList.remove('active'));
+          fcard.classList.add('active');
+          return;
+        }
+
+        // ── Shift Chips Delegator ──
+        const schip = e.target.closest('.shift-chip[data-shift]');
+        if (schip) {
+          e.preventDefault();
+          const shiftVal = schip.getAttribute('data-shift');
+          const remArea = document.getElementById('hosp-remarks');
+          if (remArea && shiftVal) {
+            const cur = remArea.value.trim();
+            if (!cur) {
+              remArea.value = shiftVal;
+            } else if (!cur.includes(shiftVal)) {
+              remArea.value = cur + ' • ' + shiftVal;
+            }
+            remArea.dispatchEvent(new Event('input', { bubbles: true }));
+            remArea.focus();
+          }
+          document.querySelectorAll('.shift-chip').forEach(c => c.classList.remove('active'));
+          schip.classList.add('active');
+          return;
+        }
+
+        // ── Hospital Department / Source Chips Delegator ──
+        const srcChip = e.target.closest('.source-chip[data-source]');
+        if (srcChip) {
+          e.preventDefault();
+          const srcVal = srcChip.getAttribute('data-source');
+          const srcSelect = document.getElementById('hosp-source');
+          if (srcSelect && srcVal) {
+            srcSelect.value = srcVal;
+            srcSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            srcChip.parentElement.querySelectorAll('.source-chip').forEach(c => c.classList.remove('active'));
+            srcChip.classList.add('active');
+          }
+          return;
+        }
+
+        // ── Recent Vendor Chip Selection ──
+        const vchip = e.target.closest('.recent-vendor-chip[data-vendor]');
+        if (vchip) {
+          e.preventDefault();
+          const vendorName = vchip.getAttribute('data-vendor');
+          const parent = vchip.closest('.recent-vendors');
+          const isSlip = parent && parent.id === 'recent-slip-vendors';
+          const targetSelect = document.getElementById(isSlip ? 'slip-vendor' : 'bill-vendor');
+          if (targetSelect && vendorName) {
+            targetSelect.value = vendorName;
+            targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            targetSelect.focus();
+          }
+          return;
+        }
+
+        // ── Recent Head Chip Selection ──
+        const hchip = e.target.closest('.recent-vendor-chip[data-head]');
+        if (hchip) {
+          e.preventDefault();
+          const headName = hchip.getAttribute('data-head');
+          const headSelect = document.getElementById('bill-head');
+          if (headSelect && headName) {
+            headSelect.value = headName;
+            headSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            headSelect.focus();
+          }
+          return;
+        }
+      });
+
+      // Hospital Source Select change -> sync source chips & dept cards
+      const hospSourceSelect = document.getElementById('hosp-source');
+      if (hospSourceSelect) {
+        hospSourceSelect.addEventListener('change', () => {
+          const val = hospSourceSelect.value;
+          document.querySelectorAll('.source-chips .source-chip').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-source') === val);
+          });
+          document.querySelectorAll('.dept-card').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-source') === val);
+          });
+        });
+      }
+
+      // Auto-Next invoice number button
+      const billNextBtn = document.getElementById('bill-next-btn');
+      if (billNextBtn) {
+        billNextBtn.addEventListener('click', () => {
+          const numInput = document.getElementById('bill-number');
+          if (numInput) {
+            numInput.value = app.ui.generateNextBillNumber();
+            numInput.focus();
+            numInput.select();
+          }
+        });
+      }
+
+      // Save & Next button for bill entry form
+      const billSaveNewBtn = document.getElementById('bill-save-new-btn');
+      if (billSaveNewBtn) {
+        billSaveNewBtn.addEventListener('click', () => {
+          window._isBillSaveAndNext = true;
+          const form = document.getElementById('form-bill-add');
+          if (form) {
+            if (form.reportValidity && !form.reportValidity()) {
+              window._isBillSaveAndNext = false;
+              return;
+            }
+            form.requestSubmit();
+          }
+        });
+      }
 
       // FORM SUBMISSIONS
 
@@ -2562,8 +2847,30 @@ const app = {
             app.ui.showToast('Direct bill registered successfully!');
           }
 
+          const isSaveAndNext = window._isBillSaveAndNext;
+          window._isBillSaveAndNext = false;
+
           app.attachments.clearStagedFile('bill');
-          app.ui.closeModal('dialog-bill-add');
+          if (isSaveAndNext) {
+            // Keep modal open and ready for next bill
+            const amtEl = document.getElementById('bill-amount');
+            if (amtEl) amtEl.value = '';
+            const remEl = document.getElementById('bill-remarks');
+            if (remEl) remEl.value = '';
+            const numEl = document.getElementById('bill-number');
+            if (numEl) numEl.value = app.ui.generateNextBillNumber();
+            const tokenEl = document.getElementById('bill-token');
+            if (tokenEl) {
+              const expType = document.getElementById('bill-exp-type')?.value || 'advance';
+              tokenEl.value = app.generateToken(expType === 'advance' ? 'advance_bill' : 'hospital_bill');
+              const badge = document.getElementById('bill-token-badge');
+              if (badge) badge.textContent = tokenEl.value;
+            }
+            if (amtEl) setTimeout(() => amtEl.focus(), 60);
+            app.ui.showToast('Bill registered! Ready for next bill.', 'success');
+          } else {
+            app.ui.closeModal('dialog-bill-add');
+          }
           app.syncState();
         } catch (err) {
           console.error(err);
@@ -3127,6 +3434,20 @@ const app = {
           } else if (billBadge && billTokenEl) {
             billBadge.innerText = billTokenEl.value || 'AUTO';
           }
+          if (app.vendors) app.vendors.populateVendorDropdowns();
+          if (app.heads) app.heads.populateHeadDropdowns();
+          if (!document.getElementById('edit-bill-id')?.value) {
+            const numEl = document.getElementById('bill-number');
+            if (numEl && !numEl.value) numEl.value = app.ui.generateNextBillNumber();
+          }
+        } else if (dialogId === 'dialog-hospital-add') {
+          const curSrc = document.getElementById('hosp-source')?.value || 'OPD';
+          document.querySelectorAll('.source-chips .source-chip').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-source') === curSrc);
+          });
+          document.querySelectorAll('.dept-card').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-source') === curSrc);
+          });
         } else if (dialogId === 'dialog-deposit-add') {
           app.attachments.clearStagedFile('deposit');
         } else if (dialogId === 'dialog-settings') {
@@ -3142,6 +3463,11 @@ const app = {
           document.querySelector('#form-transfer-add button[type="submit"]').disabled = false;
         }
 
+        // Initialize live currency words for all amount inputs inside this dialog
+        dialog.querySelectorAll('input.amt-input, input[id$="-amount"]').forEach(inp => {
+          app.ui.updateAmountWords(inp);
+        });
+
         dialog.showModal();
       }
     },
@@ -3156,6 +3482,12 @@ const app = {
         // Reset form inside dialog if it exists
         const form = dialog.querySelector('form');
         if (form) form.reset();
+
+        // Reset any currency words displays
+        dialog.querySelectorAll('.amt-words').forEach(w => {
+          w.innerText = 'Zero Rupees';
+          w.classList.remove('has-value');
+        });
         
         // Reset staged files & edit states
         if (dialogId === 'dialog-advance-add') {
@@ -5798,7 +6130,16 @@ const app = {
         }
       }
 
-      // 6. Update sidebar badge
+      // 6. Populate recent vendor chips in Bill & Slip entry dialogs
+      try {
+        // Vendor suggestions disabled per user request
+        const rv1 = document.getElementById('recent-vendors');
+        if (rv1) rv1.innerHTML = '';
+        const rv2 = document.getElementById('recent-slip-vendors');
+        if (rv2) rv2.innerHTML = '';
+      } catch(e) {}
+
+      // 7. Update sidebar badge
       const badge = document.getElementById('nav-vendors-badge');
       if (badge) badge.textContent = sorted.length;
     },
@@ -6073,6 +6414,34 @@ const app = {
         sel.innerHTML = '<option value="">-- Head --</option>' + sorted.map(h => `<option value="${String(h.name).replace(/"/g, '&quot;')}">${String(h.name).replace(/</g, '&lt;')}</option>`).join('');
         if (cur) sel.value = cur;
       });
+
+      // Populate top used head chips in Bill entry dialog (most frequently used heads only)
+      try {
+        const headCounts = {};
+        (app.state.bills || []).forEach(b => {
+          const hd = String(b.head || b.category || '').trim();
+          if (hd && hd.toUpperCase() !== 'GENERAL') {
+            headCounts[hd] = (headCounts[hd] || 0) + 1;
+          }
+        });
+        // Sort strictly by frequency of use descending
+        const topHeads = Object.keys(headCounts)
+          .filter(h => headCounts[h] > 0)
+          .sort((a,b) => headCounts[b] - headCounts[a])
+          .slice(0, 4);
+
+        const rhEl = document.getElementById('recent-heads');
+        if (rhEl) {
+          if (topHeads.length === 0) {
+            rhEl.innerHTML = '';
+          } else {
+            rhEl.innerHTML = topHeads.map(h =>
+              `<button type="button" class="recent-vendor-chip" data-head="${app.ui.escapeHTML(h)}" title="${headCounts[h]} bills">🔥 ${app.ui.escapeHTML(h)}</button>`
+            ).join('');
+          }
+        }
+      } catch(e) {}
+
       const badge = document.getElementById('nav-heads-badge');
       if (badge) badge.textContent = sorted.length;
     },

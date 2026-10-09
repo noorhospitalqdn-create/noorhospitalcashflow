@@ -60,16 +60,16 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261008_09">
-  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261008_09">
+  <link rel="stylesheet" href="assets/app.css?v=20261010_07">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_07">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261008_09" defer></script>
-  <script src="assets/staff-receipts.js?v=20261008_09" defer></script>
+  <script src="assets/app.js?v=20261010_07" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_07" defer></script>
 </head>
 <body>
 
@@ -2353,7 +2353,15 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <!-- MODAL: Adjust Opening Balances -->
   <dialog id="dialog-settings" closedby="any" class="modal-dialog">
     <div class="modal-header">
-      <h3>Opening Balances</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>
+          </span>
+          <h3>Opening Balances</h3>
+        </div>
+        <p class="modal-subtitle">Configure system initial float and counter balance</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-settings')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -2378,9 +2386,17 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
 
 
   <!-- MODAL: Add Muhasib Cash Entry -->
-  <dialog id="dialog-advance-add" closedby="any" class="modal-dialog">
+  <dialog id="dialog-advance-add" closedby="any" class="modal-dialog modal-dialog-bill">
     <div class="modal-header">
-      <h3 id="dialog-advance-title">Add Muhasib Cash Entry</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </span>
+          <h3 id="dialog-advance-title">Record Muhasib Cash Float</h3>
+        </div>
+        <p class="modal-subtitle">Add cash replenishment float from Muhasib to current petty cash</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-advance-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -2388,31 +2404,112 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-advance-add">
       <input type="hidden" id="edit-advance-id">
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label" for="adv-date">Date</label>
-          <input type="date" id="adv-date" class="form-input" required>
+        <!-- 1. Grand Amount Display Deck -->
+        <div class="amt-hero">
+          <div class="amt-hero-top">
+            <label class="form-label" for="adv-amount">Float Replenishment Amount</label>
+            <span class="amt-currency-label">INR (₹)</span>
+          </div>
+          <div class="amt-input-wrap">
+            <span class="amt-cur">₹</span>
+            <input type="number" step="0.01" min="0.01" id="adv-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+          </div>
+          <div class="amt-words" id="adv-amount-words">Zero Rupees</div>
+          <div class="quick-chips">
+            <button type="button" class="qchip" data-target="adv-amount" data-add="500">+500</button>
+            <button type="button" class="qchip" data-target="adv-amount" data-add="1000">+1,000</button>
+            <button type="button" class="qchip" data-target="adv-amount" data-add="5000">+5,000</button>
+            <button type="button" class="qchip" data-target="adv-amount" data-add="10000">+10,000</button>
+            <button type="button" class="qchip" data-target="adv-amount" data-add="25000">+25,000</button>
+            <button type="button" class="qchip qchip-clear" data-target="adv-amount" data-clear="1">✕ Clear</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="adv-amount">Amount (₹)</label>
-          <input type="number" step="0.01" min="0.01" id="adv-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="adv-remarks">Remarks</label>
-          <textarea id="adv-remarks" class="form-textarea" placeholder="Add entry notes..." rows="3" required></textarea>
+
+        <!-- 2. Dual-Column Pro Layout -->
+        <div class="modal-form-grid">
+          <!-- Left Column: Float Purpose Cards -->
+          <div class="form-col">
+            <label class="form-label">Float Category / Purpose</label>
+            <div class="float-cat-grid" style="grid-template-columns: 1fr; gap: 7px; margin-bottom: 0;">
+              <button type="button" class="float-cat-card active" data-cat="Received cash replenishment from Muhasib">
+                <span class="float-cat-icon">💵</span>
+                <div class="float-cat-text">
+                  <span class="float-cat-title">Cash Replenishment</span>
+                  <span class="float-cat-sub">Routine petty float top-up</span>
+                </div>
+              </button>
+              <button type="button" class="float-cat-card" data-cat="Monthly advance cash float">
+                <span class="float-cat-icon">📅</span>
+                <div class="float-cat-text">
+                  <span class="float-cat-title">Monthly Imprest</span>
+                  <span class="float-cat-sub">Month beginning advance</span>
+                </div>
+              </button>
+              <button type="button" class="float-cat-card" data-cat="Emergency petty cash float">
+                <span class="float-cat-icon">⚡</span>
+                <div class="float-cat-text">
+                  <span class="float-cat-title">Emergency Float</span>
+                  <span class="float-cat-sub">Urgent hospital operation</span>
+                </div>
+              </button>
+              <button type="button" class="float-cat-card" data-cat="Bank self cash withdrawal">
+                <span class="float-cat-icon">🏦</span>
+                <div class="float-cat-text">
+                  <span class="float-cat-title">Bank Withdrawal</span>
+                  <span class="float-cat-sub">Direct cash withdrawal</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Column: Date & Remarks -->
+          <div class="form-col">
+            <div class="form-group" style="margin-bottom:0.75rem">
+              <div class="form-label-row">
+                <label class="form-label" for="adv-date">Entry Date</label>
+                <div class="date-presets">
+                  <button type="button" class="date-pill" data-target="adv-date" data-preset="today">Today</button>
+                  <button type="button" class="date-pill" data-target="adv-date" data-preset="yesterday">Yesterday</button>
+                </div>
+              </div>
+              <input type="date" id="adv-date" class="form-input" required>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" for="adv-remarks">Remarks / Notes</label>
+              <textarea id="adv-remarks" class="form-textarea" placeholder="e.g. Received cash replenishment from Muhasib..." rows="3" required></textarea>
+              <div class="remark-chips">
+                <button type="button" class="rchip" data-remark="Received cash replenishment">💵 Replenishment</button>
+                <button type="button" class="rchip" data-remark="Monthly advance cash float">📅 Monthly Float</button>
+                <button type="button" class="rchip" data-remark="Emergency petty cash">⚡ Emergency Float</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-advance-add')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Entry</button>
+        <button type="submit" class="btn btn-primary">
+          <span>Save Float Entry</span>
+          <kbd class="kbd-hint">↵</kbd>
+        </button>
       </div>
     </form>
   </dialog>
 
 
   <!-- MODAL: Add Hospital Cash Entry -->
-  <dialog id="dialog-hospital-add" closedby="any" class="modal-dialog">
+  <dialog id="dialog-hospital-add" closedby="any" class="modal-dialog modal-dialog-bill">
     <div class="modal-header">
-      <h3 id="dialog-hospital-title">Add Hospital Cash Collection</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2zM12 7v10M7 12h10"/></svg>
+          </span>
+          <h3 id="dialog-hospital-title">Hospital Cash Collection</h3>
+        </div>
+        <p class="modal-subtitle">Record daily counter collection from hospital revenue departments</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-hospital-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -2420,41 +2517,141 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-hospital-add">
       <input type="hidden" id="edit-hospital-id">
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label" for="hosp-date">Date</label>
-          <input type="date" id="hosp-date" class="form-input" required>
+        <!-- 1. Grand Amount Display Deck -->
+        <div class="amt-hero">
+          <div class="amt-hero-top">
+            <label class="form-label" for="hosp-amount">Collection Amount</label>
+            <span class="amt-currency-label">INR (₹)</span>
+          </div>
+          <div class="amt-input-wrap">
+            <span class="amt-cur">₹</span>
+            <input type="number" step="0.01" min="0.01" id="hosp-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+          </div>
+          <div class="amt-words" id="hosp-amount-words">Zero Rupees</div>
+          <div class="quick-chips">
+            <button type="button" class="qchip" data-target="hosp-amount" data-add="500">+500</button>
+            <button type="button" class="qchip" data-target="hosp-amount" data-add="1000">+1,000</button>
+            <button type="button" class="qchip" data-target="hosp-amount" data-add="5000">+5,000</button>
+            <button type="button" class="qchip" data-target="hosp-amount" data-add="10000">+10,000</button>
+            <button type="button" class="qchip" data-target="hosp-amount" data-add="25000">+25,000</button>
+            <button type="button" class="qchip qchip-clear" data-target="hosp-amount" data-clear="1">✕ Clear</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="hosp-source">Source</label>
-          <select id="hosp-source" class="form-select" required>
-            <option value="OPD">OPD</option>
-            <option value="Laboratory">Laboratory</option>
-            <option value="Pharmacy">Pharmacy</option>
-            <option value="Room Charges">Room Charges</option>
-            <option value="Reception Cash">Reception Cash</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="hosp-amount">Amount (₹)</label>
-          <input type="number" step="0.01" min="0.01" id="hosp-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="hosp-remarks">Remarks</label>
-          <textarea id="hosp-remarks" class="form-textarea" placeholder="Collection source details..." rows="3"></textarea>
+
+        <!-- 2. Dual-Column Pro Layout -->
+        <div class="modal-form-grid">
+          <!-- Left Column: Department Selection Cards -->
+          <div class="form-col">
+            <label class="form-label">Revenue Department</label>
+            <select id="hosp-source" class="form-select hidden-select" required>
+              <option value="OPD">OPD</option>
+              <option value="Laboratory">Laboratory</option>
+              <option value="Pharmacy">Pharmacy</option>
+              <option value="Room Charges">Room Charges</option>
+              <option value="Reception Cash">Reception Cash</option>
+            </select>
+            <div class="dept-card-grid" style="grid-template-columns: 1fr; gap: 6px; margin-bottom: 0;">
+              <button type="button" class="dept-card active" data-source="OPD">
+                <span class="dept-card-icon">🩺</span>
+                <div class="dept-card-text">
+                  <span class="dept-card-name">OPD Clinic</span>
+                  <span class="dept-card-sub">Doctor Consultations</span>
+                </div>
+                <span class="dept-card-check">✓</span>
+              </button>
+              <button type="button" class="dept-card" data-source="Laboratory">
+                <span class="dept-card-icon">🧪</span>
+                <div class="dept-card-text">
+                  <span class="dept-card-name">Laboratory</span>
+                  <span class="dept-card-sub">Pathology & Diagnostic Scans</span>
+                </div>
+                <span class="dept-card-check">✓</span>
+              </button>
+              <button type="button" class="dept-card" data-source="Pharmacy">
+                <span class="dept-card-icon">💊</span>
+                <div class="dept-card-text">
+                  <span class="dept-card-name">Pharmacy</span>
+                  <span class="dept-card-sub">Medicine Counter Sales</span>
+                </div>
+                <span class="dept-card-check">✓</span>
+              </button>
+              <button type="button" class="dept-card" data-source="Room Charges">
+                <span class="dept-card-icon">🛏️</span>
+                <div class="dept-card-text">
+                  <span class="dept-card-name">Room Charges</span>
+                  <span class="dept-card-sub">In-Patient Wards & Beds</span>
+                </div>
+                <span class="dept-card-check">✓</span>
+              </button>
+              <button type="button" class="dept-card" data-source="Reception Cash">
+                <span class="dept-card-icon">🛎️</span>
+                <div class="dept-card-text">
+                  <span class="dept-card-name">Reception Cash</span>
+                  <span class="dept-card-sub">General Desk & Emergency</span>
+                </div>
+                <span class="dept-card-check">✓</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Column: Date, Shift, and Notes -->
+          <div class="form-col">
+            <div class="form-group" style="margin-bottom:0.75rem">
+              <div class="form-label-row">
+                <label class="form-label" for="hosp-date">Collection Date</label>
+                <div class="date-presets">
+                  <button type="button" class="date-pill" data-target="hosp-date" data-preset="today">Today</button>
+                  <button type="button" class="date-pill" data-target="hosp-date" data-preset="yesterday">Yesterday</button>
+                </div>
+              </div>
+              <input type="date" id="hosp-date" class="form-input" required>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0.75rem">
+              <label class="form-label">Collection Shift</label>
+              <div class="shift-chips">
+                <button type="button" class="shift-chip active" data-shift="Morning Shift">☀️ Morning</button>
+                <button type="button" class="shift-chip" data-shift="Evening Shift">🌙 Evening</button>
+                <button type="button" class="shift-chip" data-shift="Full Day Collection">📅 Full Day</button>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" for="hosp-remarks">Remarks / Shift Notes</label>
+              <textarea id="hosp-remarks" class="form-textarea" placeholder="Counter handover, collection notes..." rows="3"></textarea>
+              <div class="remark-chips">
+                <button type="button" class="rchip" data-remark="Morning Shift Counter">☀️ Morning Shift</button>
+                <button type="button" class="rchip" data-remark="Evening Shift Counter">🌙 Evening Shift</button>
+                <button type="button" class="rchip" data-remark="Full Day Collection">📅 Full Day</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="app.ui.closeModal('dialog-hospital-add')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Entry</button>
+        <button type="submit" class="btn btn-primary">
+          <span>Record Collection</span>
+          <kbd class="kbd-hint">↵</kbd>
+        </button>
       </div>
     </form>
   </dialog>
 
 
   <!-- MODAL: Add Hospital Cash Deposit to Muhasib -->
-  <dialog id="dialog-deposit-add" closedby="any" class="modal-dialog">
+  <!-- MODAL: Add Hospital Cash Deposit to Muhasib -->
+  <dialog id="dialog-deposit-add" closedby="any" class="modal-dialog modal-dialog-bill">
     <div class="modal-header">
-      <h3 id="dialog-deposit-title">Add Hospital Cash Deposit</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.9 1.4h6.1l-4.9 3.6a2 2 0 0 0-.7 2.2l1.9 5.8-5-3.6a2 2 0 0 0-2.4 0l-5 3.6 1.9-5.8a2 2 0 0 0-.7-2.2L1.1 10.2h6.1a2 2 0 0 0 1.9-1.4L12 3z"/><path d="M12 17v5M5 22h14"/></svg>
+          </span>
+          <h3 id="dialog-deposit-title">Add Hospital Cash Deposit</h3>
+        </div>
+        <p class="modal-subtitle">Handover hospital cash collection to Muhasib account</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-deposit-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -2462,62 +2659,92 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-deposit-add">
       <input type="hidden" id="edit-deposit-id">
       <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label" for="dep-date">Date</label>
-          <input type="date" id="dep-date" class="form-input" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="dep-receipt">Receipt / Voucher Number</label>
-          <input type="text" id="dep-receipt" class="form-input" placeholder="e.g. REC-9821" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="dep-amount">Amount (₹)</label>
-          <input type="number" step="0.01" min="0.01" id="dep-amount" class="form-input" inputmode="decimal" placeholder="0.00" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="dep-remarks">Remarks</label>
-          <textarea id="dep-remarks" class="form-textarea" placeholder="Deposit notes..." rows="3"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Receipt Attachment (Photo / PDF)</label>
-          <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
-            <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="deposit-source-supabase" onclick="app.attachments.setUploadSource('deposit', 'supabase')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-              <span>Supabase</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm flex-1" id="deposit-source-gdrive" onclick="app.attachments.setUploadSource('deposit', 'gdrive')">
-              <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
-              <span>Google Drive</span>
-            </button>
+        <!-- Grand Amount Display Deck -->
+        <div class="amt-hero">
+          <div class="amt-hero-top">
+            <label class="form-label" for="dep-amount">Deposit Amount</label>
+            <span class="amt-currency-label">INR (₹)</span>
           </div>
+          <div class="amt-input-wrap">
+            <span class="amt-cur">₹</span>
+            <input type="number" step="0.01" min="0.01" id="dep-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+          </div>
+          <div class="amt-words" id="dep-amount-words">Zero Rupees</div>
+          <div class="quick-chips">
+            <button type="button" class="qchip" data-target="dep-amount" data-add="500">+500</button>
+            <button type="button" class="qchip" data-target="dep-amount" data-add="1000">+1,000</button>
+            <button type="button" class="qchip" data-target="dep-amount" data-add="5000">+5,000</button>
+            <button type="button" class="qchip" data-target="dep-amount" data-add="10000">+10,000</button>
+            <button type="button" class="qchip qchip-clear" data-target="dep-amount" data-clear="1">✕ Clear</button>
+          </div>
+        </div>
 
-          <div class="upload-dropzone" id="deposit-upload-zone">
-            <input type="file" id="deposit-attachment-input" accept="image/*,application/pdf" class="hidden">
-            <input type="file" id="deposit-camera-input" accept="image/*" capture="environment" class="hidden">
-            <div class="upload-prompt">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-              <p class="upload-text">Drag & drop your receipt here, or <span class="upload-link" id="deposit-file-trigger">browse file</span></p>
-              <p class="upload-subtext">JPG, PNG, WEBP, or PDF (Auto-compressed WebP)</p>
+        <div class="modal-form-grid">
+          <!-- Left Column -->
+          <div class="modal-col">
+            <div class="form-group">
+              <div class="form-label-row">
+                <label class="form-label" for="dep-date">Deposit Date</label>
+                <div class="date-presets">
+                  <button type="button" class="date-pill" data-target="dep-date" data-preset="today">Today</button>
+                  <button type="button" class="date-pill" data-target="dep-date" data-preset="yesterday">Yesterday</button>
+                </div>
+              </div>
+              <input type="date" id="dep-date" class="form-input" required>
             </div>
-            <button type="button" class="btn btn-secondary btn-sm" id="deposit-camera-trigger" style="margin-top: 0.5rem;">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              <span>Take Camera Photo</span>
-            </button>
-          </div>
-
-          <div class="gdrive-input-zone hidden" id="deposit-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-              <span class="text-sm font-medium text-muted">Paste Google Drive Link</span>
-              <a id="deposit-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px; height:10px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
-                <span>Open Folder</span>
-              </a>
+            <div class="form-group">
+              <label class="form-label" for="dep-receipt">Receipt / Voucher Number</label>
+              <input type="text" id="dep-receipt" class="form-input font-mono" placeholder="e.g. REC-9821" required>
             </div>
-            <input type="url" id="deposit-gdrive-url" class="form-input" placeholder="https://docs.google.com/file/d/...">
+            <div class="form-group">
+              <label class="form-label" for="dep-remarks">Remarks</label>
+              <textarea id="dep-remarks" class="form-textarea" placeholder="Deposit notes..." rows="2"></textarea>
+            </div>
           </div>
 
-          <div class="upload-preview hidden" id="deposit-upload-preview">
-            <!-- Rendered via JS -->
+          <!-- Right Column: Attachment -->
+          <div class="modal-col">
+            <div class="form-group">
+              <label class="form-label">Receipt Attachment (Photo / PDF)</label>
+              <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="deposit-source-supabase" onclick="app.attachments.setUploadSource('deposit', 'supabase')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <span>Supabase</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm flex-1" id="deposit-source-gdrive" onclick="app.attachments.setUploadSource('deposit', 'gdrive')">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M19.43 12.98l-6.73-11.66c-.2-.35-.57-.55-.97-.55h-.17c-.4 0-.76.2-.97.55L3.86 12.98c-.2.35-.2.78 0 1.13l3.37 5.83c.2.35.56.55.96.55h13.46c.4 0 .76-.2.97-.55l3.37-5.83c.2-.35.2-.78 0-1.13zM8.47 18.24l-3.37-5.83L11.83 1h3.37zM18.8 12.42l-3.37 5.83H8.7l3.37-5.83zm-1.68-2.91L13.8 3.68l3.37 5.83z"/></svg>
+                  <span>Google Drive</span>
+                </button>
+              </div>
+
+              <div class="upload-dropzone" id="deposit-upload-zone" style="padding: 0.85rem 0.6rem;">
+                <input type="file" id="deposit-attachment-input" accept="image/*,application/pdf" class="hidden">
+                <input type="file" id="deposit-camera-input" accept="image/*" capture="environment" class="hidden">
+                <div class="upload-prompt">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="upload-icon" style="width:22px; height:22px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                  <p class="upload-text" style="font-size:0.78rem;">Drag & drop receipt, or <span class="upload-link" id="deposit-file-trigger">browse</span></p>
+                  <p class="upload-subtext" style="font-size:0.68rem;">JPG, PNG, WEBP, or PDF</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="deposit-camera-trigger" style="margin-top: 0.4rem; font-size:0.75rem; padding: 0.25rem 0.6rem;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px; height:12px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  <span>Take Photo</span>
+                </button>
+              </div>
+
+              <div class="gdrive-input-zone hidden" id="deposit-gdrive-zone" style="background: var(--bg-elevated); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+                  <span class="text-xs font-semibold text-muted">Paste Google Drive Link</span>
+                  <a id="deposit-gdrive-folder-link" href="#" target="_blank" class="btn btn-secondary btn-xs" style="gap: 0.25rem;">
+                    <span>Open Folder ↗</span>
+                  </a>
+                </div>
+                <input type="url" id="deposit-gdrive-url" class="form-input text-xs" placeholder="https://docs.google.com/file/d/...">
+              </div>
+
+              <div class="upload-preview hidden" id="deposit-upload-preview">
+                <!-- Rendered via JS -->
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -2533,8 +2760,14 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <dialog id="dialog-slip-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3 id="dialog-slip-title">Add Temporary Slip</h3>
-        <span class="token-badge" id="slip-token-badge">AUTO</span>
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </span>
+          <h3 id="dialog-slip-title">Add Temporary Slip</h3>
+          <span class="token-badge" id="slip-token-badge">AUTO</span>
+        </div>
+        <p class="modal-subtitle">Issue temporary cash slip before final invoice arrives</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-slip-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -2544,13 +2777,17 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
       <input type="hidden" id="edit-slip-id">
       <input type="hidden" id="slip-token">
       <div class="modal-body">
-        <!-- 1. Amount Hero Keypad Field -->
+        <!-- 1. Grand Amount Display Deck -->
         <div class="amt-hero">
-          <label class="form-label" for="slip-amount">Amount (₹)</label>
+          <div class="amt-hero-top">
+            <label class="form-label" for="slip-amount">Slip Amount</label>
+            <span class="amt-currency-label">INR (₹)</span>
+          </div>
           <div class="amt-input-wrap">
             <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="slip-amount" class="form-input amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            <input type="number" step="0.01" min="0.01" id="slip-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
           </div>
+          <div class="amt-words" id="slip-amount-words">Zero Rupees</div>
           <div class="quick-chips">
             <button type="button" class="qchip" data-target="slip-amount" data-add="100">+100</button>
             <button type="button" class="qchip" data-target="slip-amount" data-add="500">+500</button>
@@ -2566,8 +2803,8 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
         <!-- 2. Vendor / Person Name & Date (2-column layout) -->
         <div class="grid-2">
           <div class="form-group">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
-              <label class="form-label" for="slip-vendor" style="margin-bottom:0;">Vendor / Person <span class="text-error">*</span></label>
+            <div class="form-label-row">
+              <label class="form-label" for="slip-vendor">Vendor / Person <span class="text-error">*</span></label>
               <button type="button" class="btn-vendor-quick-add" onclick="app.vendors.openAddVendorModal('', 'slip')">+ New Vendor</button>
             </div>
             <select id="slip-vendor" class="form-select" required>
@@ -2575,7 +2812,13 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label" for="slip-date">Date</label>
+            <div class="form-label-row">
+              <label class="form-label" for="slip-date">Date</label>
+              <div class="date-presets">
+                <button type="button" class="date-pill" data-target="slip-date" data-preset="today">Today</button>
+                <button type="button" class="date-pill" data-target="slip-date" data-preset="yesterday">Yesterday</button>
+              </div>
+            </div>
             <input type="date" id="slip-date" class="form-input" required>
           </div>
         </div>
@@ -2648,9 +2891,17 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
 
 
   <!-- MODAL: Convert Temporary Slip to Final Bill -->
-  <dialog id="dialog-slip-convert" closedby="any" class="modal-dialog">
+  <dialog id="dialog-slip-convert" closedby="any" class="modal-dialog modal-dialog-bill">
     <div class="modal-header">
-      <h3 id="dialog-convert-title">Convert to Final Bill</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          </span>
+          <h3 id="dialog-convert-title">Convert to Final Bill</h3>
+        </div>
+        <p class="modal-subtitle">Convert and split temporary slip into verified final bills</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-slip-convert')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -2759,8 +3010,14 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <dialog id="dialog-bill-add" closedby="any" class="modal-dialog modal-dialog-bill">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3 id="dialog-bill-title">New Bill</h3>
-        <span class="token-badge" id="bill-token-badge">AUTO</span>
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+          </span>
+          <h3 id="dialog-bill-title">New Bill</h3>
+          <span class="token-badge" id="bill-token-badge">AUTO</span>
+        </div>
+        <p class="modal-subtitle">Direct vendor bill registration with category head & accounts tracking</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-bill-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -2770,78 +3027,90 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
       <input type="hidden" id="edit-bill-id">
       <input type="hidden" id="bill-token">
       <div class="modal-body">
-        <!-- 1. Amount Hero Keypad Field -->
+        <!-- 1. Grand Amount Display Deck -->
         <div class="amt-hero">
-          <label class="form-label" for="bill-amount">Amount (₹)</label>
+          <div class="amt-hero-top">
+            <label class="form-label" for="bill-amount">Bill Amount</label>
+            <span class="amt-currency-label">INR (₹)</span>
+          </div>
           <div class="amt-input-wrap">
             <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="bill-amount" class="form-input amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            <input type="number" step="0.01" min="0.01" id="bill-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
           </div>
+          <div class="amt-words" id="bill-amount-words">Zero Rupees</div>
           <div class="quick-chips">
             <button type="button" class="qchip" data-target="bill-amount" data-add="100">+100</button>
             <button type="button" class="qchip" data-target="bill-amount" data-add="500">+500</button>
             <button type="button" class="qchip" data-target="bill-amount" data-add="1000">+1,000</button>
             <button type="button" class="qchip" data-target="bill-amount" data-add="5000">+5,000</button>
+            <button type="button" class="qchip" data-target="bill-amount" data-add="10000">+10,000</button>
             <button type="button" class="qchip qchip-clear" data-target="bill-amount" data-clear="1">✕ Clear</button>
           </div>
         </div>
 
-        <!-- 2. Vendor selection with quick add & Recents -->
-        <div class="form-group" style="margin-bottom:.75rem">
-          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <label class="form-label" for="bill-vendor" style="margin-bottom:0;">Vendor Name <span class="text-error">*</span></label>
-            <button type="button" class="btn-vendor-quick-add" onclick="app.vendors.openAddVendorModal('', 'bill')">+ New Vendor</button>
+        <!-- 2. Dual-Column Pro Grid -->
+        <div class="modal-form-grid">
+          <!-- Row 1: Bill Date & Bill Number at top -->
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="bill-date">Bill Date</label>
+              <div class="date-presets">
+                <button type="button" class="date-pill" data-target="bill-date" data-preset="today">Today</button>
+                <button type="button" class="date-pill" data-target="bill-date" data-preset="yesterday">Yesterday</button>
+              </div>
+            </div>
+            <input type="date" id="bill-date" class="form-input" required>
           </div>
-          <select id="bill-vendor" class="form-select" required>
-            <option value="">-- Select Registered Vendor --</option>
-          </select>
-          <div class="recent-vendors" id="recent-vendors"></div>
-        </div>
 
-        <!-- 3. Paid From Segmented Switch -->
-        <div class="form-group" style="margin-bottom:.75rem">
-          <label class="form-label">Paid From (Expense Source)</label>
-          <div class="seg-control" id="bill-seg">
-            <button type="button" data-val="advance" id="bill-seg-advance" class="seg-btn active">
-              <span class="seg-dot advance-dot"></span>
-              <span>Muhasib Cash</span>
-            </button>
-            <button type="button" data-val="hospital" id="bill-seg-hospital" class="seg-btn">
-              <span class="seg-dot hospital-dot"></span>
-              <span>Hospital Cash</span>
-            </button>
-          </div>
-          <select id="bill-exp-type" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
-            <option value="advance">Muhasib Cash Expense</option>
-            <option value="hospital">Hospital Cash Expense</option>
-          </select>
-        </div>
-
-        <input type="hidden" id="bill-category" value="General">
-
-        <!-- 4. Head selection (same for Muhasib + Hospital) -->
-        <div class="form-group" style="margin-bottom:.75rem">
-          <div class="form-label-row" style="display:flex; justify-content:space-between; align-items:center;">
-            <label class="form-label" for="bill-head" style="margin-bottom:0;">Head <span class="text-error">*</span></label>
-            <button type="button" class="btn-vendor-quick-add" onclick="app.heads.openAddHeadModal('', 'bill')">+ New Head</button>
-          </div>
-          <select id="bill-head" class="form-select" required>
-            <option value="">-- Select Head --</option>
-          </select>
-        </div>
-
-        <!-- 5. Bill no + Date (2-column layout) -->
-        <div class="grid-2">
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom:0">
             <div class="form-label-row">
               <label class="form-label" for="bill-number">Bill / Invoice #</label>
-              <button type="button" class="link-btn" id="bill-next-btn" title="Auto-generate next invoice number">⚡ Auto</button>
+              <button type="button" class="link-btn" id="bill-next-btn" title="Auto-generate next invoice number">⚡ Auto Invoice</button>
             </div>
             <input type="text" id="bill-number" class="form-input font-mono" placeholder="INV-1002" required autocomplete="off">
           </div>
-          <div class="form-group">
-            <label class="form-label" for="bill-date">Bill Date</label>
-            <input type="date" id="bill-date" class="form-input" required>
+
+          <!-- Row 2: Paid From & Vendor -->
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Paid From (Expense Source)</label>
+            <div class="seg-control" id="bill-seg">
+              <button type="button" data-val="advance" id="bill-seg-advance" class="seg-btn active">
+                <span class="seg-dot advance-dot"></span>
+                <span>Muhasib Cash</span>
+              </button>
+              <button type="button" data-val="hospital" id="bill-seg-hospital" class="seg-btn">
+                <span class="seg-dot hospital-dot"></span>
+                <span>Hospital Cash</span>
+              </button>
+            </div>
+            <select id="bill-exp-type" class="form-select hidden-select" required tabindex="-1" aria-hidden="true">
+              <option value="advance">Muhasib Cash Expense</option>
+              <option value="hospital">Hospital Cash Expense</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="bill-vendor">Vendor Name <span class="text-error">*</span></label>
+              <button type="button" class="btn-vendor-quick-add" onclick="app.vendors.openAddVendorModal('', 'bill')">+ New Vendor</button>
+            </div>
+            <select id="bill-vendor" class="form-select" required>
+              <option value="">-- Select Registered Vendor --</option>
+            </select>
+          </div>
+
+          <input type="hidden" id="bill-category" value="General">
+
+          <!-- Row 3: Expense Head & Top Used Head Suggestions (full width) -->
+          <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="bill-head">Expense Head <span class="text-error">*</span></label>
+              <button type="button" class="btn-vendor-quick-add" onclick="app.heads.openAddHeadModal('', 'bill')">+ New Head</button>
+            </div>
+            <select id="bill-head" class="form-select" required>
+              <option value="">-- Select Head --</option>
+            </select>
+            <div class="recent-vendors" id="recent-heads" style="margin-top:0.35rem"></div>
           </div>
         </div>
 
@@ -2919,7 +3188,15 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <!-- MODAL: Send To Accounts -->
   <dialog id="dialog-accounts-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
-      <h3 id="dialog-accounts-title">Send To Accounts Department</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </span>
+          <h3 id="dialog-accounts-title">Send To Accounts Department</h3>
+        </div>
+        <p class="modal-subtitle">Transfer cleared bills batch to Central Accounts</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-accounts-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -3017,7 +3294,15 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <!-- MODAL: Add Verification & Transfer -->
   <dialog id="dialog-transfer-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
-      <h3 id="dialog-transfer-title">Record Verification Transfer</h3>
+      <div class="modal-title-wrap">
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 3 21 7 17 11"/><path d="M3 7h18"/><path d="M7 21 3 17 7 13"/><path d="M21 17H3"/></svg>
+          </span>
+          <h3 id="dialog-transfer-title">Record Verification Transfer</h3>
+        </div>
+        <p class="modal-subtitle">Transfer funds between Imprest and Amanat accounts</p>
+      </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-transfer-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
       </button>
@@ -3067,7 +3352,12 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <dialog id="dialog-vendor-add" closedby="any" class="modal-dialog modal-dialog-sm">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3 id="dialog-vendor-title">Add New Vendor</h3>
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </span>
+          <h3 id="dialog-vendor-title">Add New Vendor</h3>
+        </div>
         <p class="modal-subtitle">Register vendor in master list for bills and temporary slips</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-vendor-add')">
@@ -3107,7 +3397,12 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <dialog id="dialog-head-add" closedby="any" class="modal-dialog modal-dialog-sm">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3 id="dialog-head-title">Add New Head</h3>
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+          </span>
+          <h3 id="dialog-head-title">Add New Head</h3>
+        </div>
         <p class="modal-subtitle">Expense head for Muhasib + Hospital bills (e.g. STATIONARY)</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-head-add')">
@@ -3133,7 +3428,12 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <dialog id="dialog-upi-add" closedby="any" class="modal-dialog modal-dialog-sm">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3 id="dialog-upi-title">Add UPI Daily Reconciliation</h3>
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </span>
+          <h3 id="dialog-upi-title">Add UPI Daily Reconciliation</h3>
+        </div>
         <p class="modal-subtitle">Reconcile daily Hospital UPI statement with Bank UPI statement</p>
       </div>
       <button type="button" class="modal-close-btn" onclick="app.ui.closeModal('dialog-upi-add')">
@@ -3318,7 +3618,13 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   <dialog id="dialog-receipt-add" closedby="any" class="modal-dialog">
     <div class="modal-header">
       <div class="modal-title-wrap">
-        <h3 id="dialog-receipt-title">New Staff Advance Receipt</h3>
+        <div class="modal-title-row">
+          <span class="modal-header-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </span>
+          <h3 id="dialog-receipt-title">New Staff Advance Receipt</h3>
+        </div>
+        <p class="modal-subtitle">Generate advance salary or loan receipt voucher for hospital staff</p>
       </div>
       <button class="modal-close-btn" onclick="app.ui.closeModal('dialog-receipt-add')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -3778,21 +4084,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
         if(appObj && appObj.vendors && appObj.vendors.populateVendorDropdowns){
           appObj.vendors.populateVendorDropdowns();
         }
-        var bills=(appObj&&appObj.state&&appObj.state.bills)||[];
-        var seen={},order=[];
-        bills.slice().reverse().forEach(function(b){var v=(b.vendor||"").trim();if(v&&!seen[v]){seen[v]=1;order.push(v);}});
-        var rv=$("recent-vendors");if(rv){
-          rv.innerHTML=order.slice(0,4).map(function(v){return '<button type="button">'+v.replace(/</g,"&lt;")+'</button>';}).join("");
-          Array.prototype.forEach.call(rv.querySelectorAll("button"),function(btn,idx){
-            btn.addEventListener("click",function(){
-              if(vendor){
-                vendor.value=order[idx];
-                vendor.dispatchEvent(new Event("change", { bubbles: true }));
-              }
-              if(amt)amt.focus();
-            });
-          });
-        }
+        var rv=$("recent-vendors");if(rv){rv.innerHTML="";}
       }catch(e){}
     }
     function nextBillNo(){
