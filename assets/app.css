@@ -1848,17 +1848,17 @@ html[data-theme="dark"] .overflow-x::-webkit-scrollbar-thumb:hover {
   width: 100% !important;
   max-width: 100% !important;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: 0.885rem;
 }
 .data-table thead th {
   text-align: left;
-  font-size: 0.76rem;
+  font-size: 0.77rem;
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
   background: var(--bg-app);
-  padding: 12px 10px;
+  padding: 13px 12px;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
   position: sticky;
@@ -1871,19 +1871,19 @@ html[data-theme="dark"] .data-table thead th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .data-table tbody td {
-  padding: 11px 10px;
+  padding: 12px 12px;
   border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
   color: var(--text-main);
-  font-size: 0.865rem;
-  line-height: 1.38;
+  font-size: 0.88rem;
+  line-height: 1.42;
 }
 html[data-theme="dark"] .data-table tbody td {
   color: #f8fafc;
 }
 .data-table tbody tr {
   transition: background 0.12s;
-  min-height: 48px;
+  min-height: 50px;
 }
 .data-table tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.015); }
 html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
@@ -1911,23 +1911,21 @@ html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(
   max-width: 100% !important;
 }
 
+#table-advance-bills td:nth-child(4),
+#table-advance-cleared td:nth-child(3),
+#table-bills td:nth-child(4),
+#table-hospital-cleared td:nth-child(3) {
+  min-width: 150px;
+  word-break: break-word;
+  line-height: 1.38;
+}
 #table-advance-bills td:nth-child(5),
 #table-advance-cleared td:nth-child(4),
 #table-bills td:nth-child(5),
 #table-hospital-cleared td:nth-child(4) {
-  min-width: 140px;
-  max-width: 260px;
-  word-break: break-word;
-  line-height: 1.35;
-}
-#table-advance-bills td:nth-child(6),
-#table-advance-cleared td:nth-child(5),
-#table-bills td:nth-child(6),
-#table-hospital-cleared td:nth-child(5) {
   min-width: 130px;
-  max-width: 220px;
   word-break: break-word;
-  line-height: 1.35;
+  line-height: 1.38;
 }
 
 /* Action button containers never squish, shrink or wrap */

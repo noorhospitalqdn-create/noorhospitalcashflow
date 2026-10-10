@@ -60,16 +60,16 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261010_13">
-  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_13">
+  <link rel="stylesheet" href="assets/app.css?v=20261010_14">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_14">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261010_13" defer></script>
-  <script src="assets/staff-receipts.js?v=20261010_13" defer></script>
+  <script src="assets/app.js?v=20261010_14" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_14" defer></script>
 </head>
 <body>
 
@@ -1092,14 +1092,13 @@
               <thead>
                 <tr>
                   <th class="text-center" style="width: 36px; padding: 12px 6px;"><input type="checkbox" id="select-all-advance-bills-head" title="Select all" onchange="app.ui.toggleSelectAllAdvanceBills(this.checked)"></th>
-                  <th style="width: 95px;">Date</th>
-                  <th style="width: 95px;">Token No</th>
-                  <th style="width: 105px;">Bill Number</th>
-                  <th>Vendor Name</th>
-                  <th>Head</th>
-                  <th style="width: 110px;">Amount</th>
-                  <th style="width: 130px;">Remarks</th>
-                  <th class="text-center" style="width: 128px;">Action</th>
+                  <th style="width: 100px;">Date</th>
+                  <th style="width: 120px;">Bill Number</th>
+                  <th style="min-width: 160px;">Vendor Name</th>
+                  <th style="min-width: 140px;">Head</th>
+                  <th style="width: 120px;">Amount</th>
+                  <th style="min-width: 150px;">Remarks</th>
+                  <th class="text-center" style="width: 130px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-advance-bills"></tbody>
@@ -1149,15 +1148,14 @@
             <table class="data-table" id="table-advance-cleared">
               <thead>
                 <tr>
-                  <th style="width: 95px;">Date</th>
-                  <th style="width: 95px;">Token No</th>
-                  <th style="width: 105px;">Bill Number</th>
-                  <th>Vendor Name</th>
-                  <th>Head</th>
-                  <th style="width: 110px;">Amount</th>
-                  <th style="width: 105px; text-align: center;">Batch</th>
-                  <th style="width: 130px;">Remarks</th>
-                  <th class="text-center" style="width: 128px;">Action</th>
+                  <th style="width: 100px;">Date</th>
+                  <th style="width: 120px;">Bill Number</th>
+                  <th style="min-width: 160px;">Vendor Name</th>
+                  <th style="min-width: 140px;">Head</th>
+                  <th style="width: 120px;">Amount</th>
+                  <th style="width: 110px; text-align: center;">Batch</th>
+                  <th style="min-width: 150px;">Remarks</th>
+                  <th class="text-center" style="width: 130px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-advance-cleared"></tbody>
@@ -1223,14 +1221,13 @@
               <thead>
                 <tr>
                   <th class="text-center" style="width: 36px; padding: 12px 6px;"><input type="checkbox" id="select-all-hospital-bills-head" title="Select all" onchange="app.ui.toggleSelectAllHospitalBills(this.checked)"></th>
-                  <th style="width: 95px;">Date</th>
-                  <th style="width: 95px;">Token No</th>
-                  <th style="width: 105px;">Bill Number</th>
-                  <th>Vendor Name</th>
-                  <th>Head</th>
-                  <th style="width: 110px;">Amount</th>
-                  <th style="width: 130px;">Remarks</th>
-                  <th class="text-center" style="width: 128px;">Action</th>
+                  <th style="width: 100px;">Date</th>
+                  <th style="width: 120px;">Bill Number</th>
+                  <th style="min-width: 160px;">Vendor Name</th>
+                  <th style="min-width: 140px;">Head</th>
+                  <th style="width: 120px;">Amount</th>
+                  <th style="min-width: 150px;">Remarks</th>
+                  <th class="text-center" style="width: 130px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-bills"></tbody>
@@ -1280,15 +1277,14 @@
             <table class="data-table" id="table-hospital-cleared">
               <thead>
                 <tr>
-                  <th style="width: 95px;">Date</th>
-                  <th style="width: 95px;">Token No</th>
-                  <th style="width: 105px;">Bill Number</th>
-                  <th>Vendor Name</th>
-                  <th>Head</th>
-                  <th style="width: 110px;">Amount</th>
-                  <th style="width: 105px; text-align: center;">Batch</th>
-                  <th style="width: 130px;">Remarks</th>
-                  <th class="text-center" style="width: 128px;">Action</th>
+                  <th style="width: 100px;">Date</th>
+                  <th style="width: 120px;">Bill Number</th>
+                  <th style="min-width: 160px;">Vendor Name</th>
+                  <th style="min-width: 140px;">Head</th>
+                  <th style="width: 120px;">Amount</th>
+                  <th style="width: 110px; text-align: center;">Batch</th>
+                  <th style="min-width: 150px;">Remarks</th>
+                  <th class="text-center" style="width: 130px;">Action</th>
                 </tr>
               </thead>
               <tbody id="list-hospital-cleared"></tbody>

@@ -4526,7 +4526,7 @@ const app = {
       const totEl=document.getElementById('total-advance-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters['advance-bills']; const isF=f.search||f.from||f.to||f.head;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -4534,13 +4534,9 @@ const app = {
         const note=isDirect?'Direct':'From Slip';
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
         const isSel=app.ui.selectedAdvanceBills && app.ui.selectedAdvanceBills.has(bill.id);
-        const tokenBadge = bill.tokenNumber
-          ? `<span class="token-badge font-mono" style="font-size:0.76rem;padding:3px 7px;border-radius:6px;background:rgba(168,85,247,0.12);color:var(--tertiary);font-weight:700;">${app.ui.escapeHTML(bill.tokenNumber)}</span>`
-          : `<span class="text-muted" style="font-size:0.75rem;">-</span>`;
         return `<tr class="${isSel?'row-selected':''}">
           <td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleAdvanceBillSelect(${bill.id},this.checked)" title="Select for batch"></td>
           <td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td>
-          <td class="num-val">${tokenBadge}</td>
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
@@ -5075,7 +5071,7 @@ const app = {
       const navBadge=document.getElementById('sidebar-advance-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
       if(!filtered.length){
         const f=app.ui.filters['advance-cleared']; const isF=f && (f.search||f.from||f.to||f.head||f.batch);
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No cleared bills yet. Clear bills from Muhasib Bills via ✓ Adv Clear.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No cleared bills yet. Clear bills from Muhasib Bills via ✓ Adv Clear.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -5085,17 +5081,13 @@ const app = {
         const batchHtml = bill.clearBatch
           ? `<span class="batch-badge" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">${app.ui.escapeHTML(bill.clearBatch)}</span>`
           : `<span class="batch-badge-unassigned" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">No Batch</span>`;
-        const tokenBadge = bill.tokenNumber
-          ? `<span class="token-badge font-mono" style="font-size:0.76rem;padding:3px 7px;border-radius:6px;background:rgba(16,185,129,0.12);color:var(--success);font-weight:700;">${app.ui.escapeHTML(bill.tokenNumber)}</span>`
-          : `<span class="text-muted" style="font-size:0.75rem;">-</span>`;
         return `<tr>
           <td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td>
-          <td class="num-val">${tokenBadge}</td>
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
           <td class="num-val text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
-          <td>${batchHtml}</td>
+          <td class="text-center">${batchHtml}</td>
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Muhasib Bills" onclick="app.ui.undoAdvanceClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
@@ -5117,7 +5109,7 @@ const app = {
       const totEl=document.getElementById('total-bills'); if(totEl) totEl.textContent=`Total: ${app.ui.formatCurrency(total)} (${filtered.length})`;
       if(!filtered.length){
         const f=app.ui.filters.bills; const isF=f.search||f.from||f.to||f.head;
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No hospital bills found.'}</td></tr>`;
         try{ app.ui.updateHospitalBatchBar(); }catch(e){}
         return;
       }
@@ -5126,13 +5118,9 @@ const app = {
         const note=isDirect?'Direct':'From Slip';
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
         const isSel=app.ui.selectedHospitalBills && app.ui.selectedHospitalBills.has(bill.id);
-        const tokenBadge = bill.tokenNumber
-          ? `<span class="token-badge font-mono" style="font-size:0.76rem;padding:3px 7px;border-radius:6px;background:rgba(99,102,241,0.12);color:var(--secondary);font-weight:700;">${app.ui.escapeHTML(bill.tokenNumber)}</span>`
-          : `<span class="text-muted" style="font-size:0.75rem;">-</span>`;
         return `<tr class="${isSel?'row-selected':''}">
           <td class="text-center" onclick="event.stopPropagation()"><input type="checkbox" class="row-check" ${isSel?'checked':''} onchange="app.ui.toggleHospitalBillSelect(${bill.id},this.checked)" title="Select for batch"></td>
           <td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td>
-          <td class="num-val">${tokenBadge}</td>
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
@@ -5300,7 +5288,7 @@ const app = {
       const navBadge=document.getElementById('sidebar-hospital-cleared-badge'); if(navBadge) navBadge.textContent=filtered.length;
       if(!filtered.length){
         const f=app.ui.filters['hospital-cleared']; const isF=f && (f.search||f.from||f.to||f.head||f.batch);
-        list.innerHTML=`<tr><td colspan="9" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
+        list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
         return;
       }
       list.innerHTML = filtered.map(bill=>{
@@ -5310,12 +5298,8 @@ const app = {
         const batchHtml = bill.clearBatch
           ? `<span class="batch-badge" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">${app.ui.escapeHTML(bill.clearBatch)}</span>`
           : `<span class="batch-badge-unassigned" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">No Batch</span>`;
-        const tokenBadge = bill.tokenNumber
-          ? `<span class="token-badge font-mono" style="font-size:0.76rem;padding:3px 7px;border-radius:6px;background:rgba(16,185,129,0.12);color:var(--success);font-weight:700;">${app.ui.escapeHTML(bill.tokenNumber)}</span>`
-          : `<span class="text-muted" style="font-size:0.75rem;">-</span>`;
         return `<tr>
           <td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td>
-          <td class="num-val">${tokenBadge}</td>
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
