@@ -15,8 +15,8 @@ const app = {
   // Chart.js instances tracking
   charts: {
     position: null,
-    sources: null,
-    status: null
+    donut: null,
+    currentMode: 'solvency'
   },
 
   // Local Timezone-accurate ISO Date (YYYY-MM-DD)
@@ -5468,7 +5468,29 @@ const app = {
     },
 
     /**
-     * Renders Chart.js visuals or HTML/CSS/conic-gradient fallbacks if Chart.js is not loaded.
+     * Interactive Chart Mode Switcher for Treasury Analytics
+     */
+    switchChartMode(mode) {
+      if (!['solvency', 'flow', 'dept'].includes(mode)) mode = 'solvency';
+      app.charts.currentMode = mode;
+
+      // Update active state on mode buttons
+      document.querySelectorAll('.chart-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+      });
+
+      // Destroy and rebuild chart smoothly
+      if (app.charts.position) {
+        app.charts.position.destroy();
+        app.charts.position = null;
+      }
+      app.ui.renderCharts();
+    },
+
+    /**
+     * Renders World-Class Executive Financial Intelligence & Analytics Suite
+     * Supports: Multi-mode Treasury Analytics, Canvas Linear Gradients, Mini KPI ribbon,
+     * Donut Expense Head Breakdown with Live Glass Center and Interactive Progress Rows.
      */
     renderCharts() {
       const dashPanel = document.getElementById('panel-dashboard');
@@ -5476,367 +5498,471 @@ const app = {
         return;
       }
 
-      // Helper to format values as currency without symbol for charts
-      const rawVal = (val) => Math.round(val * 100) / 100;
-
-      // Extract colors from theme css variables
-      const styles = window.getComputedStyle(document.documentElement);
-      const textColor = styles.getPropertyValue('--text-main').trim() || '#fafafa';
-      const mutedColor = styles.getPropertyValue('--text-muted').trim() || '#a1a1aa';
-      const borderColor = styles.getPropertyValue('--border-color').trim() || '#27272a';
-      const primaryColor = styles.getPropertyValue('--primary').trim() || '#10b981';
-      const secondaryColor = styles.getPropertyValue('--secondary').trim() || '#6366f1';
-      const accentColor = styles.getPropertyValue('--accent').trim() || '#f59e0b';
-      const errorColor = styles.getPropertyValue('--error').trim() || '#ef4444';
-
-      const dataPosition = {
-        muhasibCash: rawVal(app.state.advanceCashAvailable),
-        hospitalCash: rawVal(app.state.hospitalCashAvailable),
-        muhasibPending: rawVal(app.state.advanceBillsPending),
-        hospitalPending: rawVal(app.state.hospitalBillsPending)
+      const setText = (id, txt) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = txt;
       };
 
-      const dataSources = {
-        advance: rawVal(app.state.totalAdvanceCashReceived),
-        hospital: rawVal(app.state.totalHospitalCashCollected)
+      const rawVal = (val) => Math.round((Number(val) || 0) * 100) / 100;
+
+      // Format numbers with K/L/Cr for charts
+      const formatK = (val) => {
+        const abs = Math.abs(val);
+        if (abs >= 10000000) return (val / 10000000).toFixed(1) + 'Cr';
+        if (abs >= 100000) return (val / 100000).toFixed(1) + 'L';
+        if (abs >= 1000) return (val / 1000).toFixed(1) + 'k';
+        return val.toLocaleString('en-IN');
       };
 
-      const dataStatus = {
-        advancePending: rawVal(app.state.advanceBillsPending),
-        hospitalPending: rawVal(app.state.hospitalBillsPending),
-        transferred: rawVal(app.state.totalTransferred)
-      };
+      // 1. Calculate and update Mini KPI Ribbon in Card 1
+      const liquidCash = (Number(app.state.advanceCashAvailable) || 0) + (Number(app.state.hospitalCashAvailable) || 0);
+      const pendingBills = (Number(app.state.advanceBillsPending) || 0) + (Number(app.state.hospitalBillsPending) || 0);
+      const totalTurnover = (Number(app.state.totalAdvanceCashReceived) || 0) + (Number(app.state.totalHospitalCashCollected) || 0);
 
-      // Check if Chart.js is loaded
-      const hasChartJs = typeof Chart !== 'undefined';
+      let ratioText = '0.0%';
+      if (liquidCash > 0) {
+        ratioText = ((pendingBills / liquidCash) * 100).toFixed(1) + '%';
+      } else if (pendingBills > 0) {
+        ratioText = '100+ %';
+      }
 
-      if (hasChartJs) {
-        // Show canvases, hide fallbacks (guard: Cash Sources + Bills Status charts removed from dashboard)
-        const sourcesCanvas = document.getElementById('chart-cash-sources');
-        const sourcesFallback = document.getElementById('fallback-cash-sources');
-        const hasSourcesChart = !!sourcesCanvas;
-        const statusCanvas = document.getElementById('chart-bills-status');
-        const statusFallback = document.getElementById('fallback-bills-status');
-        const hasStatusChart = !!statusCanvas;
-        document.getElementById('chart-financial-position').classList.remove('hidden');
-        document.getElementById('fallback-financial-position').classList.add('hidden');
-        if (sourcesCanvas) sourcesCanvas.classList.remove('hidden');
-        if (sourcesFallback) sourcesFallback.classList.add('hidden');
-        if (statusCanvas) statusCanvas.classList.remove('hidden');
-        if (statusFallback) statusFallback.classList.add('hidden');
+      setText('chart-kpi-liquid', app.ui.formatCurrency(liquidCash));
+      setText('chart-kpi-ratio', ratioText);
+      setText('chart-kpi-turnover', app.ui.formatCurrency(totalTurnover));
 
-        // If chart instances already exist, update datasets in-place without rebuilding
-        if (app.charts.position && (!hasStatusChart || app.charts.status) && (!hasSourcesChart || app.charts.sources)) {
-          app.charts.position.data.datasets[0].data = [dataPosition.muhasibCash, dataPosition.hospitalCash, dataPosition.muhasibPending, dataPosition.hospitalPending];
-          app.charts.position.update('none');
-
-          if (hasSourcesChart && app.charts.sources) {
-            app.charts.sources.data.datasets[0].data = [dataSources.advance, dataSources.hospital];
-            app.charts.sources.update('none');
-          }
-
-          if (hasStatusChart && app.charts.status) {
-            app.charts.status.data.datasets[0].data = [dataStatus.advancePending, dataStatus.hospitalPending, dataStatus.transferred];
-            app.charts.status.update('none');
-          }
-          return;
+      const ratioSubEl = document.getElementById('chart-kpi-ratio-sub');
+      if (ratioSubEl) {
+        if (pendingBills > liquidCash && liquidCash > 0) {
+          ratioSubEl.textContent = 'Float Deficit Detected';
+          ratioSubEl.style.color = 'var(--error)';
+        } else if (pendingBills === 0) {
+          ratioSubEl.textContent = 'Zero Unpaid Liabilities';
+          ratioSubEl.style.color = 'var(--success)';
+        } else {
+          ratioSubEl.textContent = 'Healthy Float Coverage';
+          ratioSubEl.style.color = 'var(--text-muted)';
         }
+      }
 
-        // Destroy any partial instance before first full initialization
-        if (app.charts.position) { app.charts.position.destroy(); app.charts.position = null; }
-        if (app.charts.sources) { app.charts.sources.destroy(); app.charts.sources = null; }
-        if (app.charts.status) { app.charts.status.destroy(); app.charts.status = null; }
+      // 2. Extract theme styling
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const styles = window.getComputedStyle(document.documentElement);
+      const textColor = isDark ? '#f1f5f9' : '#0f172a';
+      const mutedColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)';
+      const fontFamily = styles.getPropertyValue('--font-sans').trim() || "'Plus Jakarta Sans', sans-serif";
 
-        // Font settings
-        const fontConfig = {
-          family: styles.getPropertyValue('--font-sans').trim() || 'Plus Jakarta Sans',
-          size: 11
+      // Reusable modern tooltip configuration
+      const customTooltip = {
+        backgroundColor: isDark ? 'rgba(15, 23, 42, 0.94)' : 'rgba(255, 255, 255, 0.97)',
+        titleColor: isDark ? '#ffffff' : '#0f172a',
+        bodyColor: isDark ? '#cbd5e1' : '#334155',
+        borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.12)',
+        borderWidth: 1,
+        padding: 11,
+        cornerRadius: 8,
+        boxPadding: 6,
+        usePointStyle: true,
+        callbacks: {
+          label: function(context) {
+            const val = Number(context.raw) || 0;
+            const prefix = context.dataset.label ? context.dataset.label + ': ' : '';
+            return ' ' + prefix + '₹' + val.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          }
+        }
+      };
+
+      // Check if Chart.js is available
+      const hasChartJs = typeof Chart !== 'undefined';
+      const primaryCanvas = document.getElementById('chart-financial-position');
+      const fallbackDiv = document.getElementById('fallback-financial-position');
+      const legendContainer = document.getElementById('chart-primary-legend');
+
+      if (hasChartJs && primaryCanvas) {
+        primaryCanvas.classList.remove('hidden');
+        if (fallbackDiv) fallbackDiv.classList.add('hidden');
+
+        const ctx = primaryCanvas.getContext('2d');
+        const makeGradient = (c1, c2) => {
+          const grad = ctx.createLinearGradient(0, 0, 0, 300);
+          grad.addColorStop(0, c1);
+          grad.addColorStop(1, c2);
+          return grad;
         };
 
-        // Common Chart Options
-        const chartOptions = {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  return ' ' + context.dataset.label + ': ₹' + context.raw.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        const currentMode = app.charts.currentMode || 'solvency';
+        let chartConfig;
+        let insightChips = [];
+
+        if (currentMode === 'flow') {
+          // Inflow vs Outflow
+          const fAdv = rawVal(app.state.totalAdvanceCashReceived);
+          const fHosp = rawVal(app.state.totalHospitalCashCollected);
+          const fCleared = rawVal(app.state.totalBillsApproved);
+          const fTransferred = rawVal(app.state.totalTransferred);
+
+          const gradPurple = makeGradient('#8b5cf6', '#6d28d9');
+          const gradCyan = makeGradient('#06b6d4', '#0e7490');
+          const gradAmber = makeGradient('#f59e0b', '#d97706');
+          const gradGreen = makeGradient('#10b981', '#059669');
+
+          chartConfig = {
+            type: 'bar',
+            data: {
+              labels: ['Advance Inflow', 'Hospital Collections', 'Cleared Bills', 'Transfers / Returned'],
+              datasets: [{
+                label: 'Cash Flow',
+                data: [fAdv, fHosp, fCleared, fTransferred],
+                backgroundColor: [gradPurple, gradCyan, gradAmber, gradGreen],
+                borderColor: ['#8b5cf6', '#06b6d4', '#f59e0b', '#10b981'],
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+                maxBarThickness: 52
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: customTooltip
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { color: mutedColor, font: { family: fontFamily, size: 10, weight: '700' } }
+                },
+                y: {
+                  grid: { color: gridColor, borderDash: [4, 4] },
+                  ticks: {
+                    color: mutedColor,
+                    font: { family: fontFamily, size: 10 },
+                    callback: (v) => '₹' + formatK(v)
+                  }
                 }
               }
             }
-          }
-        };
+          };
 
-        // 1. Financial Position Chart (Horizontal Bar Chart) — Dept-wise: Muhasib vs Hospital
-        const ctxPosition = document.getElementById('chart-financial-position').getContext('2d');
-        app.charts.position = new Chart(ctxPosition, {
-          type: 'bar',
+          insightChips = [
+            { label: 'Adv Inflow', val: fAdv, color: '#8b5cf6', note: 'Float Received' },
+            { label: 'Hospital Col', val: fHosp, color: '#06b6d4', note: 'OPD/IPD Receipts' },
+            { label: 'Cleared Bills', val: fCleared, color: '#f59e0b', note: 'Vouchers Paid' },
+            { label: 'Transferred', val: fTransferred, color: '#10b981', note: 'Deposited/Returned' }
+          ];
+
+        } else if (currentMode === 'dept') {
+          // Department-wise Comparison
+          const dLiquid = [rawVal(app.state.advanceCashAvailable), rawVal(app.state.hospitalCashAvailable)];
+          const dPending = [rawVal(app.state.advanceBillsPending), rawVal(app.state.hospitalBillsPending)];
+          const dGross = [rawVal(app.state.totalAdvanceCashReceived), rawVal(app.state.totalHospitalCashCollected)];
+
+          const gradEmerald = makeGradient('#10b981', '#059669');
+          const gradRose = makeGradient('#f43f5e', '#be123c');
+          const gradIndigo = makeGradient('#6366f1', '#4338ca');
+
+          chartConfig = {
+            type: 'bar',
+            data: {
+              labels: ['Muhasib Department', 'Hospital Department'],
+              datasets: [
+                {
+                  label: 'Liquid Cash',
+                  data: dLiquid,
+                  backgroundColor: gradEmerald,
+                  borderColor: '#10b981',
+                  borderWidth: 1.5,
+                  borderRadius: 8,
+                  borderSkipped: false,
+                  maxBarThickness: 38
+                },
+                {
+                  label: 'Pending Liabilities',
+                  data: dPending,
+                  backgroundColor: gradRose,
+                  borderColor: '#f43f5e',
+                  borderWidth: 1.5,
+                  borderRadius: 8,
+                  borderSkipped: false,
+                  maxBarThickness: 38
+                },
+                {
+                  label: 'Gross Inflow',
+                  data: dGross,
+                  backgroundColor: gradIndigo,
+                  borderColor: '#6366f1',
+                  borderWidth: 1.5,
+                  borderRadius: 8,
+                  borderSkipped: false,
+                  maxBarThickness: 38
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  align: 'end',
+                  labels: {
+                    color: textColor,
+                    font: { family: fontFamily, size: 10, weight: '700' },
+                    boxWidth: 9,
+                    boxHeight: 9,
+                    usePointStyle: true,
+                    pointStyle: 'circle',
+                    padding: 12
+                  }
+                },
+                tooltip: customTooltip
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { color: textColor, font: { family: fontFamily, size: 11, weight: '800' } }
+                },
+                y: {
+                  grid: { color: gridColor, borderDash: [4, 4] },
+                  ticks: {
+                    color: mutedColor,
+                    font: { family: fontFamily, size: 10 },
+                    callback: (v) => '₹' + formatK(v)
+                  }
+                }
+              }
+            }
+          };
+
+          insightChips = [
+            { label: 'Muhasib Balance', val: dLiquid[0], color: '#10b981', note: 'Float In Hand' },
+            { label: 'Hospital Balance', val: dLiquid[1], color: '#10b981', note: 'Cash In Hand' },
+            { label: 'Muhasib Bills', val: dPending[0], color: '#f43f5e', note: 'Unpaid' },
+            { label: 'Hospital Bills', val: dPending[1], color: '#f43f5e', note: 'Unpaid' }
+          ];
+
+        } else {
+          // Default: Solvency & Liquidity Position
+          const sMuhasibCash = rawVal(app.state.advanceCashAvailable);
+          const sHospCash = rawVal(app.state.hospitalCashAvailable);
+          const sMuhasibPend = rawVal(app.state.advanceBillsPending);
+          const sHospPend = rawVal(app.state.hospitalBillsPending);
+
+          const gradEmerald = makeGradient('#10b981', '#059669');
+          const gradSky = makeGradient('#0ea5e9', '#0284c7');
+          const gradAmber = makeGradient('#f59e0b', '#d97706');
+          const gradRose = makeGradient('#ef4444', '#dc2626');
+
+          chartConfig = {
+            type: 'bar',
+            data: {
+              labels: ['Muhasib Liquid Cash', 'Hospital Liquid Cash', 'Muhasib Pending Bills', 'Hospital Pending Bills'],
+              datasets: [{
+                label: 'Treasury Position',
+                data: [sMuhasibCash, sHospCash, sMuhasibPend, sHospPend],
+                backgroundColor: [gradEmerald, gradSky, gradAmber, gradRose],
+                borderColor: ['#10b981', '#0ea5e9', '#f59e0b', '#ef4444'],
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+                maxBarThickness: 52
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: customTooltip
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { color: mutedColor, font: { family: fontFamily, size: 10, weight: '700' } }
+                },
+                y: {
+                  grid: { color: gridColor, borderDash: [4, 4] },
+                  ticks: {
+                    color: mutedColor,
+                    font: { family: fontFamily, size: 10 },
+                    callback: (v) => '₹' + formatK(v)
+                  }
+                }
+              }
+            }
+          };
+
+          insightChips = [
+            { label: 'Muhasib Cash', val: sMuhasibCash, color: '#10b981', note: 'Liquid Float' },
+            { label: 'Hospital Cash', val: sHospCash, color: '#0ea5e9', note: 'Cash in Hand' },
+            { label: 'Muhasib Pending', val: sMuhasibPend, color: '#f59e0b', note: 'Unpaid Bills' },
+            { label: 'Hospital Pending', val: sHospPend, color: '#ef4444', note: 'Active Liabilities' }
+          ];
+        }
+
+        // Render or update Primary Chart
+        if (app.charts.position) {
+          app.charts.position.destroy();
+          app.charts.position = null;
+        }
+        app.charts.position = new Chart(ctx, chartConfig);
+
+        // Render dynamic micro-legend chips
+        if (legendContainer) {
+          legendContainer.innerHTML = insightChips.map(c => `
+            <div class="chart-insight-chip">
+              <span class="chart-insight-dot" style="background:${c.color}; box-shadow: 0 0 6px ${c.color}80;"></span>
+              <span>${c.label}:</span>
+              <strong style="font-family:var(--font-mono); font-weight:800;">₹${c.val.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+              <span style="font-size:0.68rem; opacity:0.65; margin-left:2px;">(${c.note})</span>
+            </div>
+          `).join('');
+        }
+
+      } else {
+        // Fallback if Chart.js is offline
+        if (primaryCanvas) primaryCanvas.classList.add('hidden');
+        if (fallbackDiv) {
+          fallbackDiv.classList.remove('hidden');
+          const maxVal = Math.max(
+            rawVal(app.state.advanceCashAvailable),
+            rawVal(app.state.hospitalCashAvailable),
+            rawVal(app.state.advanceBillsPending),
+            rawVal(app.state.hospitalBillsPending),
+            1
+          );
+          const getPct = (v) => Math.min(100, Math.max(5, (v / maxVal) * 100)) + '%';
+          const fmt = (v) => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          fallbackDiv.innerHTML = `
+            <div class="fallback-bar-list" style="width:100%; padding: 12px;">
+              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Muhasib Cash</span><strong>${fmt(rawVal(app.state.advanceCashAvailable))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.advanceCashAvailable))}; background:#10b981;"></div></div></div>
+              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Hospital Cash</span><strong>${fmt(rawVal(app.state.hospitalCashAvailable))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.hospitalCashAvailable))}; background:#0ea5e9;"></div></div></div>
+              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Muhasib Pending</span><strong>${fmt(rawVal(app.state.advanceBillsPending))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.advanceBillsPending))}; background:#f59e0b;"></div></div></div>
+              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Hospital Pending</span><strong>${fmt(rawVal(app.state.hospitalBillsPending))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.hospitalBillsPending))}; background:#ef4444;"></div></div></div>
+            </div>
+          `;
+        }
+      }
+
+      // 3. Card 2: Executive Capital Allocation & Expense Heads Donut Chart
+      const donutCanvas = document.getElementById('chart-expense-donut');
+      const donutBreakdownEl = document.getElementById('donut-heads-breakdown');
+
+      // Aggregate spend by Head from all bills
+      const bills = Array.isArray(app.state.bills) ? app.state.bills : [];
+      const headMap = {};
+      let totalExpenseAmount = 0;
+      let validBillCount = 0;
+
+      bills.forEach(b => {
+        const amt = Number(b.amount) || 0;
+        if (amt > 0) {
+          const h = (b.head || b.category || 'General Expense').trim() || 'General Expense';
+          headMap[h] = (headMap[h] || 0) + amt;
+          totalExpenseAmount += amt;
+          validBillCount++;
+        }
+      });
+
+      // Update Center Badge
+      setText('donut-center-total', app.ui.formatCurrency(totalExpenseAmount));
+      setText('donut-center-count', `${validBillCount} Bills`);
+
+      // Sort heads descending
+      const sortedHeads = Object.keys(headMap)
+        .map(h => ({ head: h, amount: headMap[h] }))
+        .sort((a, b) => b.amount - a.amount);
+
+      let topHeads = sortedHeads.slice(0, 4);
+      const remainingAmount = sortedHeads.slice(4).reduce((sum, item) => sum + item.amount, 0);
+      if (remainingAmount > 0) {
+        topHeads.push({ head: 'Other Heads', amount: remainingAmount });
+      }
+
+      const donutPalette = [
+        '#8b5cf6', // Electric Violet
+        '#06b6d4', // Vivid Cyan
+        '#f59e0b', // Radiant Amber
+        '#ec4899', // Hot Pink
+        '#10b981', // Emerald
+        '#64748b'  // Muted Slate
+      ];
+
+      if (hasChartJs && donutCanvas) {
+        if (app.charts.donut) {
+          app.charts.donut.destroy();
+          app.charts.donut = null;
+        }
+
+        const donutLabels = topHeads.length ? topHeads.map(h => h.head) : ['No Expenses'];
+        const donutData = topHeads.length ? topHeads.map(h => h.amount) : [1];
+        const donutBg = topHeads.length ? donutPalette.slice(0, topHeads.length) : [isDark ? '#334155' : '#e2e8f0'];
+
+        const ctxDonut = donutCanvas.getContext('2d');
+        app.charts.donut = new Chart(ctxDonut, {
+          type: 'doughnut',
           data: {
-            labels: ['Muhasib Cash', 'Hospital Cash', 'Muhasib Pending Bills', 'Hospital Pending Bills'],
+            labels: donutLabels,
             datasets: [{
-              label: 'Amount',
-              data: [dataPosition.muhasibCash, dataPosition.hospitalCash, dataPosition.muhasibPending, dataPosition.hospitalPending],
-              backgroundColor: ['#a855f7', '#0ea5e9', '#f59e0b', '#e11d48'],
-              borderColor: ['#a855f7', '#0ea5e9', '#f59e0b', '#e11d48'],
-              borderWidth: 1,
-              borderRadius: 6
+              data: donutData,
+              backgroundColor: donutBg,
+              borderColor: isDark ? '#0f172a' : '#ffffff',
+              borderWidth: 2.5,
+              hoverOffset: 6
             }]
           },
           options: {
-            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '72%',
             plugins: {
               legend: { display: false },
               tooltip: {
+                ...customTooltip,
                 callbacks: {
                   label: function(context) {
-                    return ' ' + context.label + ': ₹' + context.raw.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+                    if (!totalExpenseAmount) return ' No expense data';
+                    const pct = totalExpenseAmount > 0 ? ((context.raw / totalExpenseAmount) * 100).toFixed(1) + '%' : '0%';
+                    return ' ' + context.label + ': ₹' + Number(context.raw).toLocaleString('en-IN', { minimumFractionDigits: 2 }) + ' (' + pct + ')';
                   }
-                }
-              }
-            },
-            scales: {
-              x: {
-                grid: { color: borderColor },
-                ticks: {
-                  color: mutedColor,
-                  font: fontConfig,
-                  callback: function(value) {
-                    return '₹' + value.toLocaleString('en-IN');
-                  }
-                }
-              },
-              y: {
-                grid: { display: false },
-                ticks: {
-                  color: textColor,
-                  font: { ...fontConfig, weight: 'bold' }
                 }
               }
             }
           }
         });
+      }
 
-        // 2. Cash Sources Chart (Doughnut Chart) — skipped if removed from dashboard
-        const ctxSourcesEl = document.getElementById('chart-cash-sources');
-        if (ctxSourcesEl) {
-        const ctxSources = ctxSourcesEl.getContext('2d');
-        app.charts.sources = new Chart(ctxSources, {
-          type: 'doughnut',
-          data: {
-            labels: ['Total Muhasib Cash Received', 'Total Hospital Cash Collected'],
-            datasets: [{
-              label: 'Sources',
-              data: [dataSources.advance, dataSources.hospital],
-              backgroundColor: [primaryColor, secondaryColor],
-              borderColor: styles.getPropertyValue('--bg-card').trim() || '#18181b',
-              borderWidth: 2
-            }]
-          },
-          options: {
-            ...chartOptions,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'bottom',
-                labels: {
-                  color: textColor,
-                  font: fontConfig,
-                  boxWidth: 12,
-                  padding: 15
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const pct = total > 0 ? ((context.raw / total) * 100).toFixed(1) + '%' : '0%';
-                    return ' ' + context.label + ': ₹' + context.raw.toLocaleString('en-IN') + ' (' + pct + ')';
-                  }
-                }
-              }
-            },
-            cutout: '65%'
-          }
-        });
-        } // end if (ctxSourcesEl) — Cash Sources chart removed from dashboard
-
-        // 3. Bills Status Chart (Doughnut Chart) — skipped if removed from dashboard
-        const ctxStatusEl = document.getElementById('chart-bills-status');
-        if (ctxStatusEl) {
-        const ctxStatus = ctxStatusEl.getContext('2d');
-        app.charts.status = new Chart(ctxStatus, {
-          type: 'doughnut',
-          data: {
-            labels: ['Muhasib Bills Pending', 'Hospital Bills Pending', 'Total Transferred Back'],
-            datasets: [{
-              label: 'Status',
-              data: [dataStatus.advancePending, dataStatus.hospitalPending, dataStatus.transferred],
-              backgroundColor: [accentColor, errorColor, primaryColor],
-              borderColor: styles.getPropertyValue('--bg-card').trim() || '#18181b',
-              borderWidth: 2
-            }]
-          },
-          options: {
-            ...chartOptions,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'bottom',
-                labels: {
-                  color: textColor,
-                  font: fontConfig,
-                  boxWidth: 12,
-                  padding: 15
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    const pct = total > 0 ? ((context.raw / total) * 100).toFixed(1) + '%' : '0%';
-                    return ' ' + context.label + ': ₹' + context.raw.toLocaleString('en-IN') + ' (' + pct + ')';
-                  }
-                }
-              }
-            },
-            cutout: '65%'
-          }
-        });
-        } // end if (ctxStatusEl) — Bills Status chart removed from dashboard
-
-      } else {
-        // Fallback Mode (Offline & script did not load)
-        console.warn('Chart.js library not loaded. Rendering HTML fallback visualization.');
-
-        // Hide canvases, show fallback divs (guard: removed dashboard elements)
-        document.getElementById('chart-financial-position').classList.add('hidden');
-        document.getElementById('fallback-financial-position').classList.remove('hidden');
-        const fbSourcesCanvas = document.getElementById('chart-cash-sources');
-        if (fbSourcesCanvas) fbSourcesCanvas.classList.add('hidden');
-        const fbSources = document.getElementById('fallback-cash-sources');
-        if (fbSources) fbSources.classList.remove('hidden');
-        const fbStatusCanvas = document.getElementById('chart-bills-status');
-        if (fbStatusCanvas) fbStatusCanvas.classList.add('hidden');
-        const fbStatus = document.getElementById('fallback-bills-status');
-        if (fbStatus) fbStatus.classList.remove('hidden');
-
-        // Render Fallback 1: Financial Position Bar List — Dept-wise
-        const maxVal = Math.max(dataPosition.muhasibCash, dataPosition.hospitalCash, dataPosition.muhasibPending, dataPosition.hospitalPending, 1);
-        const getPct = (val) => Math.min(100, Math.max(5, (val / maxVal) * 100)) + '%';
-        const formattedVal = (val) => '₹' + val.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-
-        document.getElementById('fallback-financial-position').innerHTML = `
-          <div class="fallback-bar-list">
-            <div class="fallback-bar-item">
-              <div class="fallback-bar-info">
-                <span>Muhasib Cash</span>
-                <strong>${formattedVal(dataPosition.muhasibCash)}</strong>
-              </div>
-              <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.muhasibCash)}; background-color: #a855f7;"></div>
-              </div>
+      // Render Donut Progress Rows
+      if (donutBreakdownEl) {
+        if (!topHeads.length) {
+          donutBreakdownEl.innerHTML = `
+            <div style="text-align:center; font-size:0.75rem; color:var(--text-muted); padding:1rem 0;">
+              No expense head data recorded yet
             </div>
-            <div class="fallback-bar-item">
-              <div class="fallback-bar-info">
-                <span>Hospital Cash</span>
-                <strong>${formattedVal(dataPosition.hospitalCash)}</strong>
+          `;
+        } else {
+          donutBreakdownEl.innerHTML = topHeads.map((item, idx) => {
+            const pct = totalExpenseAmount > 0 ? ((item.amount / totalExpenseAmount) * 100).toFixed(1) : '0';
+            const color = donutPalette[idx % donutPalette.length];
+            return `
+              <div class="donut-head-row">
+                <div class="donut-head-top">
+                  <span class="donut-head-name">
+                    <span class="donut-head-dot" style="background-color: ${color}; box-shadow: 0 0 6px ${color}80;"></span>
+                    <span>${app.ui.escapeHTML(item.head)}</span>
+                    <span style="font-size:0.68rem; opacity:0.75; font-family:var(--font-mono); font-weight:700;">${pct}%</span>
+                  </span>
+                  <span class="donut-head-amt">₹${item.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div class="donut-head-track">
+                  <div class="donut-head-fill" style="width: ${pct}%; background: linear-gradient(90deg, ${color}, ${color}cc);"></div>
+                </div>
               </div>
-              <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.hospitalCash)}; background-color: #0ea5e9;"></div>
-              </div>
-            </div>
-            <div class="fallback-bar-item">
-              <div class="fallback-bar-info">
-                <span>Muhasib Pending Bills</span>
-                <strong>${formattedVal(dataPosition.muhasibPending)}</strong>
-              </div>
-              <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.muhasibPending)}; background-color: #f59e0b;"></div>
-              </div>
-            </div>
-            <div class="fallback-bar-item">
-              <div class="fallback-bar-info">
-                <span>Hospital Pending Bills</span>
-                <strong>${formattedVal(dataPosition.hospitalPending)}</strong>
-              </div>
-              <div class="fallback-bar-track">
-                <div class="fallback-bar-fill" style="width: ${getPct(dataPosition.hospitalPending)}; background-color: #e11d48;"></div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        // Render Fallback 2: Cash Sources Doughnut (Conic-Gradient) — only if element exists
-        const fbSourcesEl = document.getElementById('fallback-cash-sources');
-        if (fbSourcesEl) {
-        const sourcesTotal = dataSources.advance + dataSources.hospital;
-        let sPct1 = 50, sPct2 = 50;
-        if (sourcesTotal > 0) {
-          sPct1 = (dataSources.advance / sourcesTotal) * 100;
-          sPct2 = 100 - sPct1;
+            `;
+          }).join('');
         }
-        
-        document.getElementById('fallback-cash-sources').innerHTML = `
-          <div class="fallback-doughnut-container">
-            <div class="fallback-doughnut-circle" style="background: conic-gradient(var(--primary) 0% ${sPct1}%, var(--secondary) ${sPct1}% 100%);">
-              <div class="fallback-doughnut-inner"></div>
-            </div>
-            <div class="fallback-legend">
-              <div class="legend-item">
-                <span class="legend-dot" style="background-color: var(--primary);"></span>
-                <span class="legend-text">Advance:</span>
-                <span>${sPct1.toFixed(1)}% (${formattedVal(dataSources.advance)})</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background-color: var(--secondary);"></span>
-                <span class="legend-text">Hospital:</span>
-                <span>${sPct2.toFixed(1)}% (${formattedVal(dataSources.hospital)})</span>
-              </div>
-            </div>
-          </div>
-        `;
-        } // end if (fbSourcesEl)
-
-        // Render Fallback 3: Bills Status Doughnut (Conic-Gradient) — only if element exists
-        const fbStatusEl = document.getElementById('fallback-bills-status');
-        if (fbStatusEl) {
-        const statusTotal = dataStatus.advancePending + dataStatus.hospitalPending + dataStatus.transferred;
-        let p1 = 33.3, p2 = 33.3, p3 = 33.4;
-        if (statusTotal > 0) {
-          p1 = (dataStatus.advancePending / statusTotal) * 100;
-          p2 = (dataStatus.hospitalPending / statusTotal) * 100;
-          p3 = 100 - (p1 + p2);
-        }
-
-        document.getElementById('fallback-bills-status').innerHTML = `
-          <div class="fallback-doughnut-container">
-            <div class="fallback-doughnut-circle" style="background: conic-gradient(var(--accent) 0% ${p1}%, var(--error) ${p1}% ${p1+p2}%, var(--primary) ${p1+p2}% 100%);">
-              <div class="fallback-doughnut-inner"></div>
-            </div>
-            <div class="fallback-legend">
-              <div class="legend-item">
-                <span class="legend-dot" style="background-color: var(--accent);"></span>
-                <span class="legend-text">Adv Pending:</span>
-                <span>${p1.toFixed(1)}% (${formattedVal(dataStatus.advancePending)})</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background-color: var(--error);"></span>
-                <span class="legend-text">Hosp Pending:</span>
-                <span>${p2.toFixed(1)}% (${formattedVal(dataStatus.hospitalPending)})</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot" style="background-color: var(--primary);"></span>
-                <span class="legend-text">Transferred:</span>
-                <span>${p3.toFixed(1)}% (${formattedVal(dataStatus.transferred)})</span>
-              </div>
-            </div>
-          </div>
-        `;
-        } // end if (fbStatusEl)
       }
     }
   },

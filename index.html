@@ -60,16 +60,16 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261010_16">
-  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_16">
+  <link rel="stylesheet" href="assets/app.css?v=20261010_17">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_17">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261010_16" defer></script>
-  <script src="assets/staff-receipts.js?v=20261010_16" defer></script>
+  <script src="assets/app.js?v=20261010_17" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_17" defer></script>
 </head>
 <body>
 
@@ -706,25 +706,100 @@
 
           </div>
 
-          <!-- Dashboard Charts Section -->
+          <!-- Executive Financial Intelligence & Analytics Suite -->
           <div class="charts-section">
-            <div class="card chart-card">
-              <div class="chart-card-header">
-                <div class="chart-header-left">
-                  <div class="chart-title">Muhasib vs Hospital — Cash & Pending Bills</div>
-                  <div class="chart-subtitle">Department-wise cash in hand and unpaid bills</div>
+            <div class="charts-suite-grid">
+              
+              <!-- Card 1: Primary Treasury Intelligence & Cash Velocity -->
+              <div class="card chart-card chart-card-primary">
+                <div class="chart-card-header">
+                  <div class="chart-header-left">
+                    <div class="chart-badge-tag">
+                      <span class="pulse-dot-green"></span>
+                      <span>Real-Time Intelligence</span>
+                    </div>
+                    <div class="chart-title">Treasury Liquidity & Cash Flow Analytics</div>
+                    <div class="chart-subtitle">Dynamic view of cash in hand, inflow velocity & active liabilities</div>
+                  </div>
+                  
+                  <!-- Interactive Chart View Mode Switcher -->
+                  <div class="chart-mode-switcher">
+                    <button type="button" class="chart-mode-btn active" data-mode="solvency" onclick="app.ui.switchChartMode('solvency')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+                      <span>Solvency</span>
+                    </button>
+                    <button type="button" class="chart-mode-btn" data-mode="flow" onclick="app.ui.switchChartMode('flow')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 16 7-7 4 4 7-7"/><path d="M14 6h7v7"/></svg>
+                      <span>Inflow / Outflow</span>
+                    </button>
+                    <button type="button" class="chart-mode-btn" data-mode="dept" onclick="app.ui.switchChartMode('dept')">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      <span>Dept Flow</span>
+                    </button>
+                  </div>
                 </div>
-                <div class="chart-legend-pills">
-                  <span class="chart-pill pill-muhasib">Muhasib Cash</span>
-                  <span class="chart-pill pill-hospital">Hospital Cash</span>
-                  <span class="chart-pill pill-amber">Muhasib Pending</span>
-                  <span class="chart-pill pill-pending">Hospital Pending</span>
+
+                <!-- Executive Mini KPI Ribbon inside Chart -->
+                <div class="chart-kpi-ribbon">
+                  <div class="chart-kpi-item">
+                    <span class="chart-kpi-label">Total Liquid Cash</span>
+                    <span class="chart-kpi-val text-emerald" id="chart-kpi-liquid">₹0.00</span>
+                    <span class="chart-kpi-sub">Muhasib Float + Hospital Cash</span>
+                  </div>
+                  <div class="chart-kpi-divider"></div>
+                  <div class="chart-kpi-item">
+                    <span class="chart-kpi-label">Liability / Float Ratio</span>
+                    <span class="chart-kpi-val" id="chart-kpi-ratio">0.0%</span>
+                    <span class="chart-kpi-sub" id="chart-kpi-ratio-sub">Unpaid Bills vs Float</span>
+                  </div>
+                  <div class="chart-kpi-divider"></div>
+                  <div class="chart-kpi-item">
+                    <span class="chart-kpi-label">Total Cash Turnover</span>
+                    <span class="chart-kpi-val" id="chart-kpi-turnover">₹0.00</span>
+                    <span class="chart-kpi-sub">Float Received + Collections</span>
+                  </div>
+                </div>
+
+                <!-- Main Chart Canvas Container -->
+                <div class="chart-container" style="position: relative; height: 310px; width: 100%;">
+                  <canvas id="chart-financial-position"></canvas>
+                  <div id="fallback-financial-position" class="chart-fallback hidden" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+                </div>
+
+                <!-- Interactive Micro-Legends & Insights -->
+                <div class="chart-footer-insights" id="chart-primary-legend">
+                  <!-- Populated dynamically via JS with glowing chips and live values -->
                 </div>
               </div>
-              <div class="chart-container" style="position: relative; height: 280px; width: 100%; margin-top: 1rem;">
-                <canvas id="chart-financial-position"></canvas>
-                <div id="fallback-financial-position" class="chart-fallback hidden" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
+
+              <!-- Card 2: Executive Capital Allocation & Expense Breakdown -->
+              <div class="card chart-card chart-card-donut">
+                <div class="chart-card-header">
+                  <div class="chart-header-left">
+                    <div class="chart-badge-tag tag-purple">
+                      <span>Capital Allocation</span>
+                    </div>
+                    <div class="chart-title">Expense Heads & Outflow Share</div>
+                    <div class="chart-subtitle">Distribution of hospital funds & departmental spending</div>
+                  </div>
+                </div>
+
+                <div class="donut-chart-wrapper" style="position: relative; height: 230px; margin-top: 0.6rem;">
+                  <canvas id="chart-expense-donut"></canvas>
+                  <!-- Glass Center Summary Inside Donut Hole -->
+                  <div class="donut-glass-center">
+                    <span class="donut-center-label">Total Outflow</span>
+                    <span class="donut-center-val" id="donut-center-total">₹0.00</span>
+                    <span class="donut-center-sub" id="donut-center-count">0 Records</span>
+                  </div>
+                </div>
+
+                <!-- Custom Interactive Progress Rows for Top Heads -->
+                <div class="donut-breakdown-list" id="donut-heads-breakdown">
+                  <!-- Populated dynamically: Top heads with % bar, amount, and badge -->
+                </div>
               </div>
+
             </div>
           </div>
 
