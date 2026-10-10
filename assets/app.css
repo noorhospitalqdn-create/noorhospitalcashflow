@@ -1848,17 +1848,17 @@ html[data-theme="dark"] .overflow-x::-webkit-scrollbar-thumb:hover {
   width: 100% !important;
   max-width: 100% !important;
   border-collapse: collapse;
-  font-size: 0.79rem;
+  font-size: 0.875rem;
 }
 .data-table thead th {
   text-align: left;
-  font-size: 0.67rem;
-  font-weight: 800;
+  font-size: 0.76rem;
+  font-weight: 750;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
   background: var(--bg-app);
-  padding: 7px 6px;
+  padding: 12px 10px;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
   position: sticky;
@@ -1871,17 +1871,21 @@ html[data-theme="dark"] .data-table thead th {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .data-table tbody td {
-  padding: 6px 6px;
+  padding: 11px 10px;
   border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
   color: var(--text-main);
-  font-size: 0.78rem;
+  font-size: 0.865rem;
+  line-height: 1.38;
 }
 html[data-theme="dark"] .data-table tbody td {
   color: #f8fafc;
 }
-.data-table tbody tr { transition: background 0.12s; }
-.data-table tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.012); }
+.data-table tbody tr {
+  transition: background 0.12s;
+  min-height: 48px;
+}
+.data-table tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.015); }
 html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.025); }
 .data-table tbody tr:hover { background: rgba(20, 184, 166, 0.06); }
 
@@ -1911,26 +1915,19 @@ html[data-theme="dark"] .data-table tbody tr:nth-child(even) { background: rgba(
 #table-advance-cleared td:nth-child(4),
 #table-bills td:nth-child(5),
 #table-hospital-cleared td:nth-child(4) {
-  max-width: 160px;
+  min-width: 140px;
+  max-width: 260px;
   word-break: break-word;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 #table-advance-bills td:nth-child(6),
 #table-advance-cleared td:nth-child(5),
 #table-bills td:nth-child(6),
 #table-hospital-cleared td:nth-child(5) {
-  max-width: 140px;
+  min-width: 130px;
+  max-width: 220px;
   word-break: break-word;
-  line-height: 1.25;
-}
-#table-advance-bills td:nth-child(9),
-#table-advance-cleared td:nth-child(9),
-#table-bills td:nth-child(9),
-#table-hospital-cleared td:nth-child(9) {
-  max-width: 130px;
-  word-break: break-word;
-  font-size: 0.74rem;
-  line-height: 1.25;
+  line-height: 1.35;
 }
 
 /* Action button containers never squish, shrink or wrap */
@@ -3217,15 +3214,15 @@ html[data-theme="dark"] .easy-details summary:hover { background: rgba(255,255,2
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 3px !important;
+  gap: 4px !important;
   flex-wrap: nowrap !important;
   white-space: nowrap !important;
 }
 .bill-act {
-  width: 25px !important;
-  height: 25px !important;
-  min-width: 25px !important;
-  min-height: 25px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
   flex-shrink: 0 !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -3241,7 +3238,7 @@ html[data-theme="dark"] .easy-details summary:hover { background: rgba(255,255,2
 }
 .bill-act:hover { background:var(--bg-elevated); transform:translateY(-1px); }
 .bill-act:active { transform:translateY(0); }
-.bill-act svg { width: 13px !important; height: 13px !important; flex-shrink: 0; }
+.bill-act svg { width: 14px !important; height: 14px !important; flex-shrink: 0; }
 .bill-act.clear { color:var(--success); border-color:rgba(16,185,129,0.4); }
 .bill-act.clear:hover { background:rgba(16,185,129,0.12); }
 .bill-act.convert { color:var(--secondary); border-color:rgba(99,102,241,0.35); }
