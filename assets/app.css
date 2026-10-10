@@ -1435,14 +1435,14 @@ html[data-theme="dark"] .card-current-cash-muhasib .metric-icon {
 }
 
 .card-current-cash-muhasib .card-metric-value {
-  color: #7e22ce !important;
+  color: #f43f5e !important;
   font-weight: 850 !important;
   letter-spacing: -0.04em !important;
 }
 
 html[data-theme="dark"] .card-current-cash-muhasib .card-metric-value {
-  color: #e9d5ff !important;
-  text-shadow: 0 0 22px rgba(168, 85, 247, 0.35);
+  color: #fb7185 !important;
+  text-shadow: 0 0 22px rgba(244, 63, 94, 0.35);
 }
 
 /* Hospital Current Cash */
@@ -1480,14 +1480,14 @@ html[data-theme="dark"] .card-current-cash-hospital .metric-icon {
 }
 
 .card-current-cash-hospital .card-metric-value {
-  color: #4338ca !important;
+  color: #f43f5e !important;
   font-weight: 850 !important;
   letter-spacing: -0.04em !important;
 }
 
 html[data-theme="dark"] .card-current-cash-hospital .card-metric-value {
-  color: #c7d2fe !important;
-  text-shadow: 0 0 22px rgba(99, 102, 241, 0.35);
+  color: #fb7185 !important;
+  text-shadow: 0 0 22px rgba(244, 63, 94, 0.35);
 }
 
 /* Header badge and title wrap */
