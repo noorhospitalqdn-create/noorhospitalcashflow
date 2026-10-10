@@ -70,7 +70,7 @@ const app = {
     temporarySlipsPendingAmount: 0
   },
 
-  DEFAULT_HEADS: ["ADVIYAAT","AKHBARAT RASALAJAT","AMLA SHARES","DAK","DENTAL","DHULAI PARCHAT","ECG","FEES OPERATION","IKHRAJAT ELAJ MOALJA KARKUNAN SADR ANJUMAN AHMADIY","IKHRAJAT ELAJ MOALJA KARKUNAN WAQFE JADID","INSURANCE MOTERCAR","ISHTIHARAT TIBAT","KHAREED MURAMMAT SAMAN","LABROTARY","MEDICAL INSURANCE","MUTAFARIQ GAIR MAMOOLI","MUTAFARRIQ","OZAR JIRAHI","PANI BIJLI GAS","PHONE","RAFA GAREEB MUFLIS MAREEZ","SAFAR KHARCH DAFTER","SAFAR KHARCH DOCTOR","SAFAR KHATCH FEES CONSULTATION","STATIONARY","TAMIR MARMAT NOOR HOSPITAL","TAWAZOO","TOTAL","ULTRASOUND","WAPSI QARZA MARQAZI FUND","WARDI AMLA","X-RAY"],
+  DEFAULT_HEADS: ["ADVIYAAT","AKHBARAT RASALAJAT","AMLA SHARES","DAK","DENTAL","DHULAI PARCHAT","ECG","FEES OPERATION","IKHRAJAT ELAJ MOALJA KARKUNAN SADR ANJUMAN AHMADIY","IKHRAJAT ELAJ MOALJA KARKUNAN WAQFE JADID","INSURANCE MOTERCAR","ISHTIHARAT TIBAT","KHAREED MURAMMAT SAMAN","LABROTARY","MEDICAL INSURANCE","MUTAFARIQ GAIR MAMOOLI","MUTAFARRIQ","OZAR JIRAHI","PANI BIJLI GAS","PHONE","RAFA GAREEB MUFLIS MAREEZ","SAFAR KHARCH DAFTER","SAFAR KHARCH DOCTOR","SAFAR KHATCH FEES CONSULTATION","STATIONARY","TAMIR MARMAT NOOR HOSPITAL","TAWAZOO","ULTRASOUND","WAPSI QARZA MARQAZI FUND","WARDI AMLA","X-RAY"],
 
   // Get/generate unique device ID
   getDeviceId() {
@@ -764,14 +764,20 @@ const app = {
             if (!local) {
               if (table === 'vendors' && remote.name) {
                 const normRemote = String(remote.name).trim().toLowerCase();
+                if (app.vendors && app.vendors.isVendorDeleted && app.vendors.isVendorDeleted(normRemote)) {
+                  continue;
+                }
                 const localSameName = localRecords.find(l => l && l.name && String(l.name).trim().toLowerCase() === normRemote);
                 if (localSameName && String(localSameName.id) !== String(remote.id)) {
                   await app.db.delete('vendors', localSameName.id, true);
                   localMap.delete(localSameName.id);
                 }
               } else if (table === 'heads' && remote.name) {
-                const normRemote = String(remote.name).trim().toLowerCase();
-                const localSameName = localRecords.find(l => l && l.name && String(l.name).trim().toLowerCase() === normRemote);
+                const normRemote = String(remote.name).trim().toUpperCase();
+                if (app.heads && app.heads.isHeadDeleted && app.heads.isHeadDeleted(normRemote)) {
+                  continue;
+                }
+                const localSameName = localRecords.find(l => l && l.name && String(l.name).trim().toUpperCase() === normRemote);
                 if (localSameName && String(localSameName.id) !== String(remote.id)) {
                   await app.db.delete('heads', localSameName.id, true);
                   localMap.delete(localSameName.id);
@@ -806,7 +812,7 @@ const app = {
             for (const v of allDbVendors) {
               if (!v || !v.name) continue;
               const n = String(v.name).trim().toLowerCase();
-              if (seenVendorNames.has(n)) {
+              if ((app.vendors && app.vendors.isVendorDeleted && app.vendors.isVendorDeleted(n)) || seenVendorNames.has(n)) {
                 await app.db.delete('vendors', v.id, true);
               } else {
                 seenVendorNames.add(n);
@@ -817,8 +823,8 @@ const app = {
             const seenHeadNames = new Set();
             for (const h of allDbHeads) {
               if (!h || !h.name) continue;
-              const n = String(h.name).trim().toLowerCase();
-              if (seenHeadNames.has(n)) {
+              const n = String(h.name).trim().toUpperCase();
+              if ((app.heads && app.heads.isHeadDeleted && app.heads.isHeadDeleted(n)) || seenHeadNames.has(n)) {
                 await app.db.delete('heads', h.id, true);
               } else {
                 seenHeadNames.add(n);
@@ -1491,34 +1497,45 @@ const app = {
       try {
         const rawHeads = await app.db.getAll('heads') || [];
         const uniqueHeadMap = new Map();
+        const duplicateHeadIds = [];
         for (const h of rawHeads) {
           if (!h || !h.name) continue;
-          const norm = String(h.name).trim().toLowerCase();
-          if (!norm) continue;
+          const norm = String(h.name).trim().toUpperCase();
+          if (!norm || norm === 'TOTAL') {
+            if (h.id) duplicateHeadIds.push(h.id);
+            continue;
+          }
+          if (app.heads && app.heads.isHeadDeleted && app.heads.isHeadDeleted(norm)) {
+            if (h.id) duplicateHeadIds.push(h.id);
+            continue;
+          }
           if (!uniqueHeadMap.has(norm)) {
             uniqueHeadMap.set(norm, { ...h, name: h.name.trim() });
           } else if (h.id) {
-            try { await app.db.delete('heads', h.id, true); } catch (_) {}
+            duplicateHeadIds.push(h.id);
           }
+        }
+        for (const dupId of duplicateHeadIds) {
+          try { await app.db.delete('heads', dupId, true); } catch (_) {}
         }
         app.state.heads = Array.from(uniqueHeadMap.values());
       } catch (err) {
         console.warn('Could not read heads from DB, initializing empty:', err);
         app.state.heads = [];
       }
-      if (!app.state.heads.length) {
-        for (const hName of (app.DEFAULT_HEADS || [])) {
-          const rec = { name: hName, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-          try { const id = await app.db.add('heads', rec); rec.id = id; app.state.heads.push(rec); } catch (_) {}
-        }
-      } else {
-        // Add any missing defaults without duplicates
-        const have = new Set(app.state.heads.map(h => String(h.name||'').trim().toLowerCase()));
-        for (const hName of (app.DEFAULT_HEADS || [])) {
-          if (!have.has(hName.toLowerCase())) {
+
+      // One-time initial seed of default heads only when store has never been initialized
+      const hasHeadsSeeded = localStorage.getItem('noor_heads_initial_seeded') === 'true';
+      if (!hasHeadsSeeded) {
+        if (app.state.heads && app.state.heads.length > 0) {
+          try { localStorage.setItem('noor_heads_initial_seeded', 'true'); } catch (_) {}
+        } else {
+          for (const hName of (app.DEFAULT_HEADS || [])) {
+            if (app.heads && app.heads.isHeadDeleted && app.heads.isHeadDeleted(hName)) continue;
             const rec = { name: hName, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-            try { const id = await app.db.add('heads', rec); rec.id = id; app.state.heads.push(rec); have.add(hName.toLowerCase()); } catch (_) {}
+            try { const id = await app.db.add('heads', rec); rec.id = id; app.state.heads.push(rec); } catch (_) {}
           }
+          try { localStorage.setItem('noor_heads_initial_seeded', 'true'); } catch (_) {}
         }
       }
       // Normalize old bills: head stored in category; copy to head field for display
@@ -1538,6 +1555,10 @@ const app = {
           if (!v || !v.name) continue;
           const norm = String(v.name).trim().toLowerCase();
           if (!norm) continue;
+          if (app.vendors && app.vendors.isVendorDeleted && app.vendors.isVendorDeleted(norm)) {
+            if (v.id) duplicateVendorIds.push(v.id);
+            continue;
+          }
           if (!uniqueVendorMap.has(norm)) {
             uniqueVendorMap.set(norm, { ...v, name: v.name.trim() });
           } else {
@@ -1569,49 +1590,59 @@ const app = {
         app.state.upiReconciliations = [];
       }
 
-      const existingVendorMap = new Map();
-      (app.state.vendors || []).forEach(v => {
-        if (v && v.name && v.name.trim()) existingVendorMap.set(v.name.trim().toLowerCase(), v);
-      });
+      // One-time initial migration from legacy transaction records (only if vendors store has never been initialized)
+      const hasVendorsMigrated = localStorage.getItem('noor_vendors_initial_migrated') === 'true';
+      if (!hasVendorsMigrated) {
+        if (app.state.vendors && app.state.vendors.length > 0) {
+          try { localStorage.setItem('noor_vendors_initial_migrated', 'true'); } catch (_) {}
+        } else {
+          const existingVendorMap = new Map();
+          (app.state.vendors || []).forEach(v => {
+            if (v && v.name && v.name.trim()) existingVendorMap.set(v.name.trim().toLowerCase(), v);
+          });
 
-      const discoveredVendors = new Set();
-      (app.state.bills || []).forEach(b => {
-        const v = (b.vendor || '').trim();
-        if (v) discoveredVendors.add(v);
-      });
-      (app.state.temporarySlips || []).forEach(s => {
-        const v = (s.vendor || '').trim();
-        if (v) discoveredVendors.add(v);
-      });
-      try {
-        const rcpts = (window.app && app.receipts && app.receipts.getAllReceipts)
-          ? app.receipts.getAllReceipts()
-          : JSON.parse(localStorage.getItem('noor_staff_receipts_v1') || '[]');
-        (rcpts || []).forEach(r => {
-          const v = (r.name || '').trim();
-          if (v) discoveredVendors.add(v);
-        });
-      } catch (_) {}
-
-      for (const vName of discoveredVendors) {
-        const norm = vName.trim().toLowerCase();
-        if (!existingVendorMap.has(norm)) {
-          const newVendor = {
-            name: vName,
-            phone: '',
-            category: 'General',
-            remarks: 'Auto-migrated from existing transaction records',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
+          const discoveredVendors = new Set();
+          (app.state.bills || []).forEach(b => {
+            const v = (b.vendor || '').trim();
+            if (v) discoveredVendors.add(v);
+          });
+          (app.state.temporarySlips || []).forEach(s => {
+            const v = (s.vendor || '').trim();
+            if (v) discoveredVendors.add(v);
+          });
           try {
-            const id = await app.db.add('vendors', newVendor);
-            newVendor.id = id;
-            app.state.vendors.push(newVendor);
-            existingVendorMap.set(norm, newVendor);
-          } catch (vErr) {
-            console.warn('Error auto-migrating vendor:', vName, vErr);
+            const rcpts = (window.app && app.receipts && app.receipts.getAllReceipts)
+              ? app.receipts.getAllReceipts()
+              : JSON.parse(localStorage.getItem('noor_staff_receipts_v1') || '[]');
+            (rcpts || []).forEach(r => {
+              const v = (r.name || '').trim();
+              if (v) discoveredVendors.add(v);
+            });
+          } catch (_) {}
+
+          for (const vName of discoveredVendors) {
+            const norm = vName.trim().toLowerCase();
+            if (app.vendors && app.vendors.isVendorDeleted && app.vendors.isVendorDeleted(norm)) continue;
+            if (!existingVendorMap.has(norm)) {
+              const newVendor = {
+                name: vName,
+                phone: '',
+                category: 'General',
+                remarks: 'Auto-migrated from existing transaction records',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+              try {
+                const id = await app.db.add('vendors', newVendor);
+                newVendor.id = id;
+                app.state.vendors.push(newVendor);
+                existingVendorMap.set(norm, newVendor);
+              } catch (vErr) {
+                console.warn('Error auto-migrating vendor:', vName, vErr);
+              }
+            }
           }
+          try { localStorage.setItem('noor_vendors_initial_migrated', 'true'); } catch (_) {}
         }
       }
 
@@ -5785,12 +5816,47 @@ const app = {
   vendors: {
     _returnContext: null,
 
+    getDeletedVendors() {
+      try {
+        return JSON.parse(localStorage.getItem('noor_deleted_vendors_v1') || '[]');
+      } catch (_) {
+        return [];
+      }
+    },
+
+    markVendorDeleted(name) {
+      if (!name) return;
+      const norm = String(name).trim().toLowerCase();
+      const list = app.vendors.getDeletedVendors();
+      if (!list.includes(norm)) {
+        list.push(norm);
+        try { localStorage.setItem('noor_deleted_vendors_v1', JSON.stringify(list)); } catch (_) {}
+      }
+    },
+
+    unmarkVendorDeleted(name) {
+      if (!name) return;
+      const norm = String(name).trim().toLowerCase();
+      let list = app.vendors.getDeletedVendors();
+      if (list.includes(norm)) {
+        list = list.filter(n => n !== norm);
+        try { localStorage.setItem('noor_deleted_vendors_v1', JSON.stringify(list)); } catch (_) {}
+      }
+    },
+
+    isVendorDeleted(name) {
+      if (!name) return false;
+      const norm = String(name).trim().toLowerCase();
+      return app.vendors.getDeletedVendors().includes(norm);
+    },
+
     getUniqueVendors() {
       const uniqueMap = new Map();
       (app.state.vendors || []).forEach(v => {
         if (!v || !v.name) return;
         const norm = String(v.name).trim().toLowerCase();
         if (!norm) return;
+        if (app.vendors.isVendorDeleted && app.vendors.isVendorDeleted(norm)) return;
         if (!uniqueMap.has(norm)) {
           uniqueMap.set(norm, { ...v, name: v.name.trim() });
         } else {
@@ -5840,7 +5906,7 @@ const app = {
     },
 
     async initiateEdit(id) {
-      const vendor = (app.state.vendors || []).find(v => v.id === id);
+      const vendor = (app.state.vendors || []).find(v => String(v.id) === String(id));
       if (!vendor) {
         app.ui.showToast('Vendor not found.', 'error');
         return;
@@ -5871,6 +5937,8 @@ const app = {
         app.ui.showToast('Vendor name is required.', 'warning');
         return false;
       }
+      // If user is intentionally creating or updating this vendor, unmark it from deleted list
+      app.vendors.unmarkVendorDeleted(name);
       const editId = formData.id ? String(formData.id).trim() : null;
       const vendorCode = (formData.vendorCode || '').trim();
 
@@ -6042,8 +6110,12 @@ const app = {
     },
 
     async deleteVendor(id) {
-      const vendor = (app.state.vendors || []).find(v => v.id === id);
-      if (!vendor) return;
+      const vendor = (app.state.vendors || []).find(v => String(v.id) === String(id)) ||
+                     (app.state.vendors || []).find(v => String(v.name || '').trim().toLowerCase() === String(id).trim().toLowerCase());
+      if (!vendor) {
+        app.ui.showToast('Vendor not found.', 'warning');
+        return;
+      }
 
       const vName = (vendor.name || '').trim().toLowerCase();
       const linkedBills = (app.state.bills || []).filter(b => (b.vendor || '').trim().toLowerCase() === vName);
@@ -6058,8 +6130,43 @@ const app = {
       if (!confirm(msg)) return;
 
       try {
-        await app.db.delete('vendors', id);
-        app.state.vendors = (app.state.vendors || []).filter(v => v.id !== id);
+        // 1. Mark vendor as deleted in local storage so it will never be auto-resurrected
+        app.vendors.markVendorDeleted(vendor.name);
+
+        // 2. Find all matching local vendor records (matching ID or normalized name)
+        const matchingVendors = (app.state.vendors || []).filter(v => 
+          String(v.id) === String(id) || (v.name && String(v.name).trim().toLowerCase() === vName)
+        );
+
+        // 3. Delete from IndexedDB and queue sync delete for each ID
+        for (const mv of matchingVendors) {
+          if (mv.id != null) {
+            await app.db.delete('vendors', mv.id);
+          }
+        }
+
+        // 4. Clean up any other lingering entries in IndexedDB with matching name or ID
+        try {
+          const allLocal = await app.db.getAll('vendors');
+          for (const lv of allLocal) {
+            if (String(lv.id) === String(id) || (lv.name && String(lv.name).trim().toLowerCase() === vName)) {
+              await app.db.delete('vendors', lv.id, true);
+            }
+          }
+        } catch (_) {}
+
+        // 5. Direct remote delete from Supabase by vendor name to ensure no remote twin survives
+        if (app.supabase && app.supabase.isConfigured && app.supabase.isConfigured() && navigator.onLine) {
+          try {
+            await app.supabase.request('vendors', 'DELETE', null, { name: `ilike.${vendor.name.trim()}` });
+          } catch (_) {}
+        }
+
+        // 6. Remove from state in-memory
+        app.state.vendors = (app.state.vendors || []).filter(v => 
+          String(v.id) !== String(id) && (!v.name || String(v.name).trim().toLowerCase() !== vName)
+        );
+
         app.vendors.populateVendorDropdowns();
         app.vendors.renderVendorsTable();
         const badge = document.getElementById('nav-vendors-badge');
@@ -6252,14 +6359,14 @@ const app = {
             </td>
             <td class="text-center">
               <div class="table-actions" style="justify-content:center;gap:6px">
-                <button type="button" class="btn btn-secondary btn-xs" title="View Full Vendor Statement" onclick="app.vendors.viewVendorReport('${v.name.replace(/'/g, "\\'")}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:0.75rem;font-weight:600;">
+                <button type="button" class="btn btn-secondary btn-xs" title="View Full Vendor Statement" onclick="app.vendors.viewVendorReport('${String(v.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:0.75rem;font-weight:600;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
                   <span>Statement</span>
                 </button>
-                <button type="button" class="btn-action-icon" title="Edit Vendor" onclick="app.vendors.initiateEdit(${v.id})" style="width:26px;height:26px;">
+                <button type="button" class="btn-action-icon" title="Edit Vendor" onclick="app.vendors.initiateEdit('${v.id}')" style="width:26px;height:26px;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                 </button>
-                <button type="button" class="btn-action-icon text-error" title="Delete Vendor" onclick="app.vendors.deleteVendor(${v.id})" style="width:26px;height:26px;">
+                <button type="button" class="btn-action-icon text-error" title="Delete Vendor" onclick="app.vendors.deleteVendor('${v.id}')" style="width:26px;height:26px;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
               </div>
@@ -6295,12 +6402,52 @@ const app = {
   heads: {
     _returnContext: null,
 
+    getDeletedHeads() {
+      try {
+        const list = JSON.parse(localStorage.getItem('noor_deleted_heads_v1') || '[]');
+        if (!list.includes('TOTAL')) {
+          list.push('TOTAL');
+          try { localStorage.setItem('noor_deleted_heads_v1', JSON.stringify(list)); } catch (_) {}
+        }
+        return list;
+      } catch (_) {
+        return ['TOTAL'];
+      }
+    },
+
+    markHeadDeleted(name) {
+      if (!name) return;
+      const norm = String(name).trim().toUpperCase();
+      const list = app.heads.getDeletedHeads();
+      if (!list.includes(norm)) {
+        list.push(norm);
+        try { localStorage.setItem('noor_deleted_heads_v1', JSON.stringify(list)); } catch (_) {}
+      }
+    },
+
+    unmarkHeadDeleted(name) {
+      if (!name) return;
+      const norm = String(name).trim().toUpperCase();
+      let list = app.heads.getDeletedHeads();
+      if (list.includes(norm)) {
+        list = list.filter(n => n !== norm);
+        try { localStorage.setItem('noor_deleted_heads_v1', JSON.stringify(list)); } catch (_) {}
+      }
+    },
+
+    isHeadDeleted(name) {
+      if (!name) return false;
+      const norm = String(name).trim().toUpperCase();
+      return app.heads.getDeletedHeads().includes(norm);
+    },
+
     getUniqueHeads() {
       const uniqueMap = new Map();
       (app.state.heads || []).forEach(h => {
         if (!h || !h.name) return;
         const norm = String(h.name).trim().toUpperCase();
         if (!norm) return;
+        if (app.heads.isHeadDeleted && app.heads.isHeadDeleted(norm)) return;
         if (!uniqueMap.has(norm)) {
           uniqueMap.set(norm, { ...h, name: h.name.trim() });
         }
@@ -6324,7 +6471,7 @@ const app = {
       setTimeout(() => { if (nameInput) nameInput.focus(); }, 120);
     },
     async initiateEdit(id) {
-      const head = (app.state.heads || []).find(h => h.id === id);
+      const head = (app.state.heads || []).find(h => String(h.id) === String(id));
       if (!head) { app.ui.showToast('Head not found.', 'error'); return; }
       app.heads._returnContext = null;
       document.getElementById('edit-head-id').value = head.id;
@@ -6337,6 +6484,8 @@ const app = {
     async saveHead(formData) {
       const name = (formData.name || '').trim().toUpperCase();
       if (!name) { app.ui.showToast('Head name is required.', 'warning'); return false; }
+      // If user is intentionally creating or updating this head, unmark it from deleted list
+      app.heads.unmarkHeadDeleted(name);
       const editId = formData.id ? parseInt(formData.id, 10) : null;
       const cleanList = app.heads.getUniqueHeads();
       const duplicate = cleanList.find(h => h.name && h.name.trim().toUpperCase() === name && h.id !== editId);
@@ -6379,20 +6528,64 @@ const app = {
       return true;
     },
     async deleteHead(id) {
-      const head = (app.state.heads || []).find(h => h.id === id);
-      if (!head) return;
+      const head = (app.state.heads || []).find(h => String(h.id) === String(id)) ||
+                   (app.state.heads || []).find(h => String(h.name || '').trim().toUpperCase() === String(id).trim().toUpperCase());
+      if (!head) {
+        app.ui.showToast('Head not found.', 'warning');
+        return;
+      }
       const hName = (head.name || '').trim().toUpperCase();
       const linked = (app.state.bills || []).filter(b => ((b.head || b.category || '').trim().toUpperCase() === hName)).length;
       let msg = `Delete head "${head.name}"?`;
       if (linked > 0) msg += `\n\nNotice: ${linked} bill(s) use this head. Existing bills will keep the head name.`;
       if (!confirm(msg)) return;
       try {
-        await app.db.delete('heads', id);
-        app.state.heads = (app.state.heads || []).filter(h => h.id !== id);
+        // 1. Mark head deleted in local storage so it is never re-seeded or restored
+        app.heads.markHeadDeleted(head.name);
+
+        // 2. Find all matching local heads (by ID or normalized name in case of twins)
+        const matchingHeads = (app.state.heads || []).filter(h => 
+          String(h.id) === String(id) || (h.name && String(h.name).trim().toUpperCase() === hName)
+        );
+
+        // 3. Delete from IndexedDB & queue sync delete for each ID
+        for (const mh of matchingHeads) {
+          if (mh.id != null) {
+            await app.db.delete('heads', mh.id);
+          }
+        }
+
+        // 4. Clean up any lingering IndexedDB entries with matching name or ID
+        try {
+          const allLocal = await app.db.getAll('heads');
+          for (const lh of allLocal) {
+            if (String(lh.id) === String(id) || (lh.name && String(lh.name).trim().toUpperCase() === hName)) {
+              await app.db.delete('heads', lh.id, true);
+            }
+          }
+        } catch (_) {}
+
+        // 5. Direct Supabase delete by name if online and configured to ensure remote twin is removed
+        if (app.supabase && app.supabase.isConfigured && app.supabase.isConfigured() && navigator.onLine) {
+          try {
+            await app.supabase.request('heads', 'DELETE', null, { name: `ilike.${head.name.trim()}` });
+          } catch (_) {}
+        }
+
+        // 6. Update in-memory state
+        app.state.heads = (app.state.heads || []).filter(h => 
+          String(h.id) !== String(id) && (!h.name || String(h.name).trim().toUpperCase() !== hName)
+        );
+
         app.heads.populateHeadDropdowns();
         app.heads.renderHeadsTable();
+        const badge = document.getElementById('nav-heads-badge');
+        if (badge) badge.textContent = app.heads.getUniqueHeads().length;
         app.ui.showToast(`Head "${head.name}" deleted.`, 'info');
-      } catch (err) { app.ui.showToast('Failed to delete head.', 'error'); }
+      } catch (err) {
+        console.error(err);
+        app.ui.showToast('Failed to delete head.', 'error');
+      }
     },
     populateHeadDropdowns(selected = '') {
       const sorted = app.heads.getUniqueHeads().sort((a,b) => (a.name||'').localeCompare(b.name||''));
@@ -6469,8 +6662,8 @@ const app = {
           <td class="text-bold">${app.ui.escapeHTML(hn)}</td>
           <td class="num-val text-right">${bills.length ? `<span class="font-bold">${bills.length}</span> <small class="text-muted">(${app.ui.formatCurrency(amt)})</small>` : '<span class="text-muted" style="opacity:0.4">-</span>'}</td>
           <td class="text-center"><div class="table-actions" style="justify-content:center;gap:6px">
-            <button type="button" class="btn-action-icon" title="Edit Head" onclick="app.heads.initiateEdit(${h.id})" style="width:26px;height:26px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-            <button type="button" class="btn-action-icon text-error" title="Delete Head" onclick="app.heads.deleteHead(${h.id})" style="width:26px;height:26px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            <button type="button" class="btn-action-icon" title="Edit Head" onclick="app.heads.initiateEdit('${h.id}')" style="width:26px;height:26px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+            <button type="button" class="btn-action-icon text-error" title="Delete Head" onclick="app.heads.deleteHead('${h.id}')" style="width:26px;height:26px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div></td>
         </tr>`;
       });
