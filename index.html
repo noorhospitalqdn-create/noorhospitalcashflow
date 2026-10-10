@@ -60,16 +60,16 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261010_09">
-  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_09">
+  <link rel="stylesheet" href="assets/app.css?v=20261010_10">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_10">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261010_09" defer></script>
-  <script src="assets/staff-receipts.js?v=20261010_09" defer></script>
+  <script src="assets/app.js?v=20261010_10" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_10" defer></script>
 </head>
 <body>
 
@@ -493,7 +493,21 @@
                   </div>
                 </div>
 
-                <!-- 2. Muhasib Total Cash -->
+                <!-- 2. Muhasib Advance Slips (Moved to 2nd position) -->
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-slips\']').click()">
+                  <div class="card-metric-header">
+                    <span>Muhasib Advance Slips</span>
+                    <span class="metric-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
+                    </span>
+                  </div>
+                  <div class="card-metric-value" id="dash-advance-slips-total">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span id="dash-advance-slips-count">0 slips • Click to open register</span>
+                  </div>
+                </div>
+
+                <!-- 3. Muhasib Total Cash -->
                 <div class="card metric-card card-gradient-secondary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-cash\']').click()">
                   <div class="card-metric-header">
                     <span>Muhasib Total Cash</span>
@@ -507,7 +521,7 @@
                   </div>
                 </div>
 
-                <!-- 3. Muhasib Bills Pending -->
+                <!-- 4. Muhasib Bills Pending -->
                 <div class="card metric-card card-imprest" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-bills\']').click()">
                   <div class="card-metric-header">
                     <span>Muhasib Bills Pending</span>
@@ -518,20 +532,6 @@
                   <div class="card-metric-value text-error" id="dash-advance-bills-pending">₹0.00</div>
                   <div class="card-metric-footer">
                     <span>Unsettled bills against Muhasib float</span>
-                  </div>
-                </div>
-
-                <!-- 4. Muhasib Advance Slips -->
-                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'advance-slips\']').click()">
-                  <div class="card-metric-header">
-                    <span>Muhasib Advance Slips</span>
-                    <span class="metric-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
-                    </span>
-                  </div>
-                  <div class="card-metric-value" id="dash-advance-slips-total">₹0.00</div>
-                  <div class="card-metric-footer">
-                    <span id="dash-advance-slips-count">0 slips • Click to open register</span>
                   </div>
                 </div>
 
@@ -563,6 +563,7 @@
                 <span class="dash-dept-tag tag-hospital">HOSPITAL REVENUE</span>
               </div>
               <div class="metrics-grid">
+                <!-- 1. Current Hospital Cash Available (Hero Highlight Card) -->
                 <div class="card metric-card card-current-cash card-current-cash-hospital" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-cash\']').click()">
                   <div class="card-metric-header">
                     <span class="card-metric-title-wrap">
@@ -579,32 +580,7 @@
                   </div>
                 </div>
 
-                <div class="card metric-card card-gradient-primary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-deposits\']').click()">
-                  <div class="card-metric-header">
-                    <span>Total Deposited To Muhasib</span>
-                    <span class="metric-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
-                    </span>
-                  </div>
-                  <div class="card-metric-value" id="dash-total-hospital-deposited">₹0.00</div>
-                  <div class="card-metric-footer">
-                    <span>Hospital deposits handed over to Muhasib</span>
-                  </div>
-                </div>
-
-                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'bills\']').click()">
-                  <div class="card-metric-header">
-                    <span>Hospital Bills Pending</span>
-                    <span class="metric-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
-                    </span>
-                  </div>
-                  <div class="card-metric-value text-error" id="dash-hospital-bills-pending">₹0.00</div>
-                  <div class="card-metric-footer">
-                    <span>Hospital Bills - Amanat Transfers</span>
-                  </div>
-                </div>
-
+                <!-- 2. Hospital Advance Slips (Moved to 2nd position) -->
                 <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'temp-slips\']').click()">
                   <div class="card-metric-header">
                     <span>Hospital Advance Slips</span>
@@ -618,6 +594,35 @@
                   </div>
                 </div>
 
+                <!-- 3. Total Deposited To Muhasib -->
+                <div class="card metric-card card-gradient-primary" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-deposits\']').click()">
+                  <div class="card-metric-header">
+                    <span>Total Deposited To Muhasib</span>
+                    <span class="metric-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
+                    </span>
+                  </div>
+                  <div class="card-metric-value" id="dash-total-hospital-deposited">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span>Hospital deposits handed over to Muhasib</span>
+                  </div>
+                </div>
+
+                <!-- 4. Hospital Bills Pending -->
+                <div class="card metric-card card-pending" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'bills\']').click()">
+                  <div class="card-metric-header">
+                    <span>Hospital Bills Pending</span>
+                    <span class="metric-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
+                    </span>
+                  </div>
+                  <div class="card-metric-value text-error" id="dash-hospital-bills-pending">₹0.00</div>
+                  <div class="card-metric-footer">
+                    <span>Hospital Bills - Amanat Transfers</span>
+                  </div>
+                </div>
+
+                <!-- 5. Hospital Bill Sayer (Cleared) -->
                 <div class="card metric-card card-gradient-accent" style="cursor: pointer;" onclick="document.querySelector('[data-panel=\'hospital-cleared\']').click()">
                   <div class="card-metric-header">
                     <span>Hospital Bill Sayer (Cleared)</span>
