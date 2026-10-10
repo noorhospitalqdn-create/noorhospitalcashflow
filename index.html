@@ -60,16 +60,16 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261010_11">
-  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_11">
+  <link rel="stylesheet" href="assets/app.css?v=20261010_12">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_12">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261010_11" defer></script>
-  <script src="assets/staff-receipts.js?v=20261010_11" defer></script>
+  <script src="assets/app.js?v=20261010_12" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_12" defer></script>
 </head>
 <body>
 
@@ -268,18 +268,7 @@
           <span class="badge" id="sidebar-receipts-badge">0</span>
         </button>
 
-        <!-- Group 5: Statements & Intelligence -->
-        <div class="nav-section-title">STATEMENTS & INTELLIGENCE</div>
-        <button class="nav-item" data-panel="balance-sheet">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
-          <span>Real-time Balance Sheet</span>
-        </button>
-        <button class="nav-item" data-panel="reports">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
-          <span>Financial Reports Centre</span>
-        </button>
-
-        <!-- Group 6: Directories & System -->
+        <!-- Group 5: Master Directories & Setup -->
         <div class="nav-section-title">MASTER DIRECTORIES & SETUP</div>
         <button class="nav-item" data-panel="vendors">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -291,6 +280,20 @@
           <span>Expense Heads</span>
           <span class="badge" id="nav-heads-badge">0</span>
         </button>
+
+        <!-- Group 6: Statements & Intelligence -->
+        <div class="nav-section-title">STATEMENTS & INTELLIGENCE</div>
+        <button class="nav-item" data-panel="balance-sheet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          <span>Real-time Balance Sheet</span>
+        </button>
+        <button class="nav-item" data-panel="reports">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
+          <span>Financial Reports Centre</span>
+        </button>
+
+        <!-- Group 7: System Settings (Last) -->
+        <div class="nav-section-title">SETTINGS</div>
         <button class="nav-item" data-panel="settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           <span>Backup, Sync & Settings</span>
