@@ -60,16 +60,16 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261010_14">
-  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_14">
+  <link rel="stylesheet" href="assets/app.css?v=20261010_15">
+  <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_15">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261010_14" defer></script>
-  <script src="assets/staff-receipts.js?v=20261010_14" defer></script>
+  <script src="assets/app.js?v=20261010_15" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_15" defer></script>
 </head>
 <body>
 
@@ -3082,11 +3082,8 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
           </div>
 
           <div class="form-group" style="margin-bottom:0">
-            <div class="form-label-row">
-              <label class="form-label" for="bill-number">Bill / Invoice #</label>
-              <button type="button" class="link-btn" id="bill-next-btn" title="Auto-generate next invoice number">⚡ Auto Invoice</button>
-            </div>
-            <input type="text" id="bill-number" class="form-input font-mono" placeholder="INV-1002" required autocomplete="off">
+            <label class="form-label" for="bill-number">Bill / Invoice # <span class="text-error">*</span></label>
+            <input type="text" id="bill-number" class="form-input font-mono" placeholder="Enter manual Bill / Invoice #" required autocomplete="off">
           </div>
 
           <!-- Row 2: Paid From & Vendor -->
@@ -4115,7 +4112,6 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
         return prefix+(max+1);
       }catch(e){return "INV-1001";}
     }
-    var nextBtn=$("bill-next-btn");if(nextBtn)nextBtn.addEventListener("click",function(){if(bno){bno.value=nextBillNo();bno.focus();}});
     if(theApp && theApp.ui && theApp.ui.openBillModal && theApp.ui.openModal){
       var origBillModal=theApp.ui.openBillModal.bind(theApp.ui);
       theApp.ui.openBillModal=function(type){window._billExplicitType=type||null; return origBillModal(type);};
@@ -4131,9 +4127,9 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
               var lc=localStorage.getItem("nh_last_bill_cat");if(lc && cat){cat.value=lc;}
             }catch(e){}
             paintSeg();paintCat();syncBillTokenUI();
-            if(bno && !bno.value)bno.placeholder="e.g. INV-1002 or Invoice #";
+            if(bno){ bno.value=""; bno.placeholder="Enter manual Bill / Invoice #"; }
           }
-          setTimeout(function(){try{if(amt&&vendor)(amt.value?vendor:amt).focus();}catch(e){}},120);
+          setTimeout(function(){try{if(bno){bno.focus();}else if(amt&&vendor){(amt.value?vendor:amt).focus();}}catch(e){}},120);
         }
       };
     }

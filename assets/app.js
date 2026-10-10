@@ -2364,18 +2364,7 @@ const app = {
         });
       }
 
-      // Auto-Next invoice number button
-      const billNextBtn = document.getElementById('bill-next-btn');
-      if (billNextBtn) {
-        billNextBtn.addEventListener('click', () => {
-          const numInput = document.getElementById('bill-number');
-          if (numInput) {
-            numInput.value = app.ui.generateNextBillNumber();
-            numInput.focus();
-            numInput.select();
-          }
-        });
-      }
+
 
       // Save & Next button for bill entry form
       const billSaveNewBtn = document.getElementById('bill-save-new-btn');
@@ -2889,7 +2878,7 @@ const app = {
             const remEl = document.getElementById('bill-remarks');
             if (remEl) remEl.value = '';
             const numEl = document.getElementById('bill-number');
-            if (numEl) numEl.value = app.ui.generateNextBillNumber();
+            if (numEl) numEl.value = '';
             const tokenEl = document.getElementById('bill-token');
             if (tokenEl) {
               const expType = document.getElementById('bill-exp-type')?.value || 'advance';
@@ -3403,6 +3392,12 @@ const app = {
 
     openBillModal(type){
       const targetType = type || 'advance';
+      const editId = document.getElementById('edit-bill-id');
+      if (editId) editId.value = '';
+      const titleEl = document.getElementById('dialog-bill-title');
+      if (titleEl) titleEl.innerText = targetType === 'advance' ? 'Add Muhasib Bill' : 'Add Hospital Bill';
+      const numEl = document.getElementById('bill-number');
+      if (numEl) numEl.value = '';
       const sel=document.getElementById('bill-exp-type');
       if(sel) sel.value=targetType;
       app.ui.openModal('dialog-bill-add', targetType);
@@ -3469,7 +3464,7 @@ const app = {
           if (app.heads) app.heads.populateHeadDropdowns();
           if (!document.getElementById('edit-bill-id')?.value) {
             const numEl = document.getElementById('bill-number');
-            if (numEl && !numEl.value) numEl.value = app.ui.generateNextBillNumber();
+            if (numEl) numEl.value = '';
           }
         } else if (dialogId === 'dialog-hospital-add') {
           const curSrc = document.getElementById('hosp-source')?.value || 'OPD';
