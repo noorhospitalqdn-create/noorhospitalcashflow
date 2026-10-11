@@ -287,6 +287,16 @@
 
   var filters = { search: '', from: '', to: '', vendor: '', sort: 'date_desc' };
   var currentId = null;
+  var currentObj = null;      // last previewed receipt object (moved receipts are off-register, memory only)
+  var editingMovedId = null;  // set while editing an off-register (moved) receipt
+
+  /* Receipt for preview actions: register first, else the in-memory moved copy */
+  function currentReceipt() {
+    var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
+    if (r) { currentObj = r; return r; }
+    if (currentObj && String(currentObj.id) === String(currentId)) return currentObj;
+    return null;
+  }
 
   function filtered() {
     var arr = load().slice();
@@ -385,6 +395,12 @@
       status: 'pending'
     };
     var slipId = await app.db.add('temporary_slips', slip);
+    // Keep in-memory state in sync immediately so the NEXT generateToken call
+    // sees this slip — otherwise rapid consecutive moves reuse the same token.
+    slip.id = slipId;
+    if (window.app && app.state && Array.isArray(app.state.temporarySlips)) {
+      app.state.temporarySlips.push(slip);
+    }
     return { id: slipId, tokenNumber: slip.tokenNumber };
   }
 
@@ -397,7 +413,7 @@
       s.date = r.date; s.vendor = r.name; s.amount = Number(r.amount) || 0;
       s.remarks = '[' + (r.subject || 'ADVANCE') + ']' + (r.purpose ? ' ' + r.purpose : '');
       await app.db.put('temporary_slips', s.id, s);
-      if (app.syncState) await app.syncState();
+      if (app.syncState) { try { app.syncState(); } catch (e) {} } // background, non-blocking
     } catch (e) { console.error(e); }
   }
 
@@ -682,6 +698,18 @@
     if (sub) sub.textContent = (r.name || '') + ' • ' + fmtINR(r.amount);
   }
 
+  function openReceiptPreview(r) {
+    currentId = r.id;
+    currentObj = r;
+    paintPaper(r);
+    openModal('dialog-receipt-view');
+    // Fallback: if the modal did not actually open (silent failure), force it
+    var d = $('dialog-receipt-view');
+    if (d && !d.open) {
+      try { d.showModal(); } catch (e) { try { d.setAttribute('open', ''); } catch (e2) {} }
+    }
+  }
+
   function printDoc(r) {
     var w = window.open('', '_blank', 'width=800,height=900');
     if (!w) { toast('Popup blocked — please allow popups for this page', 'error'); return; }
@@ -736,6 +764,7 @@
   var api = {
     openAddModal: function () {
       currentId = null;
+      editingMovedId = null;
       fillForm(null);
       openModal('dialog-receipt-add');
       setTimeout(function () {
@@ -785,7 +814,7 @@
     /* Open the move-choice dialog (after save, or from list/preview) */
     openMoveDialog: function (id) {
       if (id) currentId = id;
-      var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
+      var r = currentReceipt();
       if (!r) { toast('Receipt not found', 'error'); return; }
       var sub = $('receipt-move-sub');
       if (sub) sub.textContent = (r.name || '') + ' • ' + fmtINR(r.amount);
@@ -806,6 +835,7 @@
     confirmMove: async function (dest) {
       var arr = load();
       var r = arr.filter(function (x) { return String(x.id) === String(currentId); })[0];
+      if (!r && currentObj && String(currentObj.id) === String(currentId)) r = currentObj;
       if (!r) { closeModal('dialog-receipt-move'); return; }
       if (!window.app || !app.db) { toast('App is not ready — please try again in a moment', 'error'); return; }
       toast('Moving permanently to slip register...', 'info');
@@ -826,11 +856,14 @@
         if (onlineReady()) {
           remoteDelete(movedId).catch(function (e) { console.warn('[receipts] moved receipt remote delete failed (tombstone protects):', e); });
         }
-        if (app.syncState) await app.syncState();
         render();
         closeModal('dialog-receipt-move');
-        paintPaper(movedCopy); openModal('dialog-receipt-view');
+        // Show the receipt preview IMMEDIATELY — do not wait for the heavy
+        // background sync (syncState), which can take seconds and used to
+        // delay/block the preview after moving.
+        openReceiptPreview(movedCopy);
         toast(dest === 'hospital' ? 'Permanently moved to Hospital Advance (' + link.tokenNumber + ')' : 'Permanently moved to Muhasib Advance (' + link.tokenNumber + ')');
+        if (app.syncState) { try { app.syncState(); } catch (e) {} }
       } catch (e) {
         console.error(e);
         toast('Move failed: ' + (e && e.message ? e.message : e), 'error');
@@ -838,8 +871,8 @@
     },
     skipMove: function () {
       closeModal('dialog-receipt-move');
-      var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
-      if (r) { paintPaper(r); openModal('dialog-receipt-view'); }
+      var r = currentReceipt();
+      if (r) openReceiptPreview(r);
     },
     syncNow: function (manual) {
       if (!onlineReady()) {
@@ -863,21 +896,28 @@
     },
     edit: function (id) {
       var r = load().filter(function (x) { return String(x.id) === String(id); })[0];
+      var moved = false;
+      if (!r && currentObj && String(currentObj.id) === String(id)) { r = currentObj; moved = true; }
       if (!r) return;
-      currentId = r.id; fillForm(r); closeModal('dialog-receipt-view'); openModal('dialog-receipt-add');
+      currentId = r.id;
+      currentObj = r;
+      editingMovedId = moved ? String(r.id) : null;
+      fillForm(r); closeModal('dialog-receipt-view'); openModal('dialog-receipt-add');
     },
     editCurrent: function () { if (currentId) api.edit(currentId); },
     preview: function (id) {
       var r = load().filter(function (x) { return String(x.id) === String(id); })[0];
+      if (!r && currentObj && String(currentObj.id) === String(id)) r = currentObj;
       if (!r) return;
-      currentId = r.id; paintPaper(r); openModal('dialog-receipt-view');
+      currentId = r.id; openReceiptPreview(r);
     },
     printCurrent: function () {
-      var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
+      var r = currentReceipt();
       if (r) printDoc(r);
+      else toast('Receipt not found — please reopen it from the register', 'error');
     },
     copyText: function () {
-      var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
+      var r = currentReceipt();
       if (!r) return;
       var t = buildText(r);
       function done() { toast('Receipt text copied!'); }
@@ -891,7 +931,7 @@
       }
     },
     shareWhatsApp: function () {
-      var r = load().filter(function (x) { return String(x.id) === String(currentId); })[0];
+      var r = currentReceipt();
       if (!r) return;
       window.open('https://wa.me/?text=' + encodeURIComponent('*NOOR HOSPITAL — ' + (r.subject || 'ADVANCE') + '*\n' + buildText(r)), '_blank');
     },
@@ -929,35 +969,26 @@
           remoteDelete(id).catch(function (e) { console.warn('[receipts] remote delete failed (tombstone protects):', e); });
         }
 
-        // 4. Delete linked slip from IndexedDB temporary_slips & app.state
-        if (window.app && app.db) {
+        // 4. Delete ONLY the linked slip — matched by its exact id, never by
+        // token number (token collisions used to wipe unrelated slips too).
+        if (window.app && app.db && r.slipId) {
           (async function () {
             try {
-              if (r.slipId) {
-                await app.db.delete('temporary_slips', r.slipId);
-                try { await app.db.delete('temporary_slips', parseInt(r.slipId, 10)); } catch (_) {}
-                try { await app.db.delete('temporary_slips', String(r.slipId)); } catch (_) {}
-              }
-              if (r.slipToken && app.state && app.state.temporarySlips) {
-                var matched = app.state.temporarySlips.filter(function (s) {
-                  return String(s.tokenNumber) === String(r.slipToken) || String(s.id) === String(r.slipId);
-                });
-                for (var m = 0; m < matched.length; m++) {
-                  try { await app.db.delete('temporary_slips', matched[m].id); } catch (_) {}
-                  try { await app.db.delete('temporary_slips', parseInt(matched[m].id, 10)); } catch (_) {}
-                }
-                app.state.temporarySlips = app.state.temporarySlips.filter(function (s) {
-                  return String(s.tokenNumber) !== String(r.slipToken) && String(s.id) !== String(r.slipId);
-                });
-              }
-              if (app.syncState) await app.syncState();
+              await app.db.delete('temporary_slips', r.slipId);
+              if (app.syncState) { try { app.syncState(); } catch (e) {} }
             } catch (slipErr) {
               console.error('[receipts] Linked slip cleanup failed:', slipErr);
             }
           })();
         }
 
-        // 5. Re-render receipts list and alert user
+        // 5. Clear preview cache if this receipt is being previewed
+        if (currentObj && String(currentObj.id) === String(id)) {
+          currentObj = null;
+          if (String(currentId) === String(id)) currentId = null;
+        }
+
+        // 6. Re-render receipts list and alert user
         render();
         toast('Receipt deleted successfully');
       }
@@ -1042,6 +1073,19 @@
         if (d.subject === '__CUSTOM__') d.subject = 'ADVANCE';
         var arr = load();
         var editId = ($('edit-receipt-id') || {}).value || currentId;
+        // Editing an off-register (moved) receipt: update the in-memory copy
+        // + linked slip only — never re-add it to the receipts register.
+        if (editingMovedId && currentObj && String(editId) === editingMovedId) {
+          var upd = Object.assign({}, currentObj, d, { updatedAt: new Date().toISOString() });
+          closeModal('dialog-receipt-add');
+          var formM = $('form-receipt-add'); if (formM) formM.reset();
+          $('edit-receipt-id').value = '';
+          editingMovedId = null;
+          openReceiptPreview(upd);
+          toast('Receipt updated: ' + (upd.name || '') + ' — ' + fmtINR(upd.amount));
+          syncLinkedSlip(upd);
+          return;
+        }
         var rec;
         if (editId) {
           rec = null;
@@ -1063,12 +1107,12 @@
         var form = $('form-receipt-add'); if (form) form.reset();
         $('edit-receipt-id').value = '';
         currentId = rec.id;
-        // If an already-moved receipt was edited → sync the linked slip, then preview
+        // If an already-moved receipt was edited → show preview immediately, then
+        // sync the linked slip in the background (syncLinkedSlip awaits its own
+        // syncState and used to delay the preview).
         if (rec.movedTo && rec.slipId) {
-          syncLinkedSlip(rec).then(function () {
-            render();
-            paintPaper(rec); openModal('dialog-receipt-view');
-          });
+          openReceiptPreview(rec);
+          syncLinkedSlip(rec).then(function () { render(); });
         } else {
           // New entry → first ask where to move it
           api.openMoveDialog(rec.id);
