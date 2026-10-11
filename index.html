@@ -69,7 +69,7 @@
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
   <script src="assets/app.js?v=20261010_17" defer></script>
-  <script src="assets/staff-receipts.js?v=20261010_17" defer></script>
+  <script src="assets/staff-receipts.js?v=20261010_18" defer></script>
 </head>
 <body>
 
@@ -2364,6 +2364,8 @@ CREATE TABLE IF NOT EXISTS staff_receipts (
   "movedTo" TEXT,
   "slipId" BIGINT,
   "slipToken" TEXT,
+  "showReceiverSig" BOOLEAN DEFAULT TRUE,
+  "showAuthSig" BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   device_id TEXT
@@ -2372,6 +2374,8 @@ CREATE TABLE IF NOT EXISTS staff_receipts (
 -- Quick Upgrade for existing Supabase projects (run once):
 -- ALTER TABLE bills ADD COLUMN IF NOT EXISTS "head" TEXT;
 -- ALTER TABLE vendors ADD COLUMN IF NOT EXISTS "vendorCode" TEXT;
+-- ALTER TABLE staff_receipts ADD COLUMN IF NOT EXISTS "showReceiverSig" BOOLEAN DEFAULT TRUE;
+-- ALTER TABLE staff_receipts ADD COLUMN IF NOT EXISTS "showAuthSig" BOOLEAN DEFAULT TRUE;
 
 -- Enable Row Level Security (optional but recommended)
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
@@ -3770,6 +3774,19 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
           <label class="form-label" for="receipt-givenby">Given By <span style="font-weight:400;color:var(--text-muted)">(Optional)</span></label>
           <input type="text" id="receipt-givenby" class="form-input" placeholder="e.g. Mubashar (Muhasib)" autocomplete="off">
         </div>
+        <div class="form-group">
+          <label class="form-label">Signatures on Print</label>
+          <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:center;">
+            <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.85rem;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="receipt-sig-receiver" checked style="width:17px;height:17px;accent-color:#0d9488;">
+              <span>Receiver Signature</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.85rem;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="receipt-sig-auth" checked style="width:17px;height:17px;accent-color:#0d9488;">
+              <span>Authorised Sign</span>
+            </label>
+          </div>
+        </div>
         <div class="rcpt-live-box">
           <div class="rcpt-live-head">Live Preview — builds automatically as you type</div>
           <div class="rcpt-live-body" id="receipt-live-preview"></div>
@@ -3810,9 +3827,9 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
           <div class="rcpt-row" id="receipt-paper-purpose-wrap"><span>Purpose:</span><strong id="receipt-paper-purpose">—</strong></div>
           <div class="rcpt-row" id="receipt-paper-givenby-wrap"><span>Given By:</span><strong id="receipt-paper-givenby">—</strong></div>
         </div>
-        <div class="rcpt-sign-row">
-          <div class="rcpt-sign">Receiver Signature<br>___________________</div>
-          <div class="rcpt-sign">Authorised Sign<br>___________________</div>
+        <div class="rcpt-sign-row" id="receipt-paper-sign-row">
+          <div class="rcpt-sign" id="receipt-paper-sig-receiver">Receiver Signature<br>___________________</div>
+          <div class="rcpt-sign" id="receipt-paper-sig-auth">Authorised Sign<br>___________________</div>
         </div>
       </div>
       <div class="rcpt-share-grid">

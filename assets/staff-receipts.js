@@ -119,6 +119,8 @@
       movedTo: r.movedTo || null,
       slipId: (r.slipId === undefined || r.slipId === null || r.slipId === '') ? null : r.slipId,
       slipToken: r.slipToken || null,
+      showReceiverSig: r.showReceiverSig !== false,
+      showAuthSig: r.showAuthSig !== false,
       created_at: r.createdAt || r.created_at || now,
       updated_at: r.updatedAt || r.updated_at || r.createdAt || now,
       device_id: (window.app && app.getDeviceId) ? app.getDeviceId() : null
@@ -137,6 +139,8 @@
       movedTo: rec.movedTo || null,
       slipId: (rec.slipId === undefined || rec.slipId === null) ? null : rec.slipId,
       slipToken: rec.slipToken || null,
+      showReceiverSig: rec.showReceiverSig !== false,
+      showAuthSig: rec.showAuthSig !== false,
       createdAt: rec.created_at || '',
       updatedAt: rec.updated_at || ''
     };
@@ -148,19 +152,28 @@
   async function remoteUpsert(r) {
     if (!(await ensureCreds())) throw new Error('offline');
     var cleanUrl = app.supabase.url.replace(/\/$/, '');
-    var res = await fetch(cleanUrl + '/rest/v1/staff_receipts', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + app.supabase.key,
-        'apikey': app.supabase.key,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates,return=representation'
-      },
-      body: JSON.stringify(toRemote(r))
-    });
-    if (!res.ok) {
+    // Retry without unknown columns so old remote tables (missing newer
+    // signature-flag columns) keep working; dropped flags stay local-only.
+    var payload = toRemote(r);
+    for (var attempt = 0; attempt < 4; attempt++) {
+      var res = await fetch(cleanUrl + '/rest/v1/staff_receipts', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + app.supabase.key,
+          'apikey': app.supabase.key,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=representation'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) return;
       var t = '';
       try { t = await res.text(); } catch (e) {}
+      var m = String(t).match(/Could not find the '([^']+)' column/i);
+      if (m && m[1] && (m[1] in payload) && attempt < 3) {
+        delete payload[m[1]];
+        continue;
+      }
       throw new Error('HTTP ' + res.status + ': ' + String(t).slice(0, 220));
     }
   }
@@ -576,6 +589,10 @@
     $('receipt-purpose').value = r ? (r.purpose || '') : '';
     $('receipt-givenby').value = r ? (r.givenBy || '') : '';
     $('receipt-status').value = r ? (r.status || 'pending') : 'pending';
+    var sigR = $('receipt-sig-receiver');
+    if (sigR) sigR.checked = !r || r.showReceiverSig !== false;
+    var sigA = $('receipt-sig-auth');
+    if (sigA) sigA.checked = !r || r.showAuthSig !== false;
     var subjSel = $('receipt-subject');
     if (subjSel) subjSel.value = 'ADVANCE';
     var title = $('dialog-receipt-title');
@@ -605,7 +622,9 @@
       subject: getSubject(),
       purpose: (($('receipt-purpose') || {}).value || '').trim(),
       givenBy: (($('receipt-givenby') || {}).value || '').trim(),
-      status: ($('receipt-status') || {}).value || 'pending'
+      status: ($('receipt-status') || {}).value || 'pending',
+      showReceiverSig: !$('receipt-sig-receiver') || !!$('receipt-sig-receiver').checked,
+      showAuthSig: !$('receipt-sig-auth') || !!$('receipt-sig-auth').checked
     };
   }
 
@@ -651,6 +670,14 @@
     var gw = $('receipt-paper-givenby-wrap');
     if (r.givenBy) { gw.style.display = ''; $('receipt-paper-givenby').textContent = r.givenBy; }
     else { gw.style.display = 'none'; }
+    var showR = r.showReceiverSig !== false;
+    var showA = r.showAuthSig !== false;
+    var sigR = $('receipt-paper-sig-receiver');
+    var sigA = $('receipt-paper-sig-auth');
+    if (sigR) sigR.style.display = showR ? '' : 'none';
+    if (sigA) sigA.style.display = showA ? '' : 'none';
+    var sigRow = $('receipt-paper-sign-row');
+    if (sigRow) sigRow.style.display = (showR || showA) ? '' : 'none';
     var sub = $('receipt-view-sub');
     if (sub) sub.textContent = (r.name || '') + ' • ' + fmtINR(r.amount);
   }
@@ -690,7 +717,15 @@
       '<div><strong>Date:</strong> ' + esc(fmtDate(r.date)) + '</div>' +
       (r.purpose ? '<div><strong>Purpose:</strong> ' + esc(r.purpose) + '</div>' : '') +
       (r.givenBy ? '<div><strong>Given By:</strong> ' + esc(r.givenBy) + '</div>' : '') + '</div>' +
-      '<div class="sign"><div>Receiver Signature<br><br>___________________</div><div>Authorised Sign<br><br>___________________</div></div>' +
+      (function () {
+        var sR = r.showReceiverSig !== false;
+        var sA = r.showAuthSig !== false;
+        if (!sR && !sA) return '';
+        var cells = '';
+        if (sR) cells += '<div>Receiver Signature<br><br>___________________</div>';
+        if (sA) cells += '<div>Authorised Sign<br><br>___________________</div>';
+        return '<div class="sign">' + cells + '</div>';
+      })() +
       '</div>' +
       '<div class="cut"><span>&#9986; cut here</span></div>' +
       '</div></div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>';
