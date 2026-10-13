@@ -1418,6 +1418,89 @@ const app = {
   // ==========================================
   // STATE CALCULATIONS & DATA PIPELINE
   // ==========================================
+  // Instantaneous in-memory balance calculation reflecting physical cash movement (Hospital ⇄ Muhasib)
+  recalculateCashBorrowingBalances() {
+    let cbH2MPending = 0; // Drawn from Hospital Cash, in Muhasib hand
+    let cbM2HPending = 0; // Drawn from Muhasib Cash, in Hospital counter
+    try {
+      if (window.CashBorrow && typeof window.CashBorrow.getTotals === 'function') {
+        const cbTotals = window.CashBorrow.getTotals();
+        cbH2MPending = Number(cbTotals.h2mPending) || 0;
+        cbM2HPending = Number(cbTotals.m2hPending) || 0;
+      } else {
+        const rawCb = JSON.parse(localStorage.getItem('noor_cash_borrow_v1') || '[]');
+        (rawCb || []).forEach(item => {
+          if (item && item.status === 'pending') {
+            const remaining = Math.max(0, (Number(item.amount) || 0) - (Number(item.settledAmount) || 0));
+            if (item.direction === 'hospital_to_muhasib') cbH2MPending += remaining;
+            else if (item.direction === 'muhasib_to_hospital') cbM2HPending += remaining;
+          }
+        });
+      }
+    } catch (_) {}
+
+    const netBorrowToMuhasib = cbH2MPending - cbM2HPending;
+    app.state.cbNetBorrowToMuhasib = netBorrowToMuhasib;
+    app.state.cbH2MPending = cbH2MPending;
+    app.state.cbM2HPending = cbM2HPending;
+
+    // Determine baseline cash balances
+    const curNet = Number(app.state.lastAppliedNetBorrow) || 0;
+    const baseAdv = typeof app.state.baseAdvanceCashAvailable === 'number'
+      ? app.state.baseAdvanceCashAvailable
+      : ((Number(app.state.advanceCashAvailable) || 0) - curNet);
+    const baseHosp = typeof app.state.baseHospitalCashAvailable === 'number'
+      ? app.state.baseHospitalCashAvailable
+      : ((Number(app.state.hospitalCashAvailable) || 0) + curNet);
+
+    app.state.advanceCashAvailable = baseAdv + netBorrowToMuhasib;
+    app.state.hospitalCashAvailable = baseHosp - netBorrowToMuhasib;
+    app.state.totalCashWithMe = app.state.advanceCashAvailable + app.state.hospitalCashAvailable;
+    app.state.lastAppliedNetBorrow = netBorrowToMuhasib;
+
+    // Immediately update DOM elements directly with zero latency
+    const setSafeText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.innerText = text;
+    };
+    if (app.ui && typeof app.ui.formatCurrency === 'function') {
+      const advFmt = app.ui.formatCurrency(app.state.advanceCashAvailable);
+      const hospFmt = app.ui.formatCurrency(app.state.hospitalCashAvailable);
+      const totalFmt = app.ui.formatCurrency(app.state.totalCashWithMe);
+
+      setSafeText('dash-advance-cash', advFmt);
+      setSafeText('hero-adv-cash', advFmt);
+      setSafeText('dash-hospital-cash', hospFmt);
+      setSafeText('hero-hosp-cash', hospFmt);
+      setSafeText('dash-total-cash-me', totalFmt);
+      setSafeText('math-adv-cash', advFmt);
+      setSafeText('math-hosp-cash', hospFmt);
+      setSafeText('bs-advance-cash', advFmt);
+      setSafeText('bs-hospital-cash', hospFmt);
+
+      const advSub = document.getElementById('dash-advance-cash-sub');
+      const hospSub = document.getElementById('dash-hospital-cash-sub');
+      if (advSub) {
+        if (netBorrowToMuhasib > 0) {
+          advSub.innerHTML = `Active float in hand <span style="color:#a855f7; font-weight:700;">(+${app.ui.formatCurrency(netBorrowToMuhasib)} from Hospital)</span>`;
+        } else if (netBorrowToMuhasib < 0) {
+          advSub.innerHTML = `Active float in hand <span style="color:#0284c7; font-weight:700;">(-${app.ui.formatCurrency(Math.abs(netBorrowToMuhasib))} lent to Hospital)</span>`;
+        } else {
+          advSub.textContent = 'Active float balance available in hand';
+        }
+      }
+      if (hospSub) {
+        if (netBorrowToMuhasib > 0) {
+          hospSub.innerHTML = `Counter cash sitting <span style="color:#a855f7; font-weight:700;">(-${app.ui.formatCurrency(netBorrowToMuhasib)} lent to Muhasib)</span>`;
+        } else if (netBorrowToMuhasib < 0) {
+          hospSub.innerHTML = `Counter cash sitting <span style="color:#0284c7; font-weight:700;">(+${app.ui.formatCurrency(Math.abs(netBorrowToMuhasib))} from Muhasib)</span>`;
+        } else {
+          hospSub.textContent = 'Current cash collections sitting in counter';
+        }
+      }
+    }
+  },
+
   _isSyncingState: false,
   _pendingSyncState: false,
   async syncState() {
@@ -1688,16 +1771,16 @@ const app = {
         .reduce((sum, a) => sum + a.amount, 0);
       app.state.totalSentToAccounts = app.state.totalAdvanceSentToAccounts + app.state.totalHospitalSentToAccounts;
 
-      // Available Cash Calculations
-      app.state.advanceCashAvailable = app.state.openingAdvanceCash + advanceCashInflows - advanceExpenses;
+      // Base Available Cash Calculations (before inter-cash borrowings)
+      app.state.baseAdvanceCashAvailable = app.state.openingAdvanceCash + advanceCashInflows - advanceExpenses;
       
       const hospitalDepositsSum = app.state.hospitalDeposits.reduce((sum, d) => sum + d.amount, 0);
       app.state.totalHospitalDeposited = hospitalDepositsSum;
       
-      // Hospital Cash Available = Opening + Collections - Slips/Bills Expenses - Deposits to Muhasib - Sent To Accounts (hospital)
-      // Accounts deduction added so dashboard matches Hospital Cash Ledger report (Dr = Collections | Cr = Bills/Slips/Deposits/Accounts)
-      app.state.hospitalCashAvailable = app.state.openingHospitalCash + hospitalCashInflows - hospitalExpenses - hospitalDepositsSum - app.state.totalHospitalSentToAccounts;
-      app.state.totalCashWithMe = app.state.advanceCashAvailable + app.state.hospitalCashAvailable;
+      app.state.baseHospitalCashAvailable = app.state.openingHospitalCash + hospitalCashInflows - hospitalExpenses - hospitalDepositsSum - app.state.totalHospitalSentToAccounts;
+
+      // 3b. Cash Borrowing / Inter-Cash Movement Impact (Hospital ⇄ Muhasib)
+      app.recalculateCashBorrowingBalances();
 
       // Transfers & Settlements
       const imprestTransfersAmount = app.state.transfers
@@ -3327,6 +3410,7 @@ const app = {
         'transfers': 'ledgers',
         'upi-reconciliation': 'ledgers',
         'staff-receipts': 'ledgers',
+        'cash-borrow': 'ledgers',
         'bills': 'bills',
         'balance-sheet': 'reports',
         'reports': 'reports',
@@ -3358,6 +3442,7 @@ const app = {
         'transfers': 'Accounts Verification & Transfers',
         'upi-reconciliation': 'UPI Transaction Reconciliation',
         'staff-receipts': 'Staff Advance Receipts',
+        'cash-borrow': 'Cash Borrowing & Liability Register',
         'balance-sheet': 'Cash Position Balance Sheet',
         'reports': 'Financial Reports Centre',
         'vendors': 'Vendor Directory',
@@ -3372,6 +3457,8 @@ const app = {
         app.reports.renderReportView();
       } else if (panelId === 'balance-sheet') {
         app.ui.renderBalanceSheet();
+      } else if (panelId === 'cash-borrow' && app.cashBorrow) {
+        app.cashBorrow.render();
       } else if (panelId === 'upi-reconciliation' && app.upiReconciliation) {
         app.upiReconciliation.renderTable();
         app.upiReconciliation.renderKPIs();
@@ -4149,6 +4236,29 @@ const app = {
       setSafeText('hero-pending', app.ui.formatCurrency(app.state.totalPendingBills));
       setSafeText('hero-pending-adv', app.ui.formatCurrency(app.state.advanceBillsPending));
       setSafeText('hero-pending-hosp', app.ui.formatCurrency(app.state.hospitalBillsPending));
+      
+      // Dynamic in-hand cash card footers reflecting inter-cash borrowing adjustment
+      const advSub = document.getElementById('dash-advance-cash-sub');
+      const hospSub = document.getElementById('dash-hospital-cash-sub');
+      const netCb = Number(app.state.cbNetBorrowToMuhasib) || 0;
+      if (advSub) {
+        if (netCb > 0) {
+          advSub.innerHTML = `Active float in hand <span style="color:#a855f7; font-weight:700;">(+${app.ui.formatCurrency(netCb)} from Hospital)</span>`;
+        } else if (netCb < 0) {
+          advSub.innerHTML = `Active float in hand <span style="color:#0284c7; font-weight:700;">(-${app.ui.formatCurrency(Math.abs(netCb))} lent to Hospital)</span>`;
+        } else {
+          advSub.textContent = 'Active float balance available in hand';
+        }
+      }
+      if (hospSub) {
+        if (netCb > 0) {
+          hospSub.innerHTML = `Counter cash sitting <span style="color:#a855f7; font-weight:700;">(-${app.ui.formatCurrency(netCb)} lent to Muhasib)</span>`;
+        } else if (netCb < 0) {
+          hospSub.innerHTML = `Counter cash sitting <span style="color:#0284c7; font-weight:700;">(+${app.ui.formatCurrency(Math.abs(netCb))} from Muhasib)</span>`;
+        } else {
+          hospSub.textContent = 'Current cash collections sitting in counter';
+        }
+      }
       
       setSafeText('dash-total-advance-received', app.ui.formatCurrency(app.state.totalAdvanceCashReceived));
       setSafeText('dash-advance-total-cash', app.ui.formatCurrency(app.state.totalAdvanceCashReceived));

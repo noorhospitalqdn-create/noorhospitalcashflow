@@ -62,14 +62,16 @@
   <!-- Main Stylesheet (Versioned for cache-busting) -->
   <link rel="stylesheet" href="assets/app.css?v=20261010_17">
   <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_17">
+  <link rel="stylesheet" href="assets/cash-borrow.css?v=20261013_10">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261010_17" defer></script>
+  <script src="assets/app.js?v=20261013_10" defer></script>
   <script src="assets/staff-receipts.js?v=20261010_20" defer></script>
+  <script src="assets/cash-borrow.js?v=20261013_10" defer></script>
 </head>
 <body>
 
@@ -267,6 +269,11 @@
           <span>Advance Receipts (Recpt Rec)</span>
           <span class="badge" id="sidebar-receipts-badge">0</span>
         </button>
+        <button class="nav-item" data-panel="cash-borrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+          <span>Cash Borrowing Register</span>
+          <span class="badge badge-amber" id="sidebar-borrow-badge" style="display:none">0</span>
+        </button>
 
         <!-- Group 5: Master Directories & Setup -->
         <div class="nav-section-title">MASTER DIRECTORIES & SETUP</div>
@@ -399,6 +406,11 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
                   <span>+ Staff Receipt</span>
                 </button>
+                <button type="button" id="btn-quick-cash-borrow" class="dash-action-btn" onclick="(window.CashBorrow||(window.app&&app.cashBorrow)||{}).openAddModal&&((window.CashBorrow||app.cashBorrow).openAddModal())" title="Record Cash Borrowing / Transfer (Hospital ⇄ Muhasib) [Shortcut: Alt+B]">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+                  <span>+ Cash Borrow</span>
+                  <kbd class="kbd-hint" style="margin-left:4px; font-size:0.62rem; padding:1px 5px; opacity:0.85;">Alt+B</kbd>
+                </button>
               </div>
             </div>
 
@@ -464,6 +476,9 @@
             </div>
           </div>
 
+          <!-- Executive Inter-Cash Liability Alert Banner (Hospital ⇄ Muhasib) -->
+          <div class="cash-borrow-hero-banner is-balanced" id="dash-cash-borrow-banner"></div>
+
           <!-- Main Financial Metrics — Grouped: Muhasib | Hospital | UPI | Overall -->
           <div class="dash-groups">
 
@@ -492,7 +507,7 @@
                   </div>
                   <div class="card-metric-value text-error" id="dash-advance-cash">₹0.00</div>
                   <div class="card-metric-footer">
-                    <span>Active float balance available in hand</span>
+                    <span id="dash-advance-cash-sub">Active float balance available in hand</span>
                   </div>
                 </div>
 
@@ -579,7 +594,7 @@
                   </div>
                   <div class="card-metric-value text-error" id="dash-hospital-cash">₹0.00</div>
                   <div class="card-metric-footer">
-                    <span>Current cash collections sitting in counter</span>
+                    <span id="dash-hospital-cash-sub">Current cash collections sitting in counter</span>
                   </div>
                 </div>
 
@@ -1488,6 +1503,107 @@
           <div class="mobile-card-list" id="mobile-list-staff-receipts"></div>
         </section>
 
+        <!-- CASH BORROWING & LIABILITY PANEL (HOSPITAL ⇄ MUHASIB) -->
+        <section class="panel" id="panel-cash-borrow">
+          <div class="rcpt-banner-card" style="background: linear-gradient(135deg, rgba(225, 29, 72, 0.12) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(2, 132, 199, 0.08) 100%); border: 1px solid rgba(225, 29, 72, 0.25); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 1.2rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.85rem;">
+            <div>
+              <div style="font-size: 1.15rem; font-weight: 800; color: #fb7185; display: flex; align-items: center; gap: 0.5rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+                <span>Hospital &harr; Muhasib Cash Borrowing &amp; Settlement</span>
+              </div>
+              <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Track cash lent between Hospital Cash and Muhasib Cash for change, bills, or temporary loans with instant settlement.
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="btn btn-primary" onclick="(window.CashBorrow||(window.app&&app.cashBorrow)||{}).openAddModal&&((window.CashBorrow||app.cashBorrow).openAddModal())" style="background:#e11d48; border-color:#e11d48;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
+                <span>+ New Borrow Entry</span>
+                <kbd class="kbd-hint" style="font-size:0.6rem; padding:1px 4px; opacity:0.85;">Alt+B</kbd>
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="app.cashBorrow.syncOnline(false)" title="Sync records with Supabase online">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+                <span>Sync Online</span>
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="app.cashBorrow.exportExcel()">
+                Export Excel
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 KPI Cards -->
+          <div class="borrow-kpi-grid">
+            <div class="borrow-kpi-card kpi-net">
+              <div class="borrow-kpi-title">Net Settlement Position</div>
+              <div class="borrow-kpi-val" id="cb-kpi-net-val">₹0.00</div>
+              <div class="borrow-kpi-sub" id="cb-kpi-net-sub">Both cashboxes are balanced</div>
+            </div>
+            <div class="borrow-kpi-card kpi-h2m">
+              <div class="borrow-kpi-title">Muhasib Owes Hospital</div>
+              <div class="borrow-kpi-val" id="cb-kpi-h2m-val">₹0.00</div>
+              <div class="borrow-kpi-sub" id="cb-kpi-h2m-sub">0 pending (Muhasib liability)</div>
+            </div>
+            <div class="borrow-kpi-card kpi-m2h">
+              <div class="borrow-kpi-title">Hospital Owes Muhasib</div>
+              <div class="borrow-kpi-val" id="cb-kpi-m2h-val">₹0.00</div>
+              <div class="borrow-kpi-sub" id="cb-kpi-m2h-sub">0 pending (Hospital liability)</div>
+            </div>
+            <div class="borrow-kpi-card kpi-settled">
+              <div class="borrow-kpi-title">Total Settled Records</div>
+              <div class="borrow-kpi-val" id="cb-kpi-settled-val">₹0.00</div>
+              <div class="borrow-kpi-sub" id="cb-kpi-settled-sub">0 settled records</div>
+            </div>
+          </div>
+
+          <!-- Filter & Search Toolbar -->
+          <div class="ledger-filter-bar">
+            <div class="search-box">
+              <input type="text" placeholder="Search by amount, date or direction..." class="search-input" id="search-cash-borrow">
+            </div>
+            <div style="display:flex; gap:0.35rem; align-items:center;">
+              <button type="button" class="btn btn-sm btn-primary" id="btn-cb-filter-all" onclick="app.cashBorrow.setStatusFilter('all')">All</button>
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-cb-filter-pending" onclick="app.cashBorrow.setStatusFilter('pending')">⚠️ Pending</button>
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-cb-filter-settled" onclick="app.cashBorrow.setStatusFilter('settled')">✓ Settled</button>
+            </div>
+            <select id="filter-cb-direction" class="form-select form-input-sm" style="max-width:210px;" title="Filter by direction">
+              <option value="">All Transfer Flows</option>
+              <option value="hospital_to_muhasib">🏥 Hospital &rarr; 💼 Muhasib</option>
+              <option value="muhasib_to_hospital">💼 Muhasib &rarr; 🏥 Hospital</option>
+            </select>
+            <div class="ledger-filter-group">
+              <input type="date" id="filter-cb-from" class="form-input form-input-sm" title="From date">
+              <span class="filter-sep">to</span>
+              <input type="date" id="filter-cb-to" class="form-input form-input-sm" title="To date">
+            </div>
+            <select id="sort-cash-borrow" class="form-select form-input-sm" style="max-width:160px">
+              <option value="date_desc">Date: Newest First</option>
+              <option value="date_asc">Date: Oldest First</option>
+              <option value="amount_desc">Amount: High &rarr; Low</option>
+              <option value="amount_asc">Amount: Low &rarr; High</option>
+            </select>
+            <span class="ledger-total-badge" id="total-cash-borrow-badge" style="display:none">Total: ₹0.00</span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="app.cashBorrow.clearFilters()">Clear</button>
+          </div>
+
+          <!-- Table View -->
+          <div class="card overflow-x">
+            <table class="data-table" id="table-cash-borrow">
+              <thead>
+                <tr>
+                  <th style="width:120px;">Date</th>
+                  <th>Flow / Direction</th>
+                  <th style="width:140px;">Amount</th>
+                  <th style="width:120px;">Status</th>
+                  <th class="text-center" style="width: 145px; min-width: 145px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="list-cash-borrow">
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-card-list" id="mobile-list-cash-borrow"></div>
+        </section>
+
 
         <!-- 6C. UPI TRANSACTION RECONCILIATION PANEL -->
         <section class="panel" id="panel-upi-reconciliation">
@@ -2366,6 +2482,22 @@ CREATE TABLE IF NOT EXISTS staff_receipts (
   "slipToken" TEXT,
   "showReceiverSig" BOOLEAN DEFAULT TRUE,
   "showAuthSig" BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  device_id TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cash_borrowings (
+  id TEXT PRIMARY KEY,
+  date TEXT,
+  direction TEXT,
+  amount NUMERIC DEFAULT 0,
+  purpose TEXT,
+  given_by TEXT,
+  status TEXT DEFAULT 'pending',
+  settled_amount NUMERIC DEFAULT 0,
+  settled_at TIMESTAMPTZ,
+  settle_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
   device_id TEXT
@@ -3870,8 +4002,104 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
           <small>Keep the receipt only (print / save)</small>
         </button>
       </div>
-      <p class="text-muted" id="receipt-move-note" style="font-size:.75rem;margin-top:.6rem"></p>
     </div>
+  </dialog>
+
+  <!-- MODAL: Cash Borrowing Add / Edit Dialog -->
+  <dialog id="dialog-cash-borrow-add" closedby="any" class="modal-dialog modal-dialog-sm">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3 id="dialog-cb-title">Record Cash Borrowing / Transfer</h3>
+        <p class="modal-subtitle">Hospital Cash ⇄ Muhasib Cash</p>
+      </div>
+      <button class="modal-close-btn" type="button" onclick="app.cashBorrow.closeModal('dialog-cash-borrow-add')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-cb-add">
+      <div class="modal-body">
+        <!-- Visual Radio Selection for Flow Direction -->
+        <label class="form-label" style="margin-bottom:0.4rem;">Select Direction <span class="text-error">*</span></label>
+        <div class="cb-radio-grid">
+          <!-- Flow 1: Hospital -> Muhasib -->
+          <div class="cb-radio-card active" id="cb-radio-h2m">
+            <div class="cb-radio-card-head">
+              <span class="cb-radio-icon" style="background:rgba(168,85,247,0.15); color:#a855f7;">🏥&rarr;💼</span>
+              <span class="cb-radio-duty duty-h2m">Muhasib Owes</span>
+            </div>
+            <div class="cb-radio-title">Hospital &rarr; Muhasib</div>
+            <div class="cb-radio-sub">Drawn from Hospital Cashbox</div>
+          </div>
+
+          <!-- Flow 2: Muhasib -> Hospital -->
+          <div class="cb-radio-card" id="cb-radio-m2h">
+            <div class="cb-radio-card-head">
+              <span class="cb-radio-icon" style="background:rgba(2,132,199,0.15); color:#0284c7;">💼&rarr;🏥</span>
+              <span class="cb-radio-duty duty-m2h">Hospital Owes</span>
+            </div>
+            <div class="cb-radio-title">Muhasib &rarr; Hospital</div>
+            <div class="cb-radio-sub">Drawn from Muhasib Cashbox</div>
+          </div>
+        </div>
+
+        <!-- Amount Input + Quick Chips -->
+        <div class="form-group" style="margin-top:0.85rem;">
+          <label class="form-label" for="cb-amount">Amount (₹) <span class="text-error">*</span></label>
+          <input type="number" id="cb-amount" class="form-input form-input-lg" placeholder="Enter amount (e.g. 170)" step="any" min="1" required autocomplete="off">
+          <div class="qchip-row" style="margin-top:0.4rem; display:flex; gap:0.35rem; flex-wrap:wrap;">
+            <button type="button" class="qchip" data-cb-amt="50">+50</button>
+            <button type="button" class="qchip" data-cb-amt="100">+100</button>
+            <button type="button" class="qchip" data-cb-amt="170">+170</button>
+            <button type="button" class="qchip" data-cb-amt="500">+500</button>
+            <button type="button" class="qchip" data-cb-amt="1000">+1,000</button>
+            <button type="button" class="qchip qchip-clear" data-cb-amt="clear">✕ Clear</button>
+          </div>
+          <div class="rcpt-words-preview" id="cb-words-preview" style="margin-top:0.45rem;">—</div>
+        </div>
+
+        <!-- Date Row -->
+        <div class="form-group">
+          <label class="form-label" for="cb-date">Date <span class="text-error">*</span></label>
+          <input type="date" id="cb-date" class="form-input" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.cashBorrow.closeModal('dialog-cash-borrow-add')">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#e11d48; border-color:#e11d48;">Save Transfer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL: Cash Borrowing Settlement Dialog -->
+  <dialog id="dialog-cash-borrow-settle" closedby="any" class="modal-dialog modal-dialog-sm">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <h3>Settle Cash Borrowing</h3>
+        <p class="modal-subtitle">Mark borrowed cash as returned to balance cashboxes</p>
+      </div>
+      <button class="modal-close-btn" type="button" onclick="app.cashBorrow.closeModal('dialog-cash-borrow-settle')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-cb-settle">
+      <div class="modal-body">
+        <div class="rcpt-move-summary" id="cb-settle-record-info" style="margin-bottom:0.9rem;"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="cb-settle-amount">Return Amount (₹) <span class="text-error">*</span></label>
+          <input type="number" id="cb-settle-amount" class="form-input form-input-lg" step="any" min="1" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="cb-settle-date">Settlement Date <span class="text-error">*</span></label>
+          <input type="date" id="cb-settle-date" class="form-input" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="app.cashBorrow.closeModal('dialog-cash-borrow-settle')">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#10b981; border-color:#10b981;">✓ Confirm Return</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- MODAL: Confirmation Dialog (Custom Alert Overlay) -->
@@ -4012,6 +4240,10 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
         <span>Advance Receipts (Recpt Rec)</span>
       </button>
+      <button class="mobile-submenu-item" data-panel="cash-borrow" onclick="try{app.ui.switchTab('cash-borrow')}catch(e){}document.querySelectorAll('.panel-container .panel').forEach(function(p){p.classList.toggle('active',p.id==='panel-cash-borrow')});try{var m=document.getElementById('mobile-ledger-submenu');if(m)m.classList.remove('active')}catch(e2){}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
+        <span>Cash Borrowing Register</span>
+      </button>
     </div>
   </div>
 
@@ -4061,7 +4293,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
 // Premium hero sync — mirrors dashboard totals into hero banner + panel subtitles (event driven, no lag)
 (function(){
   var map=[["dash-advance-cash","hero-adv-cash"],["dash-hospital-cash","hero-hosp-cash"],["dash-total-pending-bills","hero-pending"]];
-  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-cleared":"Muhasib bill sayer • Undo available", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "hospital-cleared":"Hospital bill sayer • Batch wise • Undo available", "transfers":"Verification & settlement transfers", "upi-reconciliation":"Daily Hospital UPI vs Bank UPI reconciliation & monthly comparison", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "vendors":"Vendor master • Add / edit", "heads":"Expense heads • Same for Muhasib + Hospital", "settings":"Opening balances, backup & restore", "staff-receipts":"Staff Advance Receipts • Cash disbursement slips & settlement"};
+  var subs={dashboard:"Noor Hospital • Live cash position • Offline-first", "advance-cash":"Muhasib float ledger • Search, filter & export", "advance-bills":"Muhasib purchase bills • Imprest settlement", "advance-cleared":"Muhasib bill sayer • Undo available", "advance-slips":"Muhasib temporary slips • Imprest advances", "hospital-cash":"Daily collections ledger • Search, filter & export", "hospital-deposits":"Deposits to Muhasib • Receipts & attachments", "temp-slips":"Hospital temporary advances • Vendor / person wise", "accounts":"Bills sent to accounts • Awaiting verification", "bills":"Hospital purchase bills • Amanat settlement", "hospital-cleared":"Hospital bill sayer • Batch wise • Undo available", "transfers":"Verification & settlement transfers", "upi-reconciliation":"Daily Hospital UPI vs Bank UPI reconciliation & monthly comparison", "balance-sheet":"Assets = Cash + pending + awaiting", "reports":"Export, print & backup centre", "vendors":"Vendor master • Add / edit", "heads":"Expense heads • Same for Muhasib + Hospital", "settings":"Opening balances, backup & restore", "staff-receipts":"Staff Advance Receipts • Cash disbursement slips & settlement", "cash-borrow":"Hospital ⇄ Muhasib cash borrowing • Change & liability settlement"};
   function sync(){
     map.forEach(function(p){var a=document.getElementById(p[0]),b=document.getElementById(p[1]);if(a&&b&&a.textContent)b.textContent=a.textContent;});
     var t=document.getElementById("main-panel-title"),s=document.getElementById("main-panel-sub");

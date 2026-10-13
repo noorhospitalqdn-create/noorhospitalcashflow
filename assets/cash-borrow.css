@@ -1,0 +1,614 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   Hospital ⇄ Muhasib Cash Borrowing & Liability Register (assets/cash-borrow.css)
+   Full Light & Dark Theme Support • Unified Design System Tokens
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Dashboard Compact Alert Strip (Subtle & Uncluttered) ─── */
+.cash-borrow-hero-banner {
+  margin: 0.6rem 0 1rem 0;
+  border-radius: 10px;
+  padding: 0.55rem 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  transition: all 0.2s ease;
+  position: relative;
+  font-size: 0.85rem;
+}
+
+.cash-borrow-hero-banner.is-balanced {
+  display: none !important; /* Completely hidden when balanced — 0px clutter */
+}
+
+.cash-borrow-hero-banner.has-liability {
+  background: rgba(225, 29, 72, 0.08);
+  border: 1px solid rgba(225, 29, 72, 0.28);
+}
+
+html[data-theme="light"] .cash-borrow-hero-banner.has-liability {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+.cb-compact-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.cb-compact-pill {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cb-compact-title {
+  color: var(--text-main, #ffffff);
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.cb-compact-amt {
+  font-weight: 800;
+  color: #f43f5e;
+}
+
+html[data-theme="light"] .cb-compact-amt {
+  color: #e11d48;
+}
+
+.cb-btn-compact-view {
+  background: var(--bg-card, #0f172a);
+  color: var(--text-main, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  font-weight: 700;
+  font-size: 0.76rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s ease;
+}
+
+.cb-btn-compact-view:hover {
+  background: var(--bg-input, #172033);
+  border-color: #f43f5e;
+  color: #f43f5e;
+}
+
+.cb-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e11d48;
+  display: inline-block;
+  animation: cbPulse 1.8s infinite;
+}
+
+@keyframes cbPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+  70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+}
+
+/* ─── Panel KPI Cards ─── */
+.borrow-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+}
+
+.borrow-kpi-card {
+  background: var(--bg-card, #0f172a);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 0.95rem 1.05rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: all 0.18s ease;
+}
+
+.borrow-kpi-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.borrow-kpi-card.kpi-net { border-left: 4px solid #e11d48; }
+.borrow-kpi-card.kpi-h2m { border-left: 4px solid #a855f7; }
+.borrow-kpi-card.kpi-m2h { border-left: 4px solid #0284c7; }
+.borrow-kpi-card.kpi-settled { border-left: 4px solid #10b981; }
+
+.borrow-kpi-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #94a3b8);
+}
+
+.borrow-kpi-val {
+  font-size: 1.35rem;
+  font-weight: 900;
+  margin-top: 0.25rem;
+  letter-spacing: -0.02em;
+  color: var(--text-main, #ffffff);
+}
+
+.borrow-kpi-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ─── Direction Badges ─── */
+.badge-direction {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-direction-h2m {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+html[data-theme="light"] .badge-direction-h2m {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7e22ce;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.badge-direction-m2h {
+  background: rgba(2, 132, 199, 0.18);
+  color: #38bdf8;
+  border: 1px solid rgba(2, 132, 199, 0.4);
+}
+
+html[data-theme="light"] .badge-direction-m2h {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0369a1;
+  border-color: rgba(2, 132, 199, 0.3);
+}
+
+.badge-borrow-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-borrow-status.pending {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+html[data-theme="light"] .badge-borrow-status.pending {
+  background: rgba(244, 63, 94, 0.1);
+  color: #be123c;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.badge-borrow-status.settled {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+html[data-theme="light"] .badge-borrow-status.settled {
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+/* ─── Visual Radio Cards in Add Modal (Full Light & Dark Mode) ─── */
+.cb-radio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.cb-radio-card {
+  border: 2px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 12px;
+  padding: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--bg-input, #172033);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  user-select: none;
+}
+
+html[data-theme="light"] .cb-radio-card {
+  background: var(--bg-card, #ffffff);
+  border-color: var(--border-color, #e2e8f0);
+}
+
+.cb-radio-card:hover {
+  border-color: #a855f7;
+  transform: translateY(-1px);
+}
+
+.cb-radio-card.active {
+  border-color: #c084fc !important;
+  background: rgba(168, 85, 247, 0.18) !important;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.3);
+}
+
+html[data-theme="light"] .cb-radio-card.active {
+  border-color: #9333ea !important;
+  background: rgba(168, 85, 247, 0.08) !important;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.2);
+}
+
+.cb-radio-card.active-m2h {
+  border-color: #38bdf8 !important;
+  background: rgba(2, 132, 199, 0.18) !important;
+  box-shadow: 0 0 16px rgba(2, 132, 199, 0.3);
+}
+
+html[data-theme="light"] .cb-radio-card.active-m2h {
+  border-color: #0284c7 !important;
+  background: rgba(2, 132, 199, 0.08) !important;
+  box-shadow: 0 0 12px rgba(2, 132, 199, 0.2);
+}
+
+.cb-radio-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cb-radio-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.cb-radio-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main, #ffffff);
+}
+
+.cb-radio-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.4;
+}
+
+.cb-radio-duty {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  display: inline-block;
+}
+
+.duty-h2m {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+html[data-theme="light"] .duty-h2m {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7e22ce;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.duty-m2h {
+  background: rgba(2, 132, 199, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(2, 132, 199, 0.4);
+}
+
+html[data-theme="light"] .duty-m2h {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0369a1;
+  border-color: rgba(2, 132, 199, 0.3);
+}
+
+/* ─── Quick Chips for Purpose & Amount ─── */
+.cb-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+
+.cb-chip {
+  font-size: 0.73rem;
+  font-weight: 600;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--bg-card, #0f172a);
+  color: var(--text-main, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cb-chip:hover {
+  background: #a855f7;
+  color: #ffffff;
+  border-color: #a855f7;
+}
+
+/* Amount quick chips */
+.qchip-row .qchip {
+  background: var(--bg-card, #0f172a);
+  color: var(--text-main, #ffffff);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.qchip-row .qchip:hover {
+  background: var(--primary, #14b8a6);
+  color: #ffffff;
+  border-color: var(--primary, #14b8a6);
+}
+
+.qchip-row .qchip-clear {
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.qchip-row .qchip-clear:hover {
+  background: #e11d48;
+  color: #ffffff;
+  border-color: #e11d48;
+}
+
+/* ─── Action Button Strip inside Table ─── */
+.cb-action-btn-group {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.btn-settle-action {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 0.28rem 0.6rem;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s ease;
+}
+
+html[data-theme="light"] .btn-settle-action {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.btn-settle-action:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+.btn-reopen-action {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 0.28rem 0.6rem;
+  border-radius: 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.15s ease;
+}
+
+html[data-theme="light"] .btn-reopen-action {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.btn-reopen-action:hover {
+  background: #f59e0b;
+  color: #ffffff;
+  border-color: #f59e0b;
+}
+
+/* Red Delete Action Button */
+.btn-delete-cb {
+  background: rgba(225, 29, 72, 0.14) !important;
+  color: #fb7185 !important;
+  border: 1px solid rgba(225, 29, 72, 0.35) !important;
+  padding: 0.28rem 0.5rem !important;
+  border-radius: 7px !important;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+html[data-theme="light"] .btn-delete-cb {
+  color: #e11d48 !important;
+  border-color: rgba(225, 29, 72, 0.3) !important;
+}
+
+.btn-delete-cb:hover {
+  background: #e11d48 !important;
+  color: #ffffff !important;
+  border-color: #e11d48 !important;
+}
+
+.btn-delete-cb svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ─── Mobile Cards ─── */
+.cb-mobile-card {
+  background: var(--bg-card, #0f172a);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-radius: 12px;
+  padding: 0.85rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cb-mobile-card.is-pending {
+  border-left: 4px solid #e11d48;
+}
+
+.cb-mobile-card.is-settled {
+  border-left: 4px solid #10b981;
+}
+
+.cb-mobile-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cb-mobile-amount {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main, #ffffff);
+}
+
+.cb-mobile-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.45;
+}
+
+/* Quick Action Keyboard Hint */
+.dash-action-btn kbd, .btn kbd {
+  display: inline-block;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: inherit;
+  margin-left: 4px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+/* Printable voucher slip */
+.cb-voucher {
+  background: #ffffff;
+  color: #111111;
+  border: 2px dashed #333333;
+  border-radius: 10px;
+  padding: 1.25rem;
+  max-width: 440px;
+  margin: 0 auto;
+  font-family: inherit;
+}
+
+.cb-voucher-head {
+  text-align: center;
+  border-bottom: 2px solid #222222;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.cb-voucher-hosp {
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.cb-voucher-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid #111111;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-top: 0.35rem;
+}
+
+.cb-voucher-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+  border-bottom: 1px dotted #cccccc;
+}
+
+.cb-voucher-signs {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .cb-radio-grid {
+    grid-template-columns: 1fr;
+  }
+  .cash-borrow-hero-banner {
+    padding: 0.8rem 1rem;
+  }
+}
