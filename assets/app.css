@@ -837,6 +837,13 @@ html[data-theme="light"] .dash-exec-hero {
   padding-bottom: 18px;
 }
 .dash-exec-info { flex: 1; min-width: 260px; }
+.dash-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
 .dash-status-pill {
   display: inline-flex;
   align-items: center;
@@ -850,7 +857,6 @@ html[data-theme="light"] .dash-exec-hero {
   border: 1px solid rgba(20, 184, 166, 0.35);
   padding: 3px 11px;
   border-radius: 99px;
-  margin-bottom: 8px;
 }
 .live-pulse {
   width: 7px;
@@ -859,6 +865,102 @@ html[data-theme="light"] .dash-exec-hero {
   background: #2dd4bf;
   box-shadow: 0 0 10px #2dd4bf;
   animation: pulseDot 1.8s infinite;
+}
+
+/* ---- Dashboard Note Notification Badge (Compact Dot Style) ---- */
+.dash-note-notify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 3px 11px;
+  border-radius: 99px;
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+  animation: dash-note-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes dash-note-pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+.dash-note-notify-badge:hover {
+  background: rgba(245, 158, 11, 0.28);
+  border-color: rgba(245, 158, 11, 0.65);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+  color: #fef3c7;
+}
+.dash-note-notify-badge svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.2;
+}
+
+.notify-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  position: relative;
+  flex-shrink: 0;
+}
+.notify-pulse-dot::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 50%;
+  border: 1.5px solid #f59e0b;
+  animation: notify-dot-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes notify-dot-ping {
+  0% { transform: scale(1); opacity: 0.9; }
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Topbar Notification Icon Button */
+.topbar-note-notify {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.topbar-note-notify:hover {
+  background: var(--bg-input-focus);
+  color: var(--primary);
+  border-color: var(--primary-border);
+}
+.topbar-note-notify svg {
+  width: 15px;
+  height: 15px;
+}
+.topbar-notify-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
 }
 .dash-exec-title {
   font-size: 1.45rem;
@@ -924,6 +1026,31 @@ html[data-theme="light"] .dash-exec-hero {
   background: rgba(99, 102, 241, 0.35);
   color: #ffffff;
   border-color: rgba(99, 102, 241, 0.65);
+}
+
+.dash-action-btn .kbd-hint {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  margin-left: 5px;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+}
+.dash-action-btn:hover .kbd-hint {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+@media (max-width: 600px) {
+  .dash-action-btn .kbd-hint {
+    display: none;
+  }
 }
 
 /* 4 Financial Pillar Cards Strip (Executive Master Row) — fluid auto-fit */
@@ -1628,13 +1755,20 @@ html[data-theme="dark"] .text-indigo { color: #818cf8 !important; }
 }
 .charts-suite-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 20px;
   width: 100%;
 }
-@media (max-width: 1080px) {
-  .charts-suite-grid {
+.donut-body-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 28px;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .donut-body-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
   }
 }
 

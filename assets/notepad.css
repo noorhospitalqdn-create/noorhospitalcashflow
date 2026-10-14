@@ -1,0 +1,784 @@
+/* ============================================================
+   NOTEPAD — Fast Notes Module
+   Extends the Noor Hospital Swiss Medical-Fintech Design System
+   ============================================================ */
+
+/* ---- Layout ---- */
+.notepad-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0;
+}
+
+/* ---- Quick-Add Card ---- */
+.notepad-quick-add {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+.notepad-quick-add:focus-within {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md), 0 0 0 3px var(--primary-light);
+}
+
+.notepad-quick-add-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.notepad-input-body {
+  width: 100%;
+  font-size: 0.92rem;
+  font-family: var(--font-sans);
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-main);
+  resize: vertical;
+  min-height: 84px;
+  max-height: 240px;
+  line-height: 1.6;
+  transition: border-color 0.2s, background 0.2s;
+}
+.notepad-input-body:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg-input-focus);
+}
+.notepad-input-body::placeholder {
+  color: var(--text-subtle);
+}
+
+.notepad-meta-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.notepad-color-picker {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.notepad-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.18s var(--ease), border-color 0.18s, box-shadow 0.18s;
+}
+.notepad-color-swatch:hover {
+  transform: scale(1.2);
+}
+.notepad-color-swatch.active {
+  border-color: var(--text-main);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--text-main);
+  transform: scale(1.15);
+}
+
+.notepad-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.18s var(--ease), transform 0.15s, box-shadow 0.18s;
+  box-shadow: var(--shadow-sm);
+}
+.notepad-add-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.notepad-add-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.notepad-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+}
+.notepad-cancel-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border-color: var(--text-muted);
+}
+
+/* ---- Stats Strip ---- */
+.notepad-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.notepad-stat-card {
+  flex: 1;
+  max-width: 240px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.2s var(--ease), box-shadow 0.2s;
+}
+.notepad-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.notepad-stat-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.notepad-stat-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.notepad-stat-icon.total { background: var(--primary-light); color: var(--primary); }
+.notepad-stat-info { display: flex; flex-direction: column; }
+.notepad-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+.notepad-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+
+/* ---- Toolbar & Search ---- */
+.notepad-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.notepad-search-wrap {
+  flex: 1;
+  max-width: 400px;
+  position: relative;
+}
+.notepad-search-wrap svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+.notepad-search {
+  width: 100%;
+  font-size: 0.85rem;
+  padding: 9px 14px 9px 36px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  transition: border-color 0.2s, background 0.2s;
+}
+.notepad-search:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg-input-focus);
+}
+
+/* ---- Notes Grid ---- */
+.notepad-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* ---- Note Card ---- */
+.notepad-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.22s var(--ease), box-shadow 0.22s, border-color 0.22s;
+  position: relative;
+  overflow: hidden;
+  animation: notepad-card-in 0.28s var(--ease) both;
+}
+@keyframes notepad-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.notepad-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary-border);
+}
+
+.notepad-card-accent {
+  height: 4px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.notepad-card-body {
+  padding: 16px 18px 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notepad-pin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--amber);
+  background: var(--amber-light);
+  padding: 2px 8px;
+  border-radius: 12px;
+  align-self: flex-start;
+}
+.notepad-pin-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.notepad-card-text {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+  min-height: 48px;
+}
+
+.notepad-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px 14px;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-card-footer, transparent);
+}
+
+.notepad-card-date {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.notepad-card-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.notepad-card:hover .notepad-card-actions {
+  opacity: 1;
+}
+
+.notepad-card-action {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, transform 0.12s;
+}
+.notepad-card-action svg {
+  width: 14px;
+  height: 14px;
+}
+.notepad-card-action:hover {
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  transform: scale(1.1);
+}
+.notepad-card-action.active-pin {
+  color: var(--amber);
+}
+.notepad-card-action.delete:hover {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+/* ---- Empty State ---- */
+.notepad-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  gap: 14px;
+}
+.notepad-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+.notepad-empty-icon svg {
+  width: 28px;
+  height: 28px;
+}
+.notepad-empty-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.notepad-empty-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .notepad-grid {
+    grid-template-columns: 1fr;
+  }
+  .notepad-meta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .notepad-add-btn {
+    margin-left: 0;
+    justify-content: center;
+  }
+  .notepad-cancel-btn {
+    justify-content: center;
+  }
+  .notepad-stat-card {
+    max-width: 100%;
+  }
+  .notepad-search-wrap {
+    max-width: 100%;
+  }
+  .notepad-card-actions {
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   FLOATING MESSENGER-STYLE NOTES BUBBLE & STACKED LAYERS
+   ============================================================ */
+
+.note-messenger-wrapper {
+  position: fixed;
+  bottom: 26px;
+  right: 26px;
+  z-index: 9999;
+}
+@media (max-width: 768px) {
+  .note-messenger-wrapper {
+    bottom: 80px; /* Sits cleanly above mobile bottom navigation */
+    right: 18px;
+  }
+}
+
+/* The clickable stack */
+.note-bubble-stack {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  cursor: pointer;
+  user-select: none;
+  filter: drop-shadow(0 4px 12px rgba(13, 148, 136, 0.38));
+  transition: opacity 0.2s ease;
+}
+.note-bubble-stack:active {
+  transform: scale(0.96);
+}
+
+/* Front main bubble (Single bubble only, clean and static) */
+.note-bubble-main {
+  position: relative;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.45);
+}
+.note-bubble-main svg {
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* Notification count badge */
+.note-bubble-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #f59e0b;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 800;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  line-height: 1;
+}
+
+/* ---- Messenger Style Expandable Popover Card ---- */
+.note-bubble-popup {
+  position: absolute;
+  bottom: 50px;
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - 36px);
+  max-height: 480px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.36), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1000;
+  animation: note-popup-slide 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes note-popup-slide {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.note-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-card-header, rgba(255, 255, 255, 0.02));
+}
+.note-popup-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.note-popup-icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.note-popup-icon-wrap svg {
+  width: 16px;
+  height: 16px;
+}
+.note-popup-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+.note-popup-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.note-popup-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.note-popup-action-btn,
+.note-popup-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.note-popup-action-btn:hover,
+.note-popup-close-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-main);
+}
+.note-popup-action-btn svg,
+.note-popup-close-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Quick Note Add section inside popup */
+.note-popup-quick-add {
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.note-popup-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  padding: 8px 10px;
+  resize: none;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.note-popup-input:focus {
+  border-color: var(--primary);
+}
+.note-popup-quick-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.note-popup-colors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.note-popup-color-dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.note-popup-color-dot:hover {
+  transform: scale(1.15);
+}
+.note-popup-color-dot.active {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1.5px var(--primary);
+  transform: scale(1.1);
+}
+.note-popup-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 11px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.note-popup-add-btn:hover {
+  background: var(--primary-hover);
+}
+.note-popup-add-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.note-popup-body {
+  padding: 12px 14px;
+  overflow-y: auto;
+  max-height: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.note-popup-body::-webkit-scrollbar {
+  width: 4px;
+}
+.note-popup-body::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.note-popup-item {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+.note-popup-item:hover {
+  border-color: var(--primary-border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.note-popup-item-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+}
+.note-popup-item-content {
+  padding-left: 6px;
+}
+.note-popup-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.note-popup-del-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.note-popup-del-btn:hover {
+  background: var(--error-light, rgba(239, 68, 68, 0.15));
+  color: var(--error, #ef4444);
+  transform: scale(1.12);
+}
+.note-popup-del-btn svg {
+  width: 13px;
+  height: 13px;
+}
+.note-popup-item-date {
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  color: var(--text-subtle);
+}
+.note-popup-item-pinned {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--amber);
+}
+.note-popup-item-pinned svg {
+  width: 10px;
+  height: 10px;
+}
+.note-popup-item-text {
+  font-size: 0.83rem;
+  color: var(--text-main);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-popup-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+}
+.note-popup-open-full {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.note-popup-open-full:hover {
+  background: var(--primary-hover);
+}
+.note-popup-open-full svg {
+  width: 14px;
+  height: 14px;
+}

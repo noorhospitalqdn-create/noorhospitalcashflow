@@ -1093,15 +1093,8 @@
         }
       }
 
-      // Alt+B or Alt+C: Open Cash Borrow modal from anywhere
-      if (e.altKey && (e.key === 'b' || e.key === 'B' || e.key === 'c' || e.key === 'C')) {
-        e.preventDefault();
-        openAddModal();
-        return;
-      }
-
-      // Ctrl+Shift+B or Cmd+Shift+B: Secondary shortcut
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+      // Ctrl+B, Cmd+B, Alt+B, Alt+C: Open Cash Borrow modal from anywhere
+      if ((e.ctrlKey || e.metaKey || e.altKey) && (e.key === 'b' || e.key === 'B' || e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         openAddModal();
         return;

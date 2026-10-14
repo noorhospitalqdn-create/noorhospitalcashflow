@@ -60,18 +60,20 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261010_17">
+  <link rel="stylesheet" href="assets/app.css?v=20261014_23">
   <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_17">
   <link rel="stylesheet" href="assets/cash-borrow.css?v=20261013_10">
+  <link rel="stylesheet" href="assets/notepad.css?v=20261014_27">
   
   <!-- Excel Library (SheetJS) Loaded Locally -->
   <script src="assets/xlsx.min.js" defer></script>
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261013_10" defer></script>
+  <script src="assets/app.js?v=20261014_27" defer></script>
   <script src="assets/staff-receipts.js?v=20261010_20" defer></script>
-  <script src="assets/cash-borrow.js?v=20261013_10" defer></script>
+  <script src="assets/cash-borrow.js?v=20261014_22" defer></script>
+  <script src="assets/notepad.js?v=20261014_27" defer></script>
 </head>
 <body>
 
@@ -298,6 +300,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
           <span>Financial Reports Centre</span>
         </button>
+        <button class="nav-item" data-panel="notepad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          <span>Notepad</span>
+          <span class="badge badge-amber" id="sidebar-notepad-badge" style="display:none">0</span>
+        </button>
 
         <!-- Group 7: System Settings (Last) -->
         <div class="nav-section-title">SETTINGS</div>
@@ -376,9 +383,11 @@
           <div class="dash-exec-hero">
             <div class="dash-exec-header">
               <div class="dash-exec-info">
-                <div class="dash-status-pill">
-                  <span class="live-pulse"></span>
-                  <span>Audit Verified • Treasury Active</span>
+                <div class="dash-status-row">
+                  <div class="dash-status-pill">
+                    <span class="live-pulse"></span>
+                    <span>Audit Verified • Treasury Active</span>
+                  </div>
                 </div>
                 <h2 class="dash-exec-title">Noor Hospital Cash Control System</h2>
                 <p class="dash-exec-subtitle">Consolidated liquid cash positions, departmental imprest floats, and real-time liabilities.</p>
@@ -386,30 +395,35 @@
 
               <!-- Quick Action Command Strip -->
               <div class="dash-quick-actions">
-                <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('advance')" title="Add Muhasib Bill">
+                <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('advance')" title="Add Muhasib Bill [Ctrl+M]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
                   <span>+ Muhasib Bill</span>
+                  <kbd class="kbd-hint">Ctrl+M</kbd>
                 </button>
-                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'advance')" title="Add Muhasib Advance Slip">
+                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'advance')" title="Add Muhasib Advance Slip [Ctrl+Shift+M]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                   <span>+ Muhasib Adv</span>
+                  <kbd class="kbd-hint">Ctrl+⇧M</kbd>
                 </button>
-                <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('hospital')" title="Add Hospital Bill">
+                <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('hospital')" title="Add Hospital Bill [Ctrl+H]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
                   <span>+ Hospital Bill</span>
+                  <kbd class="kbd-hint">Ctrl+H</kbd>
                 </button>
-                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'hospital')" title="Add Hospital Advance Slip">
+                <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'hospital')" title="Add Hospital Advance Slip [Ctrl+Shift+H]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
                   <span>+ Hospital Adv</span>
+                  <kbd class="kbd-hint">Ctrl+⇧H</kbd>
                 </button>
-                <button type="button" class="dash-action-btn dash-action-primary" onclick="if(window.app&&app.receipts)app.receipts.openAddModal()" title="Issue Staff Cash Advance Slip">
+                <button type="button" class="dash-action-btn" onclick="if(window.app&&app.receipts)app.receipts.openAddModal()" title="Issue Staff Cash Advance Slip [Ctrl+S]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
                   <span>+ Staff Receipt</span>
+                  <kbd class="kbd-hint">Ctrl+S</kbd>
                 </button>
-                <button type="button" id="btn-quick-cash-borrow" class="dash-action-btn" onclick="(window.CashBorrow||(window.app&&app.cashBorrow)||{}).openAddModal&&((window.CashBorrow||app.cashBorrow).openAddModal())" title="Record Cash Borrowing / Transfer (Hospital ⇄ Muhasib) [Shortcut: Alt+B]">
+                <button type="button" id="btn-quick-cash-borrow" class="dash-action-btn" onclick="(window.CashBorrow||(window.app&&app.cashBorrow)||{}).openAddModal&&((window.CashBorrow||app.cashBorrow).openAddModal())" title="Record Cash Borrowing / Transfer (Hospital ⇄ Muhasib) [Ctrl+B / Alt+B]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
                   <span>+ Cash Borrow</span>
-                  <kbd class="kbd-hint" style="margin-left:4px; font-size:0.62rem; padding:1px 5px; opacity:0.85;">Alt+B</kbd>
+                  <kbd class="kbd-hint">Ctrl+B</kbd>
                 </button>
               </div>
             </div>
@@ -717,105 +731,12 @@
               <span id="dash-total-transferred">₹0.00</span>
               <span id="dash-temp-slips-total">₹0.00</span>
               <span id="dash-temp-slips-badge">0</span>
+              <span id="chart-kpi-liquid">₹0.00</span>
+              <span id="chart-kpi-ratio">0.0%</span>
+              <span id="chart-kpi-turnover">₹0.00</span>
+              <span id="chart-kpi-ratio-sub"></span>
             </div>
 
-          </div>
-
-          <!-- Executive Financial Intelligence & Analytics Suite -->
-          <div class="charts-section">
-            <div class="charts-suite-grid">
-              
-              <!-- Card 1: Primary Treasury Intelligence & Cash Velocity -->
-              <div class="card chart-card chart-card-primary">
-                <div class="chart-card-header">
-                  <div class="chart-header-left">
-                    <div class="chart-badge-tag">
-                      <span class="pulse-dot-green"></span>
-                      <span>Real-Time Intelligence</span>
-                    </div>
-                    <div class="chart-title">Treasury Liquidity & Cash Flow Analytics</div>
-                    <div class="chart-subtitle">Dynamic view of cash in hand, inflow velocity & active liabilities</div>
-                  </div>
-                  
-                  <!-- Interactive Chart View Mode Switcher -->
-                  <div class="chart-mode-switcher">
-                    <button type="button" class="chart-mode-btn active" data-mode="solvency" onclick="app.ui.switchChartMode('solvency')">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-                      <span>Solvency</span>
-                    </button>
-                    <button type="button" class="chart-mode-btn" data-mode="flow" onclick="app.ui.switchChartMode('flow')">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 16 7-7 4 4 7-7"/><path d="M14 6h7v7"/></svg>
-                      <span>Inflow / Outflow</span>
-                    </button>
-                    <button type="button" class="chart-mode-btn" data-mode="dept" onclick="app.ui.switchChartMode('dept')">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                      <span>Dept Flow</span>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Executive Mini KPI Ribbon inside Chart -->
-                <div class="chart-kpi-ribbon">
-                  <div class="chart-kpi-item">
-                    <span class="chart-kpi-label">Total Liquid Cash</span>
-                    <span class="chart-kpi-val text-emerald" id="chart-kpi-liquid">₹0.00</span>
-                    <span class="chart-kpi-sub">Muhasib Float + Hospital Cash</span>
-                  </div>
-                  <div class="chart-kpi-divider"></div>
-                  <div class="chart-kpi-item">
-                    <span class="chart-kpi-label">Liability / Float Ratio</span>
-                    <span class="chart-kpi-val" id="chart-kpi-ratio">0.0%</span>
-                    <span class="chart-kpi-sub" id="chart-kpi-ratio-sub">Unpaid Bills vs Float</span>
-                  </div>
-                  <div class="chart-kpi-divider"></div>
-                  <div class="chart-kpi-item">
-                    <span class="chart-kpi-label">Total Cash Turnover</span>
-                    <span class="chart-kpi-val" id="chart-kpi-turnover">₹0.00</span>
-                    <span class="chart-kpi-sub">Float Received + Collections</span>
-                  </div>
-                </div>
-
-                <!-- Main Chart Canvas Container -->
-                <div class="chart-container" style="position: relative; height: 310px; width: 100%;">
-                  <canvas id="chart-financial-position"></canvas>
-                  <div id="fallback-financial-position" class="chart-fallback hidden" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center;"></div>
-                </div>
-
-                <!-- Interactive Micro-Legends & Insights -->
-                <div class="chart-footer-insights" id="chart-primary-legend">
-                  <!-- Populated dynamically via JS with glowing chips and live values -->
-                </div>
-              </div>
-
-              <!-- Card 2: Executive Capital Allocation & Expense Breakdown -->
-              <div class="card chart-card chart-card-donut">
-                <div class="chart-card-header">
-                  <div class="chart-header-left">
-                    <div class="chart-badge-tag tag-purple">
-                      <span>Capital Allocation</span>
-                    </div>
-                    <div class="chart-title">Expense Heads & Outflow Share</div>
-                    <div class="chart-subtitle">Distribution of hospital funds & departmental spending</div>
-                  </div>
-                </div>
-
-                <div class="donut-chart-wrapper" style="position: relative; height: 230px; margin-top: 0.6rem;">
-                  <canvas id="chart-expense-donut"></canvas>
-                  <!-- Glass Center Summary Inside Donut Hole -->
-                  <div class="donut-glass-center">
-                    <span class="donut-center-label">Total Outflow</span>
-                    <span class="donut-center-val" id="donut-center-total">₹0.00</span>
-                    <span class="donut-center-sub" id="donut-center-count">0 Records</span>
-                  </div>
-                </div>
-
-                <!-- Custom Interactive Progress Rows for Top Heads -->
-                <div class="donut-breakdown-list" id="donut-heads-breakdown">
-                  <!-- Populated dynamically: Top heads with % bar, amount, and badge -->
-                </div>
-              </div>
-
-            </div>
           </div>
 
         </section>
@@ -2570,6 +2491,61 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
                 <span>Reset Database</span>
               </button>
             </div>
+          </div>
+        </section>
+
+        <!-- ==================== NOTEPAD PANEL ==================== -->
+        <section class="panel" id="panel-notepad">
+          <div class="notepad-layout">
+
+            <!-- Quick-Add Card -->
+            <div class="notepad-quick-add">
+              <div class="notepad-quick-add-row">
+                <textarea id="notepad-text" class="notepad-input-body" placeholder="Write your note here... (Ctrl+Enter to save)" rows="3"></textarea>
+              </div>
+              <div class="notepad-meta-row">
+                <div class="notepad-color-picker">
+                  <span class="notepad-color-swatch active" data-color="teal" style="background:#0f766e" title="Teal"></span>
+                  <span class="notepad-color-swatch" data-color="indigo" style="background:#4f46e5" title="Indigo"></span>
+                  <span class="notepad-color-swatch" data-color="amber" style="background:#d97706" title="Amber"></span>
+                  <span class="notepad-color-swatch" data-color="rose" style="background:#e11d48" title="Rose"></span>
+                  <span class="notepad-color-swatch" data-color="sky" style="background:#0284c7" title="Sky"></span>
+                  <span class="notepad-color-swatch" data-color="violet" style="background:#7c3aed" title="Violet"></span>
+                  <span class="notepad-color-swatch" data-color="slate" style="background:#64748b" title="Slate"></span>
+                </div>
+                <button type="button" class="notepad-add-btn" id="notepad-add-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  Save Note
+                </button>
+              </div>
+            </div>
+
+            <!-- Stats Strip (Total Only) -->
+            <div class="notepad-stats">
+              <div class="notepad-stat-card">
+                <div class="notepad-stat-icon total">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div class="notepad-stat-info">
+                  <span class="notepad-stat-value" id="notepad-stat-total">0</span>
+                  <span class="notepad-stat-label">Total Notes</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="notepad-toolbar">
+              <div class="notepad-search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" id="notepad-search" class="notepad-search" placeholder="Search notes..." autocomplete="off" />
+              </div>
+            </div>
+
+            <!-- Notes Grid -->
+            <div class="notepad-grid" id="notepad-grid">
+              <!-- Cards rendered dynamically by notepad.js -->
+            </div>
+
           </div>
         </section>
 
@@ -4480,5 +4456,75 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
   }
 })();
 </script>
+
+  <!-- FLOATING MESSENGER-STYLE NOTES BUBBLE & POPUP -->
+  <div class="note-messenger-wrapper" id="note-messenger-wrapper" style="display:none;">
+    <!-- Single Floating Bubble Trigger -->
+    <div class="note-bubble-stack" id="note-bubble-stack" onclick="window.toggleNotesBubblePopup()" title="Click to view & add notes">
+      <!-- Main front bubble (Single bubble only) -->
+      <div class="note-bubble-main">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span class="note-bubble-badge" id="note-bubble-badge">0</span>
+      </div>
+    </div>
+
+    <!-- Messenger Style Expandable Popover Card -->
+    <div class="note-bubble-popup" id="note-bubble-popup" style="display:none;">
+      <div class="note-popup-header">
+        <div class="note-popup-title-row">
+          <div class="note-popup-icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div>
+            <h4 class="note-popup-title">Quick Notes</h4>
+            <span class="note-popup-subtitle" id="note-popup-subtitle">0 saved notes</span>
+          </div>
+        </div>
+        <div class="note-popup-actions">
+          <button type="button" class="note-popup-action-btn" onclick="app.ui.switchTab('notepad'); window.closeNotesBubblePopup();" title="Open full Notepad">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </button>
+          <button type="button" class="note-popup-close-btn" onclick="window.closeNotesBubblePopup()" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Note Add Box Inside Popup -->
+      <div class="note-popup-quick-add">
+        <textarea id="note-popup-input" class="note-popup-input" placeholder="Write a note here... (Enter to save)" rows="2"></textarea>
+        <div class="note-popup-quick-actions">
+          <div class="note-popup-colors" id="note-popup-colors">
+            <span class="note-popup-color-dot active" data-color="teal" style="background:#0f766e" title="Teal"></span>
+            <span class="note-popup-color-dot" data-color="indigo" style="background:#4f46e5" title="Indigo"></span>
+            <span class="note-popup-color-dot" data-color="amber" style="background:#d97706" title="Amber"></span>
+            <span class="note-popup-color-dot" data-color="rose" style="background:#e11d48" title="Rose"></span>
+            <span class="note-popup-color-dot" data-color="sky" style="background:#0284c7" title="Sky"></span>
+          </div>
+          <button type="button" class="note-popup-add-btn" id="note-popup-add-btn" onclick="window.addNoteFromPopup()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Add Note</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Notes list preview -->
+      <div class="note-popup-body" id="note-popup-body">
+        <!-- Rendered dynamically by notepad.js -->
+      </div>
+
+      <div class="note-popup-footer">
+        <button type="button" class="note-popup-open-full" onclick="app.ui.switchTab('notepad'); window.closeNotesBubblePopup();">
+          <span>Open Full Notepad</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

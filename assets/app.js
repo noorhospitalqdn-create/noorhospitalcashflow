@@ -237,6 +237,8 @@ const app = {
     logout() {
       localStorage.removeItem('noor_user_logged_in');
       localStorage.removeItem('noor_username');
+      localStorage.removeItem('noor_active_panel');
+      try { history.replaceState(null, '', window.location.pathname); } catch (_) {}
       app.ui.showToast('Logged out successfully.');
       app.auth.showLogin();
       setTimeout(() => location.reload(), 300);
@@ -3354,9 +3356,114 @@ const app = {
           }
         );
       });
+
+      // Listen for browser URL hash changes (back/forward navigation)
+      window.addEventListener('hashchange', () => {
+        const p = (window.location.hash || '').replace(/^#/, '').trim();
+        if (p && document.getElementById(`panel-${p}`)) {
+          app.ui.switchTab(p, false);
+        }
+      });
+
+      // Initialize global keyboard shortcuts (Ctrl+M, Ctrl+Shift+M, Ctrl+H, Ctrl+Shift+H, Ctrl+S, Ctrl+B)
+      app.ui.initKeyboardShortcuts();
+
+      // Restore active panel immediately on UI init
+      app.ui.restoreActivePanel();
     },
 
-    switchTab(panelId) {
+    initKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        // Only proceed if Ctrl, Cmd, or Alt key is pressed
+        const isMod = e.ctrlKey || e.metaKey || e.altKey;
+        if (!isMod) return;
+
+        const key = e.key.toLowerCase();
+
+        // Check if any modal is currently open
+        const openDialog = document.querySelector('dialog[open], .modal-dialog[open]');
+        const isModalOpen = !!openDialog;
+
+        // Inside open modal: Ctrl+S saves the modal form
+        if (isModalOpen) {
+          if ((e.ctrlKey || e.metaKey) && key === 's') {
+            e.preventDefault();
+            const form = openDialog.querySelector('form');
+            if (form) {
+              if (form.requestSubmit) form.requestSubmit();
+              else form.dispatchEvent(new Event('submit', { cancelable: true }));
+            }
+          }
+          return; // Do not open other quick action modals over an active modal
+        }
+
+        // 1. Muhasib Bill: Ctrl+M / Cmd+M / Alt+M (without Shift)
+        if (!e.shiftKey && key === 'm') {
+          e.preventDefault();
+          app.ui.openBillModal('advance');
+          return;
+        }
+
+        // 2. Muhasib Advance Slip: Ctrl+Shift+M / Cmd+Shift+M / Alt+Shift+M
+        if (e.shiftKey && key === 'm') {
+          e.preventDefault();
+          app.ui.openModal('dialog-slip-add', 'advance');
+          return;
+        }
+
+        // 3. Hospital Bill: Ctrl+H / Cmd+H / Alt+H (without Shift)
+        if (!e.shiftKey && key === 'h') {
+          e.preventDefault();
+          app.ui.openBillModal('hospital');
+          return;
+        }
+
+        // 4. Hospital Advance Slip: Ctrl+Shift+H / Cmd+Shift+H / Alt+Shift+H
+        if (e.shiftKey && key === 'h') {
+          e.preventDefault();
+          app.ui.openModal('dialog-slip-add', 'hospital');
+          return;
+        }
+
+        // 5. Staff Receipt: Ctrl+S / Cmd+S / Alt+S
+        if (key === 's') {
+          e.preventDefault();
+          if (window.app && app.receipts && app.receipts.openAddModal) {
+            app.receipts.openAddModal();
+          }
+          return;
+        }
+
+        // 6. Cash Borrow: Ctrl+B / Cmd+B / Alt+B
+        if (key === 'b') {
+          e.preventDefault();
+          if (window.CashBorrow && window.CashBorrow.openAddModal) {
+            window.CashBorrow.openAddModal();
+          } else if (window.app && app.cashBorrow && app.cashBorrow.openAddModal) {
+            app.cashBorrow.openAddModal();
+          }
+          return;
+        }
+      });
+    },
+
+    restoreActivePanel() {
+      try {
+        const hashPanel = (window.location.hash || '').replace(/^#/, '').trim();
+        const savedPanel = localStorage.getItem('noor_active_panel');
+        const targetPanel = hashPanel || savedPanel;
+        if (targetPanel && document.getElementById(`panel-${targetPanel}`)) {
+          app.ui.switchTab(targetPanel, false);
+          return true;
+        }
+      } catch (e) {
+        console.error('Error restoring active panel:', e);
+      }
+      return false;
+    },
+
+    switchTab(panelId, updateHash = true) {
+      if (!panelId) return;
 
       // Update sidebar highlight
       const navItems = document.querySelectorAll('.sidebar-nav .nav-item');
@@ -3377,6 +3484,14 @@ const app = {
           panel.classList.remove('active');
         }
       });
+
+      // Persist active panel to localStorage and update URL hash (keeps user on same page on refresh!)
+      try {
+        localStorage.setItem('noor_active_panel', panelId);
+        if (updateHash && window.location.hash !== '#' + panelId) {
+          history.replaceState(null, '', '#' + panelId);
+        }
+      } catch (_) {}
 
       // Close mobile drawer if open
       document.getElementById('sidebar').classList.remove('mobile-open');
@@ -3414,6 +3529,7 @@ const app = {
         'bills': 'bills',
         'balance-sheet': 'reports',
         'reports': 'reports',
+        'notepad': 'reports',
         'settings': 'settings'
       };
       const activeNav = bottomNavMapping[panelId] || 'dashboard';
@@ -3447,6 +3563,7 @@ const app = {
         'reports': 'Financial Reports Centre',
         'vendors': 'Vendor Directory',
         'heads': 'Head Directory',
+        'notepad': 'Notepad',
         'settings': 'Data Backup & Settings'
       };
       
@@ -3467,6 +3584,16 @@ const app = {
         }
       } else if (panelId === 'staff-receipts' && window.app && app.receipts && app.receipts.render) {
         app.receipts.render();
+      } else if (panelId === 'notepad' && window.notepadModule) {
+        window.notepadModule.render();
+      }
+
+      // Sync floating messenger notes bubble visibility and close popup on tab switch
+      if (window.updateNotepadNotificationBadge) {
+        window.updateNotepadNotificationBadge();
+      }
+      if (window.closeNotesBubblePopup) {
+        window.closeNotesBubblePopup();
       }
 
       // Scroll to top on mobile (panel-container is the scroller, not window)
@@ -4396,6 +4523,12 @@ const app = {
 
       // 6. Sync Hero UI metrics
       if (window.syncHeroUI) window.syncHeroUI();
+
+      // 7. Sync Notepad notification badges
+      if (window.updateNotepadNotificationBadge) {
+        window.updateNotepadNotificationBadge();
+      }
+
       window.dispatchEvent(new CustomEvent('app:rendered'));
     },
 
@@ -5688,6 +5821,11 @@ const app = {
       const fallbackDiv = document.getElementById('fallback-financial-position');
       const legendContainer = document.getElementById('chart-primary-legend');
 
+      if (!primaryCanvas && app.charts.position) {
+        try { app.charts.position.destroy(); } catch (_) {}
+        app.charts.position = null;
+      }
+
       if (hasChartJs && primaryCanvas) {
         primaryCanvas.classList.remove('hidden');
         if (fallbackDiv) fallbackDiv.classList.add('hidden');
@@ -5931,37 +6069,36 @@ const app = {
           `).join('');
         }
 
-      } else {
+      } else if (fallbackDiv) {
         // Fallback if Chart.js is offline
         if (primaryCanvas) primaryCanvas.classList.add('hidden');
-        if (fallbackDiv) {
-          fallbackDiv.classList.remove('hidden');
-          const maxVal = Math.max(
-            rawVal(app.state.advanceCashAvailable),
-            rawVal(app.state.hospitalCashAvailable),
-            rawVal(app.state.advanceBillsPending),
-            rawVal(app.state.hospitalBillsPending),
-            1
-          );
-          const getPct = (v) => Math.min(100, Math.max(5, (v / maxVal) * 100)) + '%';
-          const fmt = (v) => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2 });
-          fallbackDiv.innerHTML = `
-            <div class="fallback-bar-list" style="width:100%; padding: 12px;">
-              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Muhasib Cash</span><strong>${fmt(rawVal(app.state.advanceCashAvailable))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.advanceCashAvailable))}; background:#10b981;"></div></div></div>
-              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Hospital Cash</span><strong>${fmt(rawVal(app.state.hospitalCashAvailable))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.hospitalCashAvailable))}; background:#0ea5e9;"></div></div></div>
-              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Muhasib Pending</span><strong>${fmt(rawVal(app.state.advanceBillsPending))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.advanceBillsPending))}; background:#f59e0b;"></div></div></div>
-              <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Hospital Pending</span><strong>${fmt(rawVal(app.state.hospitalBillsPending))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.hospitalBillsPending))}; background:#ef4444;"></div></div></div>
-            </div>
-          `;
-        }
+        fallbackDiv.classList.remove('hidden');
+        const maxVal = Math.max(
+          rawVal(app.state.advanceCashAvailable),
+          rawVal(app.state.hospitalCashAvailable),
+          rawVal(app.state.advanceBillsPending),
+          rawVal(app.state.hospitalBillsPending),
+          1
+        );
+        const getPct = (v) => Math.min(100, Math.max(5, (v / maxVal) * 100)) + '%';
+        const fmt = (v) => '₹' + v.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+        fallbackDiv.innerHTML = `
+          <div class="fallback-bar-list" style="width:100%; padding: 12px;">
+            <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Muhasib Cash</span><strong>${fmt(rawVal(app.state.advanceCashAvailable))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.advanceCashAvailable))}; background:#10b981;"></div></div></div>
+            <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Hospital Cash</span><strong>${fmt(rawVal(app.state.hospitalCashAvailable))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.hospitalCashAvailable))}; background:#0ea5e9;"></div></div></div>
+            <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Muhasib Pending</span><strong>${fmt(rawVal(app.state.advanceBillsPending))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.advanceBillsPending))}; background:#f59e0b;"></div></div></div>
+            <div class="fallback-bar-item"><div class="fallback-bar-info"><span>Hospital Pending</span><strong>${fmt(rawVal(app.state.hospitalBillsPending))}</strong></div><div class="fallback-bar-track"><div class="fallback-bar-fill" style="width:${getPct(rawVal(app.state.hospitalBillsPending))}; background:#ef4444;"></div></div></div>
+          </div>
+        `;
       }
 
-      // 3. Card 2: Executive Capital Allocation & Expense Heads Donut Chart
+      // 3. Card 2: Executive Capital Allocation & Expense Heads Donut Chart (if present in DOM)
       const donutCanvas = document.getElementById('chart-expense-donut');
       const donutBreakdownEl = document.getElementById('donut-heads-breakdown');
 
-      // Aggregate spend by Head from all bills
-      const bills = Array.isArray(app.state.bills) ? app.state.bills : [];
+      if (donutCanvas || donutBreakdownEl) {
+        // Aggregate spend by Head from all bills
+        const bills = Array.isArray(app.state.bills) ? app.state.bills : [];
       const headMap = {};
       let totalExpenseAmount = 0;
       let validBillCount = 0;
@@ -6073,6 +6210,7 @@ const app = {
             `;
           }).join('');
         }
+      }
       }
     }
   },
@@ -13150,6 +13288,8 @@ tfoot .r{text-align:right;}
       // 4. Sync values and render (only if logged in) - Load local cache immediately
       if (isLoggedIn) {
         await app.syncState();
+        // Re-render restored active panel with freshly synced data
+        app.ui.restoreActivePanel();
       }
 
       // Trigger initial run of sync queue
