@@ -545,7 +545,7 @@
         '<tr>' +
           '<td><strong>' + fmtDate(r.date) + '</strong></td>' +
           '<td>' + dirBadge + dutyText + '</td>' +
-          '<td><strong style="font-size:1.05rem;">' + fmtINR(r.amount) + '</strong>' +
+          '<td class="num-val text-right"><strong style="font-size:1.05rem;">' + fmtINR(r.amount) + '</strong>' +
             (r.status === 'settled' && r.settledAt ? '<br><small class="text-muted">Settled on ' + fmtDate(r.settledAt) + '</small>' : '') +
           '</td>' +
           '<td>' + statusBadge + '</td>' +

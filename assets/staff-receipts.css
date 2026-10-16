@@ -1,6 +1,6 @@
 /* Staff Advance Receipts — isolated styles (no clash with app.css) */
 .rcpt-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.75rem;margin-bottom:1rem}
-.rcpt-kpi-card{background:var(--card-bg,var(--bg-elevated,#fff));border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:.8rem .95rem;border-left:4px solid #10b981}
+.rcpt-kpi-card{background:var(--bg-card,var(--bg-elevated,#fff));border:1px solid var(--border-color,#e5e7eb);border-radius:12px;padding:.8rem .95rem;border-left:4px solid #10b981}
 .rcpt-kpi-card.kpi-given{border-left-color:#10b981}
 .rcpt-kpi-card.kpi-pending{border-left-color:#f59e0b}
 .rcpt-kpi-card.kpi-month{border-left-color:#3b82f6}

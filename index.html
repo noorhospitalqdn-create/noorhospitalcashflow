@@ -2,7 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Noor Hospital - Cash Management System</title>
   <!-- SEO & Meta Tags -->
   <meta name="description" content="Offline-first cash management system for Noor Hospital to track Muhasib Cash, Hospital Collections, Slips, Bills, and Transfers.">
@@ -83,17 +83,16 @@
   <!-- Login Screen -->
   <div id="login-screen" class="login-screen" style="display: none;" role="region" aria-label="Sign In Portal">
     <div class="login-container">
-      <!-- Top control bar (Theme toggle) -->
-      <div class="login-top-bar">
-        <button type="button" class="login-theme-btn" id="login-theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
-          <svg id="login-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-          </svg>
-        </button>
-      </div>
-
       <!-- Main Login Card -->
       <div class="login-card" id="login-card">
+        <!-- Top control bar (Theme toggle inside card) -->
+        <div class="login-top-bar">
+          <button type="button" class="login-theme-btn" id="login-theme-toggle" aria-label="Toggle light/dark theme" title="Toggle Theme">
+            <svg id="login-theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            </svg>
+          </button>
+        </div>
         <div class="login-brand">
           <div class="brand-icon brand-icon-img" aria-hidden="true">
             <img src="assets/logo.png" alt="Noor Hospital Qadian Logo" class="login-brand-logo">
@@ -179,7 +178,7 @@
     <!-- Navigation Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div class="brand">
+        <div class="brand" role="button" tabindex="0" onclick="app.ui.switchTab('dashboard')" onkeydown="if(event.key==='Enter'||event.key===' ')app.ui.switchTab('dashboard')" title="Go to Overview Dashboard" style="cursor: pointer;">
           <div class="brand-icon brand-icon-img">
             <img src="assets/logo.png" alt="Noor Hospital Logo" class="sidebar-brand-logo">
           </div>
@@ -202,28 +201,28 @@
       <nav class="sidebar-nav">
         <!-- Group 1: Command Center -->
         <div class="nav-section-title">COMMAND CENTER</div>
-        <button class="nav-item active" data-panel="dashboard">
+        <button class="nav-item active" data-panel="dashboard" title="Overview Dashboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
           <span>Overview Dashboard</span>
         </button>
 
         <!-- Group 2: Muhasib Float & Advances -->
         <div class="nav-section-title">MUHASIB (FLOAT & ADVANCES)</div>
-        <button class="nav-item" data-panel="advance-cash">
+        <button class="nav-item" data-panel="advance-cash" title="Muhasib Cash (Float)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           <span>Muhasib Cash (Float)</span>
         </button>
-        <button class="nav-item" data-panel="advance-bills">
+        <button class="nav-item" data-panel="advance-bills" title="Muhasib Bills">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
           <span>Muhasib Bills</span>
           <span class="badge" id="sidebar-advance-bills-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="advance-cleared">
+        <button class="nav-item" data-panel="advance-cleared" title="Muhasib Bill Sayer (Cleared)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           <span>Muhasib Bill Sayer</span>
           <span class="badge" id="sidebar-advance-cleared-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="advance-slips">
+        <button class="nav-item" data-panel="advance-slips" title="Muhasib Advance Slips">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8M16 12H8M13 16H8"/></svg>
           <span>Muhasib Advance Slips</span>
           <span class="badge" id="sidebar-advance-slips-badge">0</span>
@@ -231,47 +230,47 @@
 
         <!-- Group 3: Hospital Collections & Bills -->
         <div class="nav-section-title">HOSPITAL (COLLECTIONS & BILLS)</div>
-        <button class="nav-item" data-panel="hospital-cash">
+        <button class="nav-item" data-panel="hospital-cash" title="Hospital Cash (Counter)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>
           <span>Hospital Cash (Counter)</span>
         </button>
-        <button class="nav-item" data-panel="bills">
+        <button class="nav-item" data-panel="bills" title="Hospital Bills">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg>
           <span>Hospital Bills</span>
           <span class="badge" id="sidebar-bills-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="hospital-cleared">
+        <button class="nav-item" data-panel="hospital-cleared" title="Hospital Bill Sayer (Cleared)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           <span>Hospital Bill Sayer</span>
           <span class="badge badge-emerald" id="sidebar-hospital-cleared-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="temp-slips">
+        <button class="nav-item" data-panel="temp-slips" title="Hospital Advance Slips">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
           <span>Hospital Advance Slips</span>
           <span class="badge" id="sidebar-temp-slips-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="hospital-deposits">
+        <button class="nav-item" data-panel="hospital-deposits" title="Hospital Deposits">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6h5v11a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3h8"/><path d="M16 19h6M16 15h6M16 11h6M2 10h11"/></svg>
           <span>Hospital Deposits</span>
         </button>
-        <button class="nav-item" data-panel="accounts">
+        <button class="nav-item" data-panel="accounts" title="Accounts Department">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
           <span>Accounts Department</span>
         </button>
 
         <!-- Group 4: Reconciliation & Audit -->
         <div class="nav-section-title">RECONCILIATION & AUDIT</div>
-        <button class="nav-item" data-panel="upi-reconciliation">
+        <button class="nav-item" data-panel="upi-reconciliation" title="UPI Reconciliation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01M9 6h6M9 10h6"/></svg>
-          <span>UPI Reconciliation (UPI Rec)</span>
+          <span>UPI Reconciliation</span>
           <span class="badge badge-sky" id="sidebar-upi-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="staff-receipts">
+        <button class="nav-item" data-panel="staff-receipts" title="Advance Receipts Register">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
-          <span>Advance Receipts (Recpt Rec)</span>
+          <span>Advance Receipts</span>
           <span class="badge" id="sidebar-receipts-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="cash-borrow">
+        <button class="nav-item" data-panel="cash-borrow" title="Cash Borrowing & Settlement">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
           <span>Cash Borrowing Register</span>
           <span class="badge badge-amber" id="sidebar-borrow-badge" style="display:none">0</span>
@@ -279,12 +278,12 @@
 
         <!-- Group 5: Master Directories & Setup -->
         <div class="nav-section-title">MASTER DIRECTORIES & SETUP</div>
-        <button class="nav-item" data-panel="vendors">
+        <button class="nav-item" data-panel="vendors" title="Vendor & Staff Directory">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Vendor & Staff Directory</span>
           <span class="badge" id="nav-vendors-badge">0</span>
         </button>
-        <button class="nav-item" data-panel="heads">
+        <button class="nav-item" data-panel="heads" title="Expense Heads">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           <span>Expense Heads</span>
           <span class="badge" id="nav-heads-badge">0</span>
@@ -292,15 +291,15 @@
 
         <!-- Group 6: Statements & Intelligence -->
         <div class="nav-section-title">STATEMENTS & INTELLIGENCE</div>
-        <button class="nav-item" data-panel="balance-sheet">
+        <button class="nav-item" data-panel="balance-sheet" title="Real-time Balance Sheet">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
           <span>Real-time Balance Sheet</span>
         </button>
-        <button class="nav-item" data-panel="reports">
+        <button class="nav-item" data-panel="reports" title="Financial Reports Centre">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83M22 12A10 10 0 0 0 12 2v10z"/></svg>
           <span>Financial Reports Centre</span>
         </button>
-        <button class="nav-item" data-panel="notepad">
+        <button class="nav-item" data-panel="notepad" title="Notepad Quick Notes">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
           <span>Notepad</span>
           <span class="badge badge-amber" id="sidebar-notepad-badge" style="display:none">0</span>
@@ -308,7 +307,7 @@
 
         <!-- Group 7: System Settings (Last) -->
         <div class="nav-section-title">SETTINGS</div>
-        <button class="nav-item" data-panel="settings">
+        <button class="nav-item" data-panel="settings" title="Backup, Sync & Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           <span>Backup, Sync & Settings</span>
         </button>
@@ -336,6 +335,10 @@
             </button>
           </div>
         </div>
+        <button type="button" class="sidebar-logout-btn" id="btn-sidebar-logout" onclick="app.auth.logout()" title="Logout / Sign Out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          <span>Logout</span>
+        </button>
       </div>
     </aside>
 
@@ -349,7 +352,7 @@
             <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Open menu">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
             </button>
-            <img src="assets/logo.png" alt="Noor Hospital Logo" class="topbar-mobile-logo">
+            <img src="assets/logo.png" alt="Noor Hospital Logo" class="topbar-mobile-logo" role="button" tabindex="0" onclick="app.ui.switchTab('dashboard')" onkeydown="if(event.key==='Enter'||event.key===' ')app.ui.switchTab('dashboard')" title="Go to Overview Dashboard" style="cursor: pointer;">
             <div class="top-bar-title-wrap">
               <h1 class="panel-heading" id="main-panel-title">Overview Dashboard</h1>
             </div>
@@ -365,7 +368,7 @@
               <svg class="theme-icon-moon" style="display:none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
             </button>
             <!-- Logged-in User Display -->
-            <div class="user-profile-badge" id="user-profile-badge">
+            <div class="user-profile-badge" id="user-profile-badge" title="Authenticated User">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; color: var(--primary);"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span id="user-display-name">MUBASHAR</span>
             </div>
@@ -397,32 +400,32 @@
               <div class="dash-quick-actions">
                 <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('advance')" title="Add Muhasib Bill [Ctrl+M]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-                  <span>+ Muhasib Bill</span>
+                  <span>Muhasib Bill</span>
                   <kbd class="kbd-hint">Ctrl+M</kbd>
                 </button>
                 <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'advance')" title="Add Muhasib Advance Slip [Ctrl+Shift+M]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  <span>+ Muhasib Adv</span>
+                  <span>Muhasib Adv</span>
                   <kbd class="kbd-hint">Ctrl+⇧M</kbd>
                 </button>
                 <button type="button" class="dash-action-btn" onclick="app.ui.openBillModal('hospital')" title="Add Hospital Bill [Ctrl+H]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></svg>
-                  <span>+ Hospital Bill</span>
+                  <span>Hospital Bill</span>
                   <kbd class="kbd-hint">Ctrl+H</kbd>
                 </button>
                 <button type="button" class="dash-action-btn" onclick="app.ui.openModal('dialog-slip-add', 'hospital')" title="Add Hospital Advance Slip [Ctrl+Shift+H]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  <span>+ Hospital Adv</span>
+                  <span>Hospital Adv</span>
                   <kbd class="kbd-hint">Ctrl+⇧H</kbd>
                 </button>
                 <button type="button" class="dash-action-btn" onclick="if(window.app&&app.receipts)app.receipts.openAddModal()" title="Issue Staff Cash Advance Slip [Ctrl+S]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
-                  <span>+ Staff Receipt</span>
+                  <span>Staff Receipt</span>
                   <kbd class="kbd-hint">Ctrl+S</kbd>
                 </button>
                 <button type="button" id="btn-quick-cash-borrow" class="dash-action-btn" onclick="(window.CashBorrow||(window.app&&app.cashBorrow)||{}).openAddModal&&((window.CashBorrow||app.cashBorrow).openAddModal())" title="Record Cash Borrowing / Transfer (Hospital ⇄ Muhasib) [Ctrl+B / Alt+B]">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>
-                  <span>+ Cash Borrow</span>
+                  <span>Cash Borrow</span>
                   <kbd class="kbd-hint">Ctrl+B</kbd>
                 </button>
               </div>
@@ -777,7 +780,7 @@
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Remarks</th>
                   <th class="text-right">Running Balance</th>
                   <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
@@ -828,7 +831,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Source</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Remarks</th>
                   <th class="text-right">Running Balance</th>
                   <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
@@ -879,7 +882,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Receipt / Voucher No</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
@@ -930,7 +933,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Vendor / Person</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Status</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 190px; min-width: 190px;">Action</th>
@@ -981,7 +984,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Vendor / Person</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Status</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 190px; min-width: 190px;">Action</th>
@@ -1032,7 +1035,7 @@
                 <tr>
                   <th>Date Sent</th>
                   <th>Bill Type</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Reference No</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
@@ -1107,7 +1110,7 @@
                   <th style="width: 120px;">Bill Number</th>
                   <th style="min-width: 160px;">Vendor Name</th>
                   <th style="min-width: 140px;">Head</th>
-                  <th style="width: 120px;">Amount</th>
+                  <th class="text-right" style="width: 120px;">Amount</th>
                   <th style="min-width: 150px;">Remarks</th>
                   <th class="text-center" style="width: 130px;">Action</th>
                 </tr>
@@ -1163,7 +1166,7 @@
                   <th style="width: 120px;">Bill Number</th>
                   <th style="min-width: 160px;">Vendor Name</th>
                   <th style="min-width: 140px;">Head</th>
-                  <th style="width: 120px;">Amount</th>
+                  <th class="text-right" style="width: 120px;">Amount</th>
                   <th style="width: 110px; text-align: center;">Batch</th>
                   <th style="min-width: 150px;">Remarks</th>
                   <th class="text-center" style="width: 130px;">Action</th>
@@ -1236,7 +1239,7 @@
                   <th style="width: 120px;">Bill Number</th>
                   <th style="min-width: 160px;">Vendor Name</th>
                   <th style="min-width: 140px;">Head</th>
-                  <th style="width: 120px;">Amount</th>
+                  <th class="text-right" style="width: 120px;">Amount</th>
                   <th style="min-width: 150px;">Remarks</th>
                   <th class="text-center" style="width: 130px;">Action</th>
                 </tr>
@@ -1292,7 +1295,7 @@
                   <th style="width: 120px;">Bill Number</th>
                   <th style="min-width: 160px;">Vendor Name</th>
                   <th style="min-width: 140px;">Head</th>
-                  <th style="width: 120px;">Amount</th>
+                  <th class="text-right" style="width: 120px;">Amount</th>
                   <th style="width: 110px; text-align: center;">Batch</th>
                   <th style="min-width: 150px;">Remarks</th>
                   <th class="text-center" style="width: 130px;">Action</th>
@@ -1341,7 +1344,7 @@
                 <tr>
                   <th>Date</th>
                   <th>Type</th>
-                  <th>Amount</th>
+                  <th class="text-right">Amount</th>
                   <th>Remarks</th>
                   <th class="text-center" style="width: 140px; min-width: 140px;">Action</th>
                 </tr>
@@ -1361,7 +1364,7 @@
             <div>
               <div style="font-size: 1.15rem; font-weight: 800; color: #c084fc; display: flex; align-items: center; gap: 0.5rem;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
-                <span>Advance Receipts & Slips (Recpt Rec)</span>
+                <span>Advance Receipts &amp; Slips Register</span>
               </div>
               <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.2rem;">
                 Issue cash advance receipts to staff/vendors and seamlessly route to Muhasib or Hospital Float.
@@ -1412,7 +1415,7 @@
                   <th style="width:105px;">Date</th>
                   <th>Received By</th>
                   <th style="width:110px;">Subject</th>
-                  <th style="width:130px;">Amount</th>
+                  <th class="text-right" style="width:130px;">Amount</th>
                   <th style="width:170px;">Moved To</th>
                   <th class="text-center" style="width: 165px; min-width: 165px;">Action</th>
                 </tr>
@@ -1439,7 +1442,7 @@
             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
               <button type="button" class="btn btn-primary" onclick="(window.CashBorrow||(window.app&&app.cashBorrow)||{}).openAddModal&&((window.CashBorrow||app.cashBorrow).openAddModal())" style="background:#e11d48; border-color:#e11d48;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>+ New Borrow Entry</span>
+                <span>New Borrow Entry</span>
                 <kbd class="kbd-hint" style="font-size:0.6rem; padding:1px 4px; opacity:0.85;">Alt+B</kbd>
               </button>
               <button type="button" class="btn btn-secondary" onclick="app.cashBorrow.syncOnline(false)" title="Sync records with Supabase online">
@@ -1513,7 +1516,7 @@
                 <tr>
                   <th style="width:120px;">Date</th>
                   <th>Flow / Direction</th>
-                  <th style="width:140px;">Amount</th>
+                  <th class="text-right" style="width:140px;">Amount</th>
                   <th style="width:120px;">Status</th>
                   <th class="text-center" style="width: 145px; min-width: 145px;">Action</th>
                 </tr>
@@ -1547,7 +1550,7 @@
             <div class="upi-header-actions">
               <button type="button" class="btn btn-primary" onclick="app.upiReconciliation.openAddModal()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M12 5v14M5 12h14"/></svg>
-                <span>+ Add Daily Entry</span>
+                <span>Add Daily Entry</span>
               </button>
             </div>
           </div>

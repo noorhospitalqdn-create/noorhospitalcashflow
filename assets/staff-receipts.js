@@ -439,7 +439,7 @@
             '<td style="white-space:nowrap">' + esc(fmtDate(r.date)) + '</td>' +
             '<td><strong>' + esc(r.name || '—') + '</strong>' + (r.purpose ? '<br><span class="text-muted" style="font-size:.75rem">' + esc(String(r.purpose).slice(0, 60)) + '</span>' : '') + '</td>' +
             '<td><span class="font-mono" style="font-size:.72rem;font-weight:800">' + esc(r.subject || 'ADVANCE') + '</span></td>' +
-            '<td style="white-space:nowrap;font-weight:800">' + esc(fmtINR(r.amount)) + '</td>' +
+            '<td class="num-val text-right" style="white-space:nowrap;font-weight:800">' + esc(fmtINR(r.amount)) + '</td>' +
             '<td>' + movedBadge(r) + '</td>' +
             '<td><div class="rcpt-row-actions">' +
               '<button class="btn btn-secondary btn-sm" onclick="app.receipts.preview(\'' + esc(r.id) + '\')">View</button>' +

@@ -70,7 +70,7 @@ const app = {
     temporarySlipsPendingAmount: 0
   },
 
-  DEFAULT_HEADS: ["ADVIYAAT","AKHBARAT RASALAJAT","AMLA SHARES","DAK","DENTAL","DHULAI PARCHAT","ECG","FEES OPERATION","IKHRAJAT ELAJ MOALJA KARKUNAN SADR ANJUMAN AHMADIY","IKHRAJAT ELAJ MOALJA KARKUNAN WAQFE JADID","INSURANCE MOTERCAR","ISHTIHARAT TIBAT","KHAREED MURAMMAT SAMAN","LABROTARY","MEDICAL INSURANCE","MUTAFARIQ GAIR MAMOOLI","MUTAFARRIQ","OZAR JIRAHI","PANI BIJLI GAS","PHONE","RAFA GAREEB MUFLIS MAREEZ","SAFAR KHARCH DAFTER","SAFAR KHARCH DOCTOR","SAFAR KHATCH FEES CONSULTATION","STATIONARY","TAMIR MARMAT NOOR HOSPITAL","TAWAZOO","ULTRASOUND","WAPSI QARZA MARQAZI FUND","WARDI AMLA","X-RAY"],
+  DEFAULT_HEADS: ["ADVIYAAT","AKHBARAT RASALAJAT","AMLA SHARES","DAK","DENTAL","DHULAI PARCHAT","ECG","FEES OPERATION","IKHRAJAT ELAJ MOALJA KARKUNAN SADR ANJUMAN AHMADIY","IKHRAJAT ELAJ MOALJA KARKUNAN WAQFE JADID","INSURANCE MOTORCAR","ISHTIHARAT TIBAT","KHAREED MURAMMAT SAMAN","LABROTARY","MEDICAL INSURANCE","MUTAFARIQ GAIR MAMOOLI","MUTAFARRIQ","OZAR JIRAHI","PANI BIJLI GAS","PHONE","RAFA GAREEB MUFLIS MAREEZ","SAFAR KHARCH DAFTER","SAFAR KHARCH DOCTOR","SAFAR KHATCH FEES CONSULTATION","STATIONARY","TAMIR MARMAT NOOR HOSPITAL","TAWAZOO","ULTRASOUND","WAPSI QARZA MARQAZI FUND","WARDI AMLA","X-RAY"],
 
   // Get/generate unique device ID
   getDeviceId() {
@@ -4558,9 +4558,9 @@ const app = {
         return `
           <tr>
             <td class="num-val">${app.ui.formatDate(entry.date)}</td>
-            <td class="num-val text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
+            <td class="num-val text-right text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
             <td>${app.ui.escapeHTML(entry.remarks||'-')}</td>
-            <td class="num-val text-bold">${runTxt}</td>
+            <td class="num-val text-right text-bold">${runTxt}</td>
             <td class="text-center">
               <div class="flex gap-2 justify-center">
                 <button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('advance_cash', ${entry.id})">Edit</button>
@@ -4599,9 +4599,9 @@ const app = {
           <tr>
             <td class="num-val">${app.ui.formatDate(entry.date)}</td>
             <td><span class="source-tag">${app.ui.escapeHTML(entry.source)}</span></td>
-            <td class="num-val text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
+            <td class="num-val text-right text-bold text-success">+${app.ui.formatCurrency(entry.amount)}</td>
             <td>${app.ui.escapeHTML(entry.remarks || '-')}</td>
-            <td class="num-val text-bold">${runTxt}</td>
+            <td class="num-val text-right text-bold">${runTxt}</td>
             <td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_cash', ${entry.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_cash', ${entry.id})">Delete</button></div></td>
           </tr>
         `;
@@ -4624,7 +4624,7 @@ const app = {
           <tr>
             <td class="num-val">${app.ui.escapeHTML(deposit.date)}</td>
             <td class="num-val text-bold">${app.ui.escapeHTML(deposit.receiptNumber)}</td>
-            <td class="num-val text-bold text-error">-${app.ui.formatCurrency(deposit.amount)}</td>
+            <td class="num-val text-right text-bold text-error">-${app.ui.formatCurrency(deposit.amount)}</td>
             <td>${app.ui.escapeHTML(deposit.remarks || '-')}</td>
             <td class="text-center"><div class="flex gap-2 justify-center"><button class="btn btn-secondary btn-sm btn-edit-action" onclick="app.ui.initiateEdit('hospital_deposits', ${deposit.id})">Edit</button><button class="btn btn-secondary btn-sm text-error" onclick="app.db.promptDelete('hospital_deposits', ${deposit.id})">Delete</button></div></td>
           </tr>
@@ -4681,7 +4681,7 @@ const app = {
           <tr>
             <td class="num-val">${app.ui.formatDate(slip.date)}</td>
             <td class="text-bold">${slip.vendor}</td>
-            <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
+            <td class="num-val text-right text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
             <td>${slip.remarks || '-'}</td>
             <td class="text-center">${actionBtn}</td>
@@ -4739,7 +4739,7 @@ const app = {
           <tr>
             <td class="num-val">${app.ui.formatDate(slip.date)}</td>
             <td class="text-bold">${slip.vendor}</td>
-            <td class="num-val text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
+            <td class="num-val text-right text-bold text-error">-${app.ui.formatCurrency(slip.amount)}</td>
             <td><span class="status-pill ${statusClass}">${slip.status}</span></td>
             <td>${slip.remarks || '-'}</td>
             <td class="text-center">${actionBtn}</td>
@@ -4778,7 +4778,7 @@ const app = {
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
-          <td class="num-val text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
+          <td class="num-val text-right text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Clear against Muhasib Advance" onclick="app.ui.clearAdvanceBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
@@ -5324,7 +5324,7 @@ const app = {
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
-          <td class="num-val text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
+          <td class="num-val text-right text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
           <td class="text-center">${batchHtml}</td>
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Muhasib Bills" onclick="app.ui.undoAdvanceClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
@@ -5362,7 +5362,7 @@ const app = {
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
-          <td class="num-val text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
+          <td class="num-val text-right text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Move to Hospital Bill Clear" onclick="app.ui.clearHospitalBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
@@ -5541,7 +5541,7 @@ const app = {
           <td class="num-val text-bold font-mono">${app.ui.escapeHTML(bill.billNumber)}<span class="text-muted text-xs block font-normal" style="display:block;font-size:0.72rem;font-weight:normal;margin-top:2px;">${note}</span></td>
           <td style="font-weight:600;">${app.ui.escapeHTML(bill.vendor)}</td>
           <td><span class="source-tag" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;white-space:normal">${headTxt}</span></td>
-          <td class="num-val text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
+          <td class="num-val text-right text-bold text-error" style="font-size:0.92rem;">-${app.ui.formatCurrency(bill.amount)}</td>
           <td class="text-center">${batchHtml}</td>
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Hospital Bills" onclick="app.ui.undoHospitalClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
@@ -5623,7 +5623,7 @@ const app = {
           <tr>
             <td>${app.ui.formatDate(acc.dateSent)}</td>
             <td>${typeBadge}</td>
-            <td class="font-bold">${app.ui.formatCurrency(acc.amount)}</td>
+            <td class="num-val text-right font-bold">${app.ui.formatCurrency(acc.amount)}</td>
             <td>${app.ui.escapeHTML(acc.referenceNo || '-')}</td>
             <td>${app.ui.escapeHTML(acc.remarks || '-')}</td>
             <td class="text-center">
@@ -5658,7 +5658,7 @@ const app = {
           <tr>
             <td class="num-val">${app.ui.formatDate(trans.date)}</td>
             <td class="text-bold">${typeLabel}</td>
-            <td class="num-val text-bold text-success">${app.ui.formatCurrency(trans.amount)}</td>
+            <td class="num-val text-right text-bold text-success">${app.ui.formatCurrency(trans.amount)}</td>
             <td>${trans.remarks}</td>
             <td class="text-center">
               <div class="flex gap-2 justify-center">
