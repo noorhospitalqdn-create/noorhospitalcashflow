@@ -102,6 +102,19 @@
     .ind-vendor-select.id-only:hover {
       color: #111827;
     }
+    /* Head row dropdown: compact font so long head names fit */
+    .head-row-select {
+      font-size: 0.74rem;
+      letter-spacing: -0.01em;
+      padding-left: 4px;
+      padding-right: 12px;
+    }
+    .head-row-select option {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #111827;
+      background: #ffffff;
+    }
     /* Vendor ID badge shown next to IND/Vendor when a system vendor is chosen */
     .vid-badge {
       display: none;
@@ -265,9 +278,9 @@
         <thead>
           <tr>
             <th style="width: 13%;">IND/Vendor</th>
-            <th style="width: 32%;">Name</th>
-            <th style="width: 14%;">Head</th>
-            <th style="width: 16%;">Bill Amount</th>
+            <th style="width: 28%;">Name</th>
+            <th style="width: 19%;">Head</th>
+            <th style="width: 15%;">Bill Amount</th>
             <th style="width: 12%;">Advance</th>
             <th style="width: 13%;">Payment</th>
           </tr>
