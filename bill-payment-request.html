@@ -32,19 +32,22 @@
       width: 100%;
       border-collapse: collapse;
       border: 1.5px solid #222222;
+      /* Fixed layout: the column percentages below are honoured exactly, so
+         wide Head/Name columns never get squeezed by long values. */
+      table-layout: fixed;
     }
     .payment-table th {
       background-color: #d4d4d4;
       color: #111111;
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       border: 1px solid #333333;
-      padding: 6px 8px;
+      padding: 5px 4px;
       text-align: center;
     }
     .payment-table th:first-child {
       text-align: left;
-      padding-left: 10px;
+      padding-left: 8px;
     }
     .payment-table td {
       border: 1px solid #444444;
@@ -52,16 +55,18 @@
       height: 32px;
       vertical-align: middle;
       position: relative;
+      overflow: hidden;
     }
     .cell-input, .cell-select {
       width: 100%;
       height: 100%;
       border: none;
-      padding: 4px 8px;
-      font-size: 0.85rem;
+      padding: 3px 5px;
+      font-size: 0.8rem;
       background: transparent;
       color: #111827;
       outline: none;
+      text-overflow: ellipsis;
     }
     .cell-input:focus, .cell-select:focus {
       background-color: #f0f9ff;
@@ -104,12 +109,13 @@
     .ind-vendor-select.id-only:hover {
       color: #111827;
     }
-    /* Head row dropdown: compact font so long head names fit */
+    /* Head row dropdown: compact font so long head names fit.
+       JS auto-fits the font size to the cell width (see fitCellText). */
     .head-row-select {
-      font-size: 0.74rem;
+      font-size: 0.72rem;
       letter-spacing: -0.01em;
-      padding-left: 4px;
-      padding-right: 12px;
+      padding-left: 3px;
+      padding-right: 2px;
     }
     .head-row-select option {
       font-size: 0.8rem;
@@ -315,12 +321,12 @@
       <table class="payment-table" id="paymentTable">
         <thead>
           <tr>
-            <th style="width: 13%;">IND/Vendor</th>
-            <th style="width: 28%;">Name</th>
-            <th style="width: 19%;">Head</th>
-            <th style="width: 15%;">Bill Amount</th>
-            <th style="width: 12%;">Advance</th>
-            <th style="width: 13%;">Payment</th>
+            <th style="width: 10%;">IND/Vendor</th>
+            <th style="width: 33%;">Name</th>
+            <th style="width: 25%;">Head</th>
+            <th style="width: 12%;">Bill Amount</th>
+            <th style="width: 10%;">Advance</th>
+            <th style="width: 10%;">Payment</th>
           </tr>
         </thead>
         <tbody id="paymentTableBody">
@@ -498,6 +504,66 @@
       });
     }
 
+    /* ===== Auto-fit long Head / Vendor text =====
+       Column widths are fixed (table-layout: fixed), so instead of growing the
+       row we shrink the font just enough for the FULL text to stay visible. */
+    let _measureEl = null;
+    function measureEl() {
+      if (!_measureEl) {
+        _measureEl = document.createElement('span');
+        _measureEl.setAttribute('aria-hidden', 'true');
+        _measureEl.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;pointer-events:none;';
+        document.body.appendChild(_measureEl);
+      }
+      return _measureEl;
+    }
+
+    function fitCellText(el, maxPx, minPx) {
+      if (!el || !el.clientWidth) return;
+      const text = String(el.value || '');
+      if (!text) { el.style.fontSize = ''; return; }
+      const isInput = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+      const cs = getComputedStyle(el);
+      const m = measureEl();
+      m.style.fontFamily = cs.fontFamily;
+      m.style.fontWeight = cs.fontWeight;
+      m.style.fontStyle = cs.fontStyle;
+      m.style.letterSpacing = cs.letterSpacing;
+      m.textContent = text;
+      // Leave room for the control's own padding/border
+      const avail = el.clientWidth - (isInput ? 16 : 10);
+      let lo = minPx, hi = maxPx, best = minPx;
+      for (let i = 0; i < 12; i++) {
+        const mid = (lo + hi) / 2;
+        m.style.fontSize = mid + 'px';
+        if (m.offsetWidth <= avail) { best = mid; lo = mid; } else { hi = mid; }
+      }
+      let size = best;
+      el.style.fontSize = size.toFixed(2) + 'px';
+      // Final safety for text inputs: shrink until the value truly stops clipping
+      if (isInput) {
+        let guard = 0;
+        while (el.scrollWidth > el.clientWidth && size > 6.5 && guard++ < 40) {
+          size -= 0.25;
+          el.style.fontSize = size.toFixed(2) + 'px';
+        }
+      }
+    }
+
+    function fitRowText(tr) {
+      if (!tr) return;
+      const head = tr.querySelector('.head-row-select');
+      if (head) fitCellText(head, 11.5, 6.8);
+      const nm = tr.querySelector('.name-select');
+      if (nm && nm.style.display !== 'none') fitCellText(nm, 12.5, 7.2);
+      const inp = tr.querySelector('.name-input');
+      if (inp && inp.style.display !== 'none') fitCellText(inp, 12.5, 7.2);
+    }
+
+    function fitAllRows() {
+      allRows().forEach(fitRowText);
+    }
+
     /* Only the LAST page must not force a blank sheet after it */
     function markLastPage() {
       const pages = document.querySelectorAll('.form-page');
@@ -565,6 +631,7 @@
       if (tb.children.length >= ROWS_PER_PAGE) tb = addPage();
       const tr = createRow(tb.children.length + 1);
       tb.appendChild(tr);
+      requestAnimationFrame(() => fitRowText(tr));
       return tr;
     }
 
@@ -582,6 +649,7 @@
       document.getElementById('addPageBtn').addEventListener('click', () => {
         const tb = addPage();
         for (let i = tb.children.length; i < ROWS_PER_PAGE; i++) tb.appendChild(createRow(i + 1));
+        requestAnimationFrame(fitAllRows);
       });
     }
 
@@ -689,6 +757,7 @@
         } else {
           headRowSelect.classList.remove('selected-val');
         }
+        fitCellText(headRowSelect, 11.5, 6.8);
       });
 
       // ===== Name cell: system vendors dropdown (click to open) with manual fallback =====
@@ -698,7 +767,8 @@
         nameSelect.appendChild(blank);
         SYSTEM_VENDORS.forEach(v => {
           const opt = document.createElement('option');
-          opt.value = v.id ? `${v.name} (ID: ${v.id})` : (v.name || '');
+          // Name column shows ONLY the vendor name (ID is shown as the badge)
+          opt.value = v.name || '';
           opt.textContent = opt.value;
           nameSelect.appendChild(opt);
         });
@@ -749,6 +819,7 @@
         if (nameSelect.value) nameSelect.classList.add('selected-val');
         else nameSelect.classList.remove('selected-val');
         syncIndCell();
+        fitRowText(tr);
       });
 
       selectEl.addEventListener('change', () => {
@@ -775,16 +846,17 @@
         updateSummaryTotals();
       }
 
-      billInput.addEventListener('input', updateRowCalculation);
-      advInput.addEventListener('input', updateRowCalculation);
-      payInput.addEventListener('input', updateSummaryTotals);
+      billInput.addEventListener('input', () => { updateRowCalculation(); fitCellText(billInput, 12.5, 7.5); });
+      advInput.addEventListener('input', () => { updateRowCalculation(); fitCellText(advInput, 12.5, 7.5); });
+      payInput.addEventListener('input', () => { updateSummaryTotals(); fitCellText(payInput, 12.5, 7.5); });
 
       // Manual-typed name still auto-fills ID + IND/Vendor if it matches a system vendor
+      nameInput.addEventListener('input', () => fitCellText(nameInput, 12.5, 7.2));
       nameInput.addEventListener('change', () => {
         const v = matchSystemVendor(nameInput.value);
         const vidBadge = tr.querySelector('.vid-badge');
         if (v && (!selectEl.value || selectEl.value === 'Vendor')) {
-          nameInput.value = v.id ? `${v.name} (ID: ${v.id})` : v.name;
+          nameInput.value = v.name;
           selectEl.value = 'Vendor';
           selectEl.classList.add('selected-val');
           selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
@@ -794,6 +866,7 @@
           }
         }
         syncIndCell();
+        fitRowText(tr);
       });
 
       return tr;
@@ -853,12 +926,15 @@
       for (let i = 1; i <= rowCount; i++) {
         tbody.appendChild(createRow(i));
       }
+      requestAnimationFrame(fitAllRows);
     }
 
     document.getElementById('addRowBtn').addEventListener('click', () => {
       let tb = activeTbody();
       if (tb.children.length >= ROWS_PER_PAGE) tb = addPage();
-      tb.appendChild(createRow(tb.children.length + 1));
+      const tr = createRow(tb.children.length + 1);
+      tb.appendChild(tr);
+      requestAnimationFrame(() => fitRowText(tr));
     });
 
     document.getElementById('clearBtn').addEventListener('click', () => {
@@ -886,7 +962,14 @@
         el.addEventListener('change', syncHeaderMirrors);
       }
     });
-    window.addEventListener('beforeprint', syncHeaderMirrors);
+    window.addEventListener('beforeprint', () => { syncHeaderMirrors(); fitAllRows(); });
+    window.addEventListener('resize', () => requestAnimationFrame(fitAllRows));
+    window.addEventListener('load', () => {
+      requestAnimationFrame(fitAllRows);
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => fitAllRows()).catch(() => {});
+      }
+    });
 
     initTable(INITIAL_ROWS);
 
@@ -906,8 +989,9 @@
         if (vId) selEl.classList.add('id-only');
         else selEl.classList.remove('id-only');
       }
-      setNameCellValue(tr, vId ? `${vName} (ID: ${vId})` : vName);
+      setNameCellValue(tr, vName);
       updateSummaryTotals();
+      fitRowText(tr);
     }
 
     (function prefillVendorFromSystem() {
@@ -929,7 +1013,7 @@
         <span class="text-sm font-semibold text-gray-800 whitespace-nowrap">Add System Vendor:</span>
         <select id="sysVendorSelect" class="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 bg-white min-w-[220px] flex-1 outline-none focus:border-emerald-500">
           <option value="">-- Select vendor --</option>
-          ${systemVendors.map((v, i) => `<option value="${i}">${(v.name || '')}${v.id ? ' (' + v.id + ')' : ''}</option>`).join('')}
+          ${systemVendors.map((v, i) => `<option value="${i}">${(v.name || '')}</option>`).join('')}
         </select>
         <button id="sysVendorAddBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm transition">+ Add to Table</button>
         ${systemVendors.length ? '' : '<span class="text-xs text-gray-500 italic">Open this form from the Cashflow System (Vendors → Bill Payment Form) to load the vendor list.</span>'}
@@ -980,7 +1064,7 @@
         }
 
         // Name column
-        if (vendor) setNameCellValue(targetRow, vId ? `${vendor} (ID: ${vId})` : vendor);
+        if (vendor) setNameCellValue(targetRow, vendor);
 
         // Head column (only if it matches a system head)
         const head = (r.head || '').trim();

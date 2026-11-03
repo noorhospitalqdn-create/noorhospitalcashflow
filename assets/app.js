@@ -4148,8 +4148,7 @@ const app = {
     _convertSplitVendorOptions(selected = '') {
       const sorted = app.vendors.getUniqueVendors().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       return '<option value="">-- Vendor --</option>' + sorted.map(v => {
-        const code = String(v.vendorCode || v.code || '').trim();
-        const label = code ? `${app.ui.escapeHTML(v.name)} (${app.ui.escapeHTML(code)})` : app.ui.escapeHTML(v.name);
+        const label = app.ui.escapeHTML(v.name);
         const val = String(v.name || '').replace(/"/g, '&quot;');
         return `<option value="${val}"${v.name === selected ? ' selected' : ''}>${label}</option>`;
       }).join('');
@@ -6585,11 +6584,8 @@ const app = {
 
     populateVendorDropdowns(selectedVendor = '') {
       const sorted = app.vendors.getUniqueVendors().sort((a,b) => (a.name || '').localeCompare(b.name || ''));
-      const optLabel = v => {
-        const code = String(v.vendorCode || v.code || '').trim();
-        const nm = app.ui.escapeHTML(v.name || '');
-        return code ? `${nm} (${app.ui.escapeHTML(code)})` : nm;
-      };
+      // Show ONLY the vendor name in dropdowns — vendor ID/code is not glued to it
+      const optLabel = v => app.ui.escapeHTML(v.name || '');
 
       // 1. Bill Vendor Select
       const billSel = document.getElementById('bill-vendor');

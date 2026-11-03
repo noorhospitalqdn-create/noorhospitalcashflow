@@ -494,9 +494,8 @@
       .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
 
     function optLabel(v) {
-      var code = String(v.vendorCode || v.code || '').trim();
-      var nm = esc(v.name || '');
-      return code ? nm + ' (' + esc(code) + ')' : nm;
+      // Show only the vendor name (ID/code stays available in the vendor directory)
+      return esc(v.name || '');
     }
 
     var sel = $('receipt-name');
