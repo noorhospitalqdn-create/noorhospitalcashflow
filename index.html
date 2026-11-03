@@ -1094,6 +1094,9 @@
             <span class="batch-total-badge" id="selected-advance-total"></span>
             <input type="text" id="advance-batch-name-inline" class="form-input form-input-sm batch-name-input" placeholder="Batch name e.g. Batch-12 / 12-Sep" list="advance-batch-list" style="max-width:220px">
             <datalist id="advance-batch-list"></datalist>
+            <button class="btn btn-secondary btn-sm" onclick="app.vendors.openBillPaymentFormFor('advance')" title="Open Bill Payment Request Form with the selected bills pre-filled">
+              <span>Bill Payment Form</span>
+            </button>
             <button class="btn btn-primary btn-sm" id="btn-batch-clear" onclick="app.ui.openBatchClearModal()" disabled style="background:var(--tertiary);border-color:var(--tertiary)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M20 6 9 17l-5-5"/></svg>
               <span>Move Selected to Adv Clear</span>
@@ -1223,6 +1226,9 @@
             <span class="batch-total-badge" id="selected-hospital-total"></span>
             <input type="text" id="hospital-batch-name-inline" class="form-input form-input-sm batch-name-input" placeholder="Batch name e.g. HBatch-05 / 12-Sep" list="hospital-batch-list" style="max-width:220px">
             <datalist id="hospital-batch-list"></datalist>
+            <button class="btn btn-secondary btn-sm" onclick="app.vendors.openBillPaymentFormFor('hospital')" title="Open Bill Payment Request Form with the selected bills pre-filled">
+              <span>Bill Payment Form</span>
+            </button>
             <button class="btn btn-primary btn-sm" id="btn-hospital-batch-clear" onclick="app.ui.openHospitalBatchClearModal()" disabled style="background:var(--success);border-color:var(--success)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M20 6 9 17l-5-5"/></svg>
               <span>Move Selected to Bill Sayer</span>

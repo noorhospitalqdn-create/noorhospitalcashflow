@@ -6813,6 +6813,34 @@ const app = {
       window.open('bill-payment-request.html', '_blank');
     },
 
+    // Opens the Bill Payment Request Form pre-filled with the bills currently
+    // selected (checkboxes) in a bills panel. type: 'advance' | 'hospital'
+    openBillPaymentFormFor(type) {
+      const sel = type === 'hospital' ? app.ui.getSelectedHospitalBills() : app.ui.getSelectedAdvanceBills();
+      if (!sel || !sel.length) {
+        app.ui.showToast('Please select at least one bill first (tick the checkboxes).', 'warning');
+        return;
+      }
+      try {
+        // Reuse the same vendor/heads payload as the standalone form
+        const vendors = app.vendors.getUniqueVendors().map(v => ({
+          name: (v.name || '').trim(),
+          id: String(v.vendorCode || v.code || '').trim()
+        })).filter(v => v.name);
+        localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors }));
+        const heads = (app.heads.getUniqueHeads() || []).map(h => (h.name || '').trim()).filter(Boolean);
+        localStorage.setItem('noor_payment_form_heads', JSON.stringify(heads));
+        const rows = sel.map(b => ({
+          vendor: (b.vendor || '').trim(),
+          vendorId: (() => { try { return (app.vendors.getVendorCodeByName(b.vendor) || '').trim(); } catch (_) { return ''; } })(),
+          head: (b.head || b.category || '').trim(),
+          billAmount: Number(b.amount) || 0
+        }));
+        localStorage.setItem('noor_payment_form_bills', JSON.stringify({ updatedAt: Date.now(), rows }));
+      } catch (_) {}
+      window.open('bill-payment-request.html', '_blank');
+    },
+
     resetFilters() {
       const s = document.getElementById('search-vendors');
       if (s) s.value = '';

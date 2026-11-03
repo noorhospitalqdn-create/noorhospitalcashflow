@@ -76,11 +76,11 @@
       color: #111827;
       font-weight: 500;
     }
-    /* Name vendor dropdown: dark, bold, non-italic */
+    /* Name vendor dropdown: light/italic when empty, dark/bold when a vendor is selected */
     .name-select {
-      font-style: normal;
-      font-weight: 600;
-      color: #111827;
+      font-style: italic;
+      font-weight: 500;
+      color: #9ca3af;
     }
     .name-select option {
       font-style: normal;
@@ -89,7 +89,9 @@
       background: #ffffff;
     }
     .name-select.selected-val {
+      font-style: normal;
       font-weight: 700;
+      color: #111827;
     }
     /* When vendor ID badge is shown, hide the select's own text ("Vendor") so only the ID is visible */
     .ind-vendor-select.id-only {
@@ -509,6 +511,8 @@
         } else {
           if (vidBadge) vidBadge.classList.remove('show');
         }
+        if (nameSelect.value) nameSelect.classList.add('selected-val');
+        else nameSelect.classList.remove('selected-val');
         syncIndCell();
       });
 
@@ -597,6 +601,8 @@
           sel.insertBefore(opt, sel.querySelector('option[value="__manual__"]'));
         }
         sel.value = text;
+        if (text) sel.classList.add('selected-val');
+        else sel.classList.remove('selected-val');
       } else if (inp) {
         inp.value = text;
       }
@@ -702,6 +708,70 @@
         fillRowAsVendor(targetRow, name, id);
         sel.value = '';
       });
+    })();
+
+    // ===== Auto-fill rows from Cashflow System selected bills =====
+    // Data source: localStorage 'noor_payment_form_bills' → { rows: [{vendor, vendorId, head, billAmount}] }
+    (function prefillRowsFromSystemBills() {
+      let rows = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('noor_payment_form_bills') || 'null');
+        if (stored && Array.isArray(stored.rows)) rows = stored.rows;
+      } catch (_) {}
+      if (!rows.length) return;
+
+      rows.forEach(r => {
+        // Find first empty row, else append a new one
+        let targetRow = null;
+        tbody.querySelectorAll('tr').forEach(tr => {
+          const sel2 = tr.querySelector('.ind-vendor-select');
+          if (!targetRow && sel2 && !sel2.value && !getNameCellValue(tr)) targetRow = tr;
+        });
+        if (!targetRow) {
+          targetRow = createRow(tbody.children.length + 1);
+          tbody.appendChild(targetRow);
+        }
+
+        const vendor = (r.vendor || '').trim();
+        const vId = (r.vendorId || '').trim();
+        const isSystemVendor = SYSTEM_VENDORS.some(x => (x.name || '').trim().toLowerCase() === vendor.toLowerCase());
+
+        // IND/Vendor column
+        const indSel = targetRow.querySelector('.ind-vendor-select');
+        if (indSel) {
+          indSel.value = (vendor && (vId || isSystemVendor)) ? 'Vendor' : (vendor ? 'Vendor' : 'IND');
+          indSel.classList.add('selected-val');
+          indSel.classList.remove('italic', 'font-normal', 'text-gray-700');
+          if (vId) setVendorIdBadge(targetRow, 'ID: ' + vId);
+          if (indSel.value === 'Vendor' && vId) indSel.classList.add('id-only');
+        }
+
+        // Name column
+        if (vendor) setNameCellValue(targetRow, vId ? `${vendor} (ID: ${vId})` : vendor);
+
+        // Head column (only if it matches a system head)
+        const head = (r.head || '').trim();
+        if (head) {
+          const hSel = targetRow.querySelector('.head-row-select');
+          if (hSel) {
+            const match = SYSTEM_HEADS.find(h => h.trim().toLowerCase() === head.toLowerCase());
+            if (match) {
+              hSel.value = match;
+              hSel.classList.add('selected-val');
+            }
+          }
+        }
+
+        // Bill Amount column (triggers payment auto-calc)
+        const billInput = targetRow.querySelector('.bill-input');
+        if (billInput && r.billAmount !== undefined && r.billAmount !== null && r.billAmount !== '') {
+          billInput.value = r.billAmount;
+          billInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      });
+
+      // Clear the payload so a plain refresh doesn't re-insert the same bills
+      try { localStorage.removeItem('noor_payment_form_bills'); } catch (_) {}
     })();
   </script>
 </body>
