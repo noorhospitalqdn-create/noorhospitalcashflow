@@ -6764,6 +6764,10 @@ const app = {
             </td>
             <td class="text-center">
               <div class="table-actions" style="justify-content:center;gap:6px">
+                <button type="button" class="btn btn-secondary btn-xs" title="Open Bill Payment Request Form with this vendor pre-filled" onclick="app.vendors.openPaymentForm('${v.id}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:0.75rem;font-weight:600;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                  <span>Form</span>
+                </button>
                 <button type="button" class="btn btn-secondary btn-xs" title="View Full Vendor Statement" onclick="app.vendors.viewVendorReport('${String(v.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;font-size:0.75rem;font-weight:600;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
                   <span>Statement</span>
@@ -6793,6 +6797,19 @@ const app = {
         vSel.value = vendorName;
         vSel.dispatchEvent(new Event('change'));
       }
+    },
+
+    // Opens the Bill Payment Request Form with this vendor pre-filled
+    openPaymentForm(vendorId) {
+      const v = (app.state.vendors || []).find(x => String(x.id) === String(vendorId));
+      if (!v) {
+        if (app.ui && app.ui.showToast) app.ui.showToast('Vendor not found', 'error');
+        return;
+      }
+      const vName = (v.name || '').trim();
+      const vCode = String(v.vendorCode || v.code || '').trim();
+      const url = `bill-payment-request.html?vendor=${encodeURIComponent(vName)}${vCode ? `&id=${encodeURIComponent(vCode)}` : ''}`;
+      window.open(url, '_blank');
     },
 
     resetFilters() {

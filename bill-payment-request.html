@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bill Payment Request Form - Noor Hospital</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
+      background-color: #f3f4f6;
+      color: #111827;
+    }
+    .form-page {
+      max-width: 850px;
+      margin: 20px auto;
+      background: #ffffff;
+      border: 2px solid #222222;
+      padding: 20px 22px 16px 22px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    .section-bar {
+      background-color: #525252;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 5px 10px;
+      letter-spacing: 0.01em;
+    }
+    .payment-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1.5px solid #222222;
+    }
+    .payment-table th {
+      background-color: #d4d4d4;
+      color: #111111;
+      font-weight: 700;
+      font-size: 0.85rem;
+      border: 1px solid #333333;
+      padding: 6px 8px;
+      text-align: center;
+    }
+    .payment-table th:first-child {
+      text-align: left;
+      padding-left: 10px;
+    }
+    .payment-table td {
+      border: 1px solid #444444;
+      padding: 0;
+      height: 32px;
+      vertical-align: middle;
+    }
+    .cell-input, .cell-select {
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      background: transparent;
+      color: #111827;
+      outline: none;
+    }
+    .cell-input:focus, .cell-select:focus {
+      background-color: #f0f9ff;
+    }
+    .cell-select {
+      font-style: italic;
+      color: #374151;
+      cursor: pointer;
+    }
+    .cell-select.selected-val {
+      font-style: normal;
+      color: #111827;
+      font-weight: 500;
+    }
+    .top-field-label {
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: #111827;
+      border-bottom: 1.5px solid #222222;
+      padding-bottom: 3px;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .top-field-input, .top-field-select {
+      width: 100%;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #111827;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      padding: 2px 4px;
+      outline: none;
+    }
+    .top-field-input:hover, .top-field-select:hover,
+    .top-field-input:focus, .top-field-select:focus {
+      border-color: #9ca3af;
+      background-color: #f9fafb;
+    }
+    @media print {
+      body {
+        background: #ffffff;
+        margin: 0;
+        padding: 0;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .form-page {
+        margin: 0;
+        box-shadow: none;
+        max-width: 100%;
+        width: 100%;
+        border: 2px solid #000000;
+      }
+      .section-bar {
+        background-color: #525252 !important;
+        color: #ffffff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .payment-table th {
+        background-color: #d4d4d4 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body class="p-2 sm:p-4">
+
+  <!-- Interactive Utility Bar (Hidden when printing) -->
+  <div class="no-print max-w-[850px] mx-auto mb-3 bg-white border border-gray-300 rounded-lg px-4 py-2.5 shadow-sm flex flex-wrap items-center justify-between gap-2">
+    <div class="flex items-center gap-2">
+      <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+      <span class="text-sm font-semibold text-gray-800">Bill Payment Request Form (English Only)</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="addRowBtn" type="button" class="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-800 rounded border border-gray-300 transition">
+        + Add Row
+      </button>
+      <button id="clearBtn" type="button" class="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-800 rounded border border-gray-300 transition">
+        Reset Table
+      </button>
+      <button id="printBtn" type="button" class="px-3.5 py-1.5 text-xs font-semibold bg-neutral-800 hover:bg-neutral-900 text-white rounded shadow-sm transition">
+        Print / Save PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Printable Form Container -->
+  <div class="form-page">
+    
+    <!-- Form Title & Request Number -->
+    <div class="flex flex-wrap items-baseline justify-between gap-4 mb-5">
+      <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
+        Bill Payment Request Form
+      </h1>
+      <div class="flex items-baseline gap-6 text-sm sm:text-base font-bold text-neutral-900">
+        <span>Req No:</span>
+        <input
+          id="reqNoInput"
+          type="text"
+          value=""
+          aria-label="Request Number"
+          class="font-bold text-neutral-900 bg-transparent border-b border-transparent focus:border-neutral-500 outline-none w-40 text-right sm:text-left"
+        />
+      </div>
+    </div>
+
+    <!-- Top Metadata Row: Dept Name, Dept Budget, Head, Mode -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-3">
+      <!-- Dept Name -->
+      <div>
+        <label for="deptName" class="top-field-label">Dept Name</label>
+        <input
+          id="deptName"
+          type="text"
+          value="Noor Hospital"
+          class="top-field-input"
+        />
+      </div>
+
+      <!-- Dept Budget -->
+      <div>
+        <label for="deptBudget" class="top-field-label">Dept Budget</label>
+        <input
+          id="deptBudget"
+          type="text"
+          value="73"
+          class="top-field-input"
+        />
+      </div>
+
+      <!-- Head -->
+      <div>
+        <label for="headSelect" class="top-field-label">Head</label>
+        <select id="headSelect" class="top-field-select italic font-normal text-gray-700">
+          <option value="">Drop Down* Not Mandatory</option>
+          <option value="Medical Supplies">Medical Supplies</option>
+          <option value="Equipment & Maintenance">Equipment & Maintenance</option>
+          <option value="Utilities & Operations">Utilities & Operations</option>
+          <option value="General Administration">General Administration</option>
+          <option value="Miscellaneous">Miscellaneous</option>
+        </select>
+      </div>
+
+      <!-- Mode -->
+      <div>
+        <label for="modeSelect" class="top-field-label">Mode</label>
+        <select id="modeSelect" class="top-field-select font-semibold text-neutral-900 cursor-pointer">
+          <option value="Cash">Cash</option>
+          <option value="Online">Online</option>
+          <option value="Wapasi Peshgi">Wapasi Peshgi</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Section: Payment Information -->
+    <div class="section-bar mb-2">
+      Payment Information
+    </div>
+
+    <!-- Payment Information Table -->
+    <div class="overflow-x-auto mb-3">
+      <table class="payment-table" id="paymentTable">
+        <thead>
+          <tr>
+            <th style="width: 22%;">IND/Vendor</th>
+            <th style="width: 30%;">Name</th>
+            <th style="width: 18%;">Bill Amount</th>
+            <th style="width: 15%;">Advance</th>
+            <th style="width: 15%;">Payment</th>
+          </tr>
+        </thead>
+        <tbody id="paymentTableBody">
+          <!-- Populated dynamically with 10 rows matching original form -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Section: Budget Position -->
+    <div class="section-bar mb-1.5">
+      Budget Position
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1 py-1.5 mb-3 text-xs sm:text-sm font-bold text-neutral-900">
+      <div class="flex items-center gap-1.5">
+        <label for="posBudget" class="whitespace-nowrap">Budget:</label>
+        <input id="posBudget" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+      </div>
+      <div class="flex items-center gap-1.5">
+        <label for="posImprest" class="whitespace-nowrap">Imprest:</label>
+        <input id="posImprest" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+      </div>
+      <div class="flex items-center gap-1.5">
+        <label for="posAdvance" class="whitespace-nowrap">Advance:</label>
+        <input id="posAdvance" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+      </div>
+      <div class="flex items-center gap-1.5">
+        <label for="posBills" class="whitespace-nowrap">Bills:</label>
+        <input id="posBills" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+      </div>
+    </div>
+
+    <!-- Section: Details of payment -->
+    <div class="section-bar mb-2">
+      Details of payment
+    </div>
+
+    <div class="mb-3">
+      <textarea
+        id="paymentDetails"
+        rows="3"
+        aria-label="Details of payment"
+        class="w-full border border-neutral-700 p-2 text-sm text-neutral-900 outline-none focus:bg-sky-50/30 resize-y"
+      ></textarea>
+    </div>
+
+    <!-- Section: Approval and Authorisation -->
+    <div class="section-bar">
+      Approval and Authorisation
+    </div>
+
+    <div class="pt-12 pb-1.5 px-1 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-xs sm:text-sm font-bold text-neutral-900">
+      <div>Signature of Nazir/Officer with Stamp</div>
+      <div class="sm:text-right">Signature of Naib Nazir/Senior Karkun</div>
+    </div>
+
+    <!-- Section: For Use of Markazi Shoba Imprest -->
+    <div class="section-bar">
+      For Use of Markazi Shoba Imprest
+    </div>
+
+    <div class="pt-12 pb-1 px-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm font-bold text-neutral-900">
+      <div>Receiver</div>
+      <div class="sm:text-center">Verifier</div>
+      <div class="sm:text-center">Amad Bank</div>
+      <div class="sm:text-right">Nigran Markazi Shoba Imprest</div>
+    </div>
+
+  </div>
+
+  <script>
+    const INITIAL_ROWS = 10;
+    const tbody = document.getElementById('paymentTableBody');
+    const posAdvance = document.getElementById('posAdvance');
+    const posBills = document.getElementById('posBills');
+    const headSelect = document.getElementById('headSelect');
+
+    function createRow(index) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <select aria-label="IND or Vendor row ${index}" class="cell-select ind-vendor-select">
+            <option value="">Drop Down</option>
+            <option value="IND">IND</option>
+            <option value="Vendor">Vendor</option>
+          </select>
+        </td>
+        <td>
+          <input type="text" aria-label="Name row ${index}" class="cell-input name-input" />
+        </td>
+        <td>
+          <input type="text" inputmode="decimal" aria-label="Bill Amount row ${index}" class="cell-input text-right bill-input" />
+        </td>
+        <td>
+          <input type="text" inputmode="decimal" aria-label="Advance row ${index}" class="cell-input text-right advance-input" />
+        </td>
+        <td>
+          <input type="text" inputmode="decimal" aria-label="Payment row ${index}" class="cell-input text-right payment-input" />
+        </td>
+      `;
+
+      const selectEl = tr.querySelector('.ind-vendor-select');
+      const billInput = tr.querySelector('.bill-input');
+      const advInput = tr.querySelector('.advance-input');
+      const payInput = tr.querySelector('.payment-input');
+
+      selectEl.addEventListener('change', () => {
+        if (selectEl.value) {
+          selectEl.classList.add('selected-val');
+        } else {
+          selectEl.classList.remove('selected-val');
+        }
+      });
+
+      function updateRowCalculation() {
+        const billVal = parseFloat(billInput.value.replace(/,/g, ''));
+        const advVal = parseFloat(advInput.value.replace(/,/g, ''));
+        if (!isNaN(billVal) || !isNaN(advVal)) {
+          const b = isNaN(billVal) ? 0 : billVal;
+          const a = isNaN(advVal) ? 0 : advVal;
+          const diff = b - a;
+          payInput.value = Number.isInteger(diff) ? String(diff) : diff.toFixed(2);
+        }
+        updateSummaryTotals();
+      }
+
+      billInput.addEventListener('input', updateRowCalculation);
+      advInput.addEventListener('input', updateRowCalculation);
+      payInput.addEventListener('input', updateSummaryTotals);
+
+      return tr;
+    }
+
+    function updateSummaryTotals() {
+      let totalBill = 0;
+      let totalAdv = 0;
+      let hasBill = false;
+      let hasAdv = false;
+
+      tbody.querySelectorAll('.bill-input').forEach(inp => {
+        const v = parseFloat(inp.value.replace(/,/g, ''));
+        if (!isNaN(v)) {
+          totalBill += v;
+          hasBill = true;
+        }
+      });
+
+      tbody.querySelectorAll('.advance-input').forEach(inp => {
+        const v = parseFloat(inp.value.replace(/,/g, ''));
+        if (!isNaN(v)) {
+          totalAdv += v;
+          hasAdv = true;
+        }
+      });
+
+      if (hasBill) {
+        posBills.value = Number.isInteger(totalBill) ? String(totalBill) : totalBill.toFixed(2);
+      }
+      if (hasAdv) {
+        posAdvance.value = Number.isInteger(totalAdv) ? String(totalAdv) : totalAdv.toFixed(2);
+      }
+    }
+
+    function initTable(rowCount = INITIAL_ROWS) {
+      tbody.innerHTML = '';
+      for (let i = 1; i <= rowCount; i++) {
+        tbody.appendChild(createRow(i));
+      }
+    }
+
+    headSelect.addEventListener('change', () => {
+      if (headSelect.value) {
+        headSelect.classList.remove('italic', 'font-normal', 'text-gray-700');
+        headSelect.classList.add('font-semibold', 'text-neutral-900');
+      } else {
+        headSelect.classList.add('italic', 'font-normal', 'text-gray-700');
+        headSelect.classList.remove('font-semibold', 'text-neutral-900');
+      }
+    });
+
+    document.getElementById('addRowBtn').addEventListener('click', () => {
+      const nextIndex = tbody.children.length + 1;
+      tbody.appendChild(createRow(nextIndex));
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      initTable(INITIAL_ROWS);
+      document.getElementById('posBudget').value = '';
+      document.getElementById('posImprest').value = '';
+      posAdvance.value = '';
+      posBills.value = '';
+      document.getElementById('paymentDetails').value = '';
+    });
+
+    document.getElementById('printBtn').addEventListener('click', () => {
+      window.print();
+    });
+
+    initTable(INITIAL_ROWS);
+
+    // ===== Vendor pre-fill from Cashflow System (URL params) =====
+    // Usage: bill-payment-request.html?vendor=<name>&id=<vendorCode>
+    (function prefillVendorFromSystem() {
+      const params = new URLSearchParams(window.location.search);
+      const vName = (params.get('vendor') || '').trim();
+      const vId = (params.get('id') || '').trim();
+      if (!vName && !vId) return;
+
+      const firstRow = tbody.querySelector('tr');
+      if (!firstRow) return;
+
+      const selectEl = firstRow.querySelector('.ind-vendor-select');
+      const nameInput = firstRow.querySelector('.name-input');
+
+      if (selectEl) {
+        selectEl.value = 'Vendor';
+        selectEl.classList.add('selected-val');
+        selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+      }
+      if (nameInput) {
+        nameInput.value = vId ? `${vName} (ID: ${vId})` : vName;
+      }
+
+      // Show a small banner so user knows vendor came from the Cashflow System
+      const bar = document.querySelector('.no-print .text-sm.font-semibold');
+      if (bar && (vName || vId)) {
+        const tag = document.createElement('span');
+        tag.className = 'ml-2 px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded';
+        tag.textContent = `Vendor: ${vName}${vId ? ' • ID: ' + vId : ''}`;
+        bar.appendChild(tag);
+      }
+    })();
+  </script>
+</body>
+</html>
