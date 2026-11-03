@@ -357,7 +357,116 @@
 
   <script>
     const INITIAL_ROWS = 10;
-    const tbody = document.getElementById('paymentTableBody');
+    const ROWS_PER_PAGE = 10;
+
+    // ===== Multi-page management: each page holds ROWS_PER_PAGE rows =====
+    let page1El = null, finalPageEl = null, tableWrapEl = null;
+    const pageTbodies = [];
+
+    function setupPages() {
+      page1El = document.querySelector('.form-page');
+      tableWrapEl = document.getElementById('paymentTable').parentElement;
+      // Move everything after the payment table (Budget Position, signatures, etc.)
+      // into its own final page so extra table pages can be inserted in between.
+      finalPageEl = document.createElement('div');
+      finalPageEl.className = 'form-page';
+      while (tableWrapEl.nextSibling) finalPageEl.appendChild(tableWrapEl.nextSibling);
+      page1El.parentNode.insertBefore(finalPageEl, page1El.nextSibling);
+      pageTbodies.push(document.getElementById('paymentTableBody'));
+      makePageLabel(page1El, 1);
+      buildPaginationBar();
+    }
+
+    function makePageLabel(pgEl, num) {
+      let lbl = pgEl.querySelector('.page-label');
+      if (!lbl) {
+        lbl = document.createElement('div');
+        lbl.className = 'page-label';
+        lbl.style.cssText = 'text-align:center;font-weight:700;font-size:0.85rem;color:#111827;margin-bottom:6px;';
+        pgEl.insertBefore(lbl, pgEl.firstChild);
+      }
+      lbl.textContent = num === 1 ? 'Bill Payment Request Form (Page 1)' : `Bill Payment Request Form (Page ${num} — continued)`;
+    }
+
+    function addPage(auto) {
+      const t = document.createElement('table');
+      t.className = 'payment-table';
+      t.appendChild(document.querySelector('#paymentTable thead').cloneNode(true));
+      const tb = document.createElement('tbody');
+      t.appendChild(tb);
+      const wrap = document.createElement('div');
+      wrap.className = 'overflow-x-auto mb-3';
+      wrap.appendChild(t);
+      const pg = document.createElement('div');
+      pg.className = 'form-page';
+      pg.appendChild(wrap);
+      finalPageEl.parentNode.insertBefore(pg, finalPageEl);
+      pageTbodies.push(tb);
+      makePageLabel(pg, pageTbodies.length);
+      refreshPageBar();
+      return tb;
+    }
+
+    function removeExtraPages() {
+      while (pageTbodies.length > 1) {
+        const tb = pageTbodies.pop();
+        const pg = tb.closest('.form-page');
+        if (pg) pg.remove();
+      }
+      refreshPageBar();
+    }
+
+    function activeTbody() { return pageTbodies[pageTbodies.length - 1]; }
+
+    function allRows() {
+      const out = [];
+      pageTbodies.forEach(tb => Array.from(tb.children).forEach(tr => out.push(tr)));
+      return out;
+    }
+
+    function findFirstEmptyRow() {
+      for (const tr of allRows()) {
+        const sel2 = tr.querySelector('.ind-vendor-select');
+        if (sel2 && !sel2.value && !getNameCellValue(tr)) return tr;
+      }
+      return null;
+    }
+
+    function getOrCreateEmptyRow() {
+      let row = findFirstEmptyRow();
+      if (row) return row;
+      let tb = activeTbody();
+      if (tb.children.length >= ROWS_PER_PAGE) tb = addPage(true);
+      const tr = createRow(tb.children.length + 1);
+      tb.appendChild(tr);
+      return tr;
+    }
+
+    function buildPaginationBar() {
+      const bar = document.createElement('div');
+      bar.id = 'pageBar';
+      bar.className = 'no-print max-w-[850px] mx-auto mb-3 bg-white border border-gray-300 rounded-lg px-4 py-2 flex flex-wrap items-center justify-between gap-2 shadow-sm';
+      bar.innerHTML = `
+        <span class="text-sm font-semibold text-gray-800" id="pageBarLabel">Page 1 of 1</span>
+        <span class="flex items-center gap-2">
+          <span class="text-xs text-gray-500">${ROWS_PER_PAGE} rows per page</span>
+          <button id="addPageBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm transition">+ Add New Page</button>
+        </span>`;
+      page1El.parentNode.insertBefore(bar, finalPageEl);
+      document.getElementById('addPageBtn').addEventListener('click', () => {
+        const tb = addPage(false);
+        for (let i = tb.children.length; i < ROWS_PER_PAGE; i++) tb.appendChild(createRow(i + 1));
+      });
+    }
+
+    function refreshPageBar() {
+      const lbl = document.getElementById('pageBarLabel');
+      if (lbl) lbl.textContent = `Page 1 of ${pageTbodies.length}`;
+    }
+
+    setupPages();
+    const tbody = pageTbodies[0];
+
     const posAdvance = document.getElementById('posAdvance');
     const posBills = document.getElementById('posBills');
     // ===== System Heads (loaded from Cashflow System via localStorage) =====
@@ -621,11 +730,13 @@
     }
 
     document.getElementById('addRowBtn').addEventListener('click', () => {
-      const nextIndex = tbody.children.length + 1;
-      tbody.appendChild(createRow(nextIndex));
+      let tb = activeTbody();
+      if (tb.children.length >= ROWS_PER_PAGE) tb = addPage(false);
+      tb.appendChild(createRow(tb.children.length + 1));
     });
 
     document.getElementById('clearBtn').addEventListener('click', () => {
+      removeExtraPages();
       initTable(INITIAL_ROWS);
       document.getElementById('posBudget').value = '';
       document.getElementById('posImprest').value = '';
@@ -694,17 +805,8 @@
         const id = systemVendors[idx].id || '';
         if (!name) return;
 
-        // Find first empty row, else append a new one
-        let targetRow = null;
-        tbody.querySelectorAll('tr').forEach(tr => {
-          const sel2 = tr.querySelector('.ind-vendor-select');
-          if (!targetRow && sel2 && !sel2.value && !getNameCellValue(tr)) targetRow = tr;
-        });
-        if (!targetRow) {
-          const nextIndex = tbody.children.length + 1;
-          targetRow = createRow(nextIndex);
-          tbody.appendChild(targetRow);
-        }
+        // Find first empty row across all pages, else new row (auto new page if full)
+        const targetRow = getOrCreateEmptyRow();
         fillRowAsVendor(targetRow, name, id);
         sel.value = '';
       });
@@ -721,16 +823,8 @@
       if (!rows.length) return;
 
       rows.forEach(r => {
-        // Find first empty row, else append a new one
-        let targetRow = null;
-        tbody.querySelectorAll('tr').forEach(tr => {
-          const sel2 = tr.querySelector('.ind-vendor-select');
-          if (!targetRow && sel2 && !sel2.value && !getNameCellValue(tr)) targetRow = tr;
-        });
-        if (!targetRow) {
-          targetRow = createRow(tbody.children.length + 1);
-          tbody.appendChild(targetRow);
-        }
+        // Find first empty row across all pages, else new row (auto new page if full)
+        const targetRow = getOrCreateEmptyRow();
 
         const vendor = (r.vendor || '').trim();
         const vId = (r.vendorId || '').trim();
