@@ -6807,6 +6807,8 @@ const app = {
           updatedAt: Date.now(),
           vendors
         }));
+        const heads = (app.heads.getUniqueHeads() || []).map(h => (h.name || '').trim()).filter(Boolean);
+        localStorage.setItem('noor_payment_form_heads', JSON.stringify(heads));
       } catch (_) {}
       window.open('bill-payment-request.html', '_blank');
     },
