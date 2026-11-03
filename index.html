@@ -2100,6 +2100,10 @@
             <div class="search-box">
               <input type="text" placeholder="Search vendors by name, ID, phone, or remarks..." class="search-input" id="search-vendors" oninput="app.vendors.renderVendorsTable()">
             </div>
+            <button type="button" class="btn btn-secondary" onclick="app.vendors.openPaymentForm()" title="Open Bill Payment Request Form with system vendors available for selection">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              <span>Bill Payment Form</span>
+            </button>
             <button type="button" class="btn btn-primary" onclick="app.vendors.openAddVendorModal()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M12 5v14M5 12h14"/></svg>
               <span>Add New Vendor</span>
