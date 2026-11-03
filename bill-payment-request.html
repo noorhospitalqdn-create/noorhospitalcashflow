@@ -91,6 +91,17 @@
     .name-select.selected-val {
       font-weight: 700;
     }
+    /* When vendor ID badge is shown, hide the select's own text ("Vendor") so only the ID is visible */
+    .ind-vendor-select.id-only {
+      color: transparent;
+    }
+    .ind-vendor-select.id-only option {
+      color: #111827;
+    }
+    .ind-vendor-select.id-only:focus,
+    .ind-vendor-select.id-only:hover {
+      color: #111827;
+    }
     /* Vendor ID badge shown next to IND/Vendor when a system vendor is chosen */
     .vid-badge {
       display: none;
@@ -456,6 +467,18 @@
         nameInput.style.display = 'block';
       }
 
+      // Keeps IND/Vendor cell in sync: when the vendor ID badge is visible,
+      // hide the select's own text so ONLY the ID shows.
+      function syncIndCell() {
+        const vidBadge = tr.querySelector('.vid-badge');
+        const badgeShown = vidBadge && vidBadge.classList.contains('show');
+        if (selectEl.value === 'Vendor' && badgeShown) {
+          selectEl.classList.add('id-only');
+        } else {
+          selectEl.classList.remove('id-only');
+        }
+      }
+
       nameSelect.addEventListener('change', () => {
         const vidBadge = tr.querySelector('.vid-badge');
         if (nameSelect.value === '__manual__') {
@@ -479,6 +502,7 @@
         } else {
           if (vidBadge) vidBadge.classList.remove('show');
         }
+        syncIndCell();
       });
 
       selectEl.addEventListener('change', () => {
@@ -490,6 +514,7 @@
           selectEl.classList.remove('selected-val');
           if (vidBadge) vidBadge.classList.remove('show');
         }
+        syncIndCell();
       });
 
       function updateRowCalculation() {
@@ -522,6 +547,7 @@
             else { vidBadge.classList.remove('show'); }
           }
         }
+        syncIndCell();
       });
 
       return tr;
@@ -622,6 +648,11 @@
         selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
       }
       setVendorIdBadge(tr, vId ? 'ID: ' + vId : '');
+      const selEl = tr.querySelector('.ind-vendor-select');
+      if (selEl) {
+        if (vId) selEl.classList.add('id-only');
+        else selEl.classList.remove('id-only');
+      }
       setNameCellValue(tr, vId ? `${vName} (ID: ${vId})` : vName);
       updateSummaryTotals();
     }
