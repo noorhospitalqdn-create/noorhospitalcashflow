@@ -51,6 +51,7 @@
       padding: 0;
       height: 32px;
       vertical-align: middle;
+      position: relative;
     }
     .cell-input, .cell-select {
       width: 100%;
@@ -74,6 +75,42 @@
       font-style: normal;
       color: #111827;
       font-weight: 500;
+    }
+    /* Name vendor dropdown: dark, bold, non-italic */
+    .name-select {
+      font-style: normal;
+      font-weight: 600;
+      color: #111827;
+    }
+    .name-select option {
+      font-style: normal;
+      font-weight: 600;
+      color: #111827;
+      background: #ffffff;
+    }
+    .name-select.selected-val {
+      font-weight: 700;
+    }
+    /* Vendor ID badge shown next to IND/Vendor when a system vendor is chosen */
+    .vid-badge {
+      display: none;
+      position: absolute;
+      right: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.6rem;
+      font-weight: 700;
+      color: #065f46;
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      border-radius: 3px;
+      padding: 0 3px;
+      line-height: 1.3;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .vid-badge.show {
+      display: inline-block;
     }
     .top-field-label {
       font-weight: 700;
@@ -375,6 +412,7 @@
             <option value="IND">IND</option>
             <option value="Vendor">Vendor</option>
           </select>
+          <span class="vid-badge"></span>
         </td>
         <td>
           <select aria-label="Name row ${index}" class="cell-select name-select" style="display:none"></select>
@@ -419,6 +457,7 @@
       }
 
       nameSelect.addEventListener('change', () => {
+        const vidBadge = tr.querySelector('.vid-badge');
         if (nameSelect.value === '__manual__') {
           nameSelect.style.display = 'none';
           nameInput.style.display = 'block';
@@ -426,18 +465,30 @@
           nameInput.focus();
           return;
         }
-        if (nameSelect.value && (!selectEl.value || selectEl.value === 'Vendor')) {
-          selectEl.value = 'Vendor';
-          selectEl.classList.add('selected-val');
-          selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+        if (nameSelect.value) {
+          const v = matchSystemVendor(nameSelect.value);
+          if (v && (!selectEl.value || selectEl.value === 'Vendor')) {
+            selectEl.value = 'Vendor';
+            selectEl.classList.add('selected-val');
+            selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+          }
+          if (vidBadge) {
+            if (v && v.id) { vidBadge.textContent = 'ID: ' + v.id; vidBadge.classList.add('show'); }
+            else { vidBadge.classList.remove('show'); }
+          }
+        } else {
+          if (vidBadge) vidBadge.classList.remove('show');
         }
       });
 
       selectEl.addEventListener('change', () => {
+        const vidBadge = tr.querySelector('.vid-badge');
         if (selectEl.value) {
           selectEl.classList.add('selected-val');
+          if (selectEl.value !== 'Vendor' && vidBadge) vidBadge.classList.remove('show');
         } else {
           selectEl.classList.remove('selected-val');
+          if (vidBadge) vidBadge.classList.remove('show');
         }
       });
 
@@ -460,15 +511,34 @@
       // Manual-typed name still auto-fills ID + IND/Vendor if it matches a system vendor
       nameInput.addEventListener('change', () => {
         const v = matchSystemVendor(nameInput.value);
+        const vidBadge = tr.querySelector('.vid-badge');
         if (v && (!selectEl.value || selectEl.value === 'Vendor')) {
           nameInput.value = v.id ? `${v.name} (ID: ${v.id})` : v.name;
           selectEl.value = 'Vendor';
           selectEl.classList.add('selected-val');
           selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+          if (vidBadge) {
+            if (v.id) { vidBadge.textContent = 'ID: ' + v.id; vidBadge.classList.add('show'); }
+            else { vidBadge.classList.remove('show'); }
+          }
         }
       });
 
       return tr;
+    }
+
+    // Helper: show/hide vendor ID badge in the IND/Vendor cell
+    function setVendorIdBadge(tr, id) {
+      if (!tr) return;
+      const badge = tr.querySelector('.vid-badge');
+      if (!badge) return;
+      if (id) {
+        badge.textContent = id;
+        badge.classList.add('show');
+      } else {
+        badge.textContent = '';
+        badge.classList.remove('show');
+      }
     }
 
     // Helper: read current name text of a row (works for both select & input modes)
@@ -500,33 +570,8 @@
     }
 
     function updateSummaryTotals() {
-      let totalBill = 0;
-      let totalAdv = 0;
-      let hasBill = false;
-      let hasAdv = false;
-
-      tbody.querySelectorAll('.bill-input').forEach(inp => {
-        const v = parseFloat(inp.value.replace(/,/g, ''));
-        if (!isNaN(v)) {
-          totalBill += v;
-          hasBill = true;
-        }
-      });
-
-      tbody.querySelectorAll('.advance-input').forEach(inp => {
-        const v = parseFloat(inp.value.replace(/,/g, ''));
-        if (!isNaN(v)) {
-          totalAdv += v;
-          hasAdv = true;
-        }
-      });
-
-      if (hasBill) {
-        posBills.value = Number.isInteger(totalBill) ? String(totalBill) : totalBill.toFixed(2);
-      }
-      if (hasAdv) {
-        posAdvance.value = Number.isInteger(totalAdv) ? String(totalAdv) : totalAdv.toFixed(2);
-      }
+      // Budget Position (Budget / Imprest / Advance / Bills) is entered MANUALLY.
+      // Totals are NOT auto-written to the form anymore.
     }
 
     function initTable(rowCount = INITIAL_ROWS) {
@@ -576,6 +621,7 @@
         selectEl.classList.add('selected-val');
         selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
       }
+      setVendorIdBadge(tr, vId ? 'ID: ' + vId : '');
       setNameCellValue(tr, vId ? `${vName} (ID: ${vId})` : vName);
       updateSummaryTotals();
     }
