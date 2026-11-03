@@ -163,11 +163,26 @@
       border-color: #9ca3af;
       background-color: #f9fafb;
     }
+    /* Mirror values on continuation pages (look identical to page-1 inputs) */
+    .top-field-value {
+      width: 100%;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #111827;
+      padding: 2px 4px;
+      min-height: 1.5em;
+      overflow-wrap: anywhere;
+    }
     @media print {
+      /* A4 paper for the Bill Payment Request Form */
+      @page {
+        size: A4;
+        margin: 8mm;
+      }
       body {
         background: #ffffff;
-        margin: 0;
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
       }
       .no-print {
         display: none !important;
@@ -178,6 +193,27 @@
         max-width: 100%;
         width: 100%;
         border: 2px solid #000000;
+        padding: 10px 12px 8px 12px;
+        /* Every form page starts on its own printed sheet */
+        break-after: page;
+        page-break-after: always;
+      }
+      /* Last page (budget + signatures) must not force a blank sheet after it */
+      .form-page.form-final {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      /* Table rows never split across pages; header row repeats on every sheet */
+      .payment-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .payment-table thead {
+        display: table-header-group;
+      }
+      .section-bar {
+        break-after: avoid;
+        page-break-after: avoid;
       }
       .section-bar {
         background-color: #525252 !important;
@@ -288,10 +324,15 @@
           </tr>
         </thead>
         <tbody id="paymentTableBody">
-          <!-- Populated dynamically with 10 rows matching original form -->
+          <!-- Populated dynamically — 9 rows fill page 1 together with all tail sections -->
         </tbody>
       </table>
     </div>
+
+    <!-- Tail sections: Budget Position → Markazi Shoba.
+         Kept INSIDE page 1 so everything fits on one A4 sheet by default;
+         continuation pages get a mirrored clone of this block. -->
+    <div id="tailSections">
 
     <!-- Section: Budget Position -->
     <div class="section-bar mb-1.5">
@@ -336,7 +377,7 @@
       Approval and Authorisation
     </div>
 
-    <div class="pt-12 pb-1.5 px-1 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-xs sm:text-sm font-bold text-neutral-900">
+    <div class="pt-8 pb-1.5 px-1 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-xs sm:text-sm font-bold text-neutral-900">
       <div>Signature of Nazir/Officer with Stamp</div>
       <div class="sm:text-right">Signature of Naib Nazir/Senior Karkun</div>
     </div>
@@ -346,35 +387,36 @@
       For Use of Markazi Shoba Imprest
     </div>
 
-    <div class="pt-12 pb-1 px-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm font-bold text-neutral-900">
+    <div class="pt-8 pb-1 px-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm font-bold text-neutral-900">
       <div>Receiver</div>
       <div class="sm:text-center">Verifier</div>
       <div class="sm:text-center">Amad Bank</div>
       <div class="sm:text-right">Nigran Markazi Shoba Imprest</div>
     </div>
 
+    </div><!-- /tailSections -->
+
   </div>
 
   <script>
-    const INITIAL_ROWS = 10;
-    const ROWS_PER_PAGE = 10;
+    // EVERYTHING fits on ONE A4 page by default: rows + Budget Position +
+    // Details of Payment + Approval + Markazi Shoba (measured: A4 content
+    // 1062px = header 214px + table head 33px + 9 x 32px rows + sections
+    // 498px ≈ 1037px). Pages are only created when the user adds more rows.
+    const INITIAL_ROWS = 9;
+    const ROWS_PER_PAGE = 9;
 
     // ===== Multi-page management: each page holds ROWS_PER_PAGE rows =====
-    let page1El = null, finalPageEl = null, tableWrapEl = null;
+    let page1El = null, tailSectionsEl = null;
     const pageTbodies = [];
 
     function setupPages() {
       page1El = document.querySelector('.form-page');
-      tableWrapEl = document.getElementById('paymentTable').parentElement;
-      // Move everything after the payment table (Budget Position, signatures, etc.)
-      // into its own final page so extra table pages can be inserted in between.
-      finalPageEl = document.createElement('div');
-      finalPageEl.className = 'form-page';
-      while (tableWrapEl.nextSibling) finalPageEl.appendChild(tableWrapEl.nextSibling);
-      page1El.parentNode.insertBefore(finalPageEl, page1El.nextSibling);
+      tailSectionsEl = document.getElementById('tailSections');
       pageTbodies.push(document.getElementById('paymentTableBody'));
       makePageLabel(page1El, 1);
       buildPaginationBar();
+      markLastPage();
     }
 
     function makePageLabel(pgEl, num) {
@@ -388,7 +430,89 @@
       lbl.textContent = num === 1 ? 'Bill Payment Request Form (Page 1)' : `Bill Payment Request Form (Page ${num} — continued)`;
     }
 
-    function addPage(auto) {
+    /* Full page-1 header replica for continuation pages: title, Req No,
+       Dept Name / Dept Budget / Mode and the Payment Information bar —
+       so every printed table page looks exactly like page 1. */
+    function buildContinuationHeader() {
+      const hdr = document.createElement('div');
+      hdr.className = 'page-head-mirror';
+      hdr.innerHTML = `
+        <div class="flex flex-wrap items-baseline justify-between gap-4 mb-5">
+          <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
+            Bill Payment Request Form
+          </h1>
+          <div class="flex items-baseline gap-6 text-sm sm:text-base font-bold text-neutral-900">
+            <span>Req No:</span>
+            <span class="mirror reqNo-mirror" data-mirror="reqNoInput" style="min-width:10rem;display:inline-block"></span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
+          <div>
+            <label class="top-field-label">Dept Name</label>
+            <div class="top-field-value mirror" data-mirror="deptName"></div>
+          </div>
+          <div>
+            <label class="top-field-label">Dept Budget</label>
+            <div class="top-field-value mirror" data-mirror="deptBudget"></div>
+          </div>
+          <div>
+            <label class="top-field-label">Mode</label>
+            <div class="top-field-value mirror" data-mirror="modeSelect"></div>
+          </div>
+        </div>
+        <div class="section-bar mb-2">
+          Payment Information
+        </div>`;
+      return hdr;
+    }
+
+    /* Clone of page-1 tail sections for continuation pages. Field ids are
+       converted to data-mirror divs so values always come from page 1. */
+    function buildTailMirror() {
+      const clone = tailSectionsEl.cloneNode(true);
+      clone.removeAttribute('id');
+      clone.querySelectorAll('[id]').forEach(el => {
+        const id = el.id;
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          const m = document.createElement('div');
+          m.className = 'top-field-value mirror';
+          m.setAttribute('data-mirror', id);
+          if (el.tagName === 'TEXTAREA') {
+            m.style.cssText = 'border:1px solid #4b5563;padding:6px 8px;min-height:3.6em;white-space:pre-wrap;font-weight:400;';
+          } else {
+            m.style.cssText = 'border-bottom:1px solid #9ca3af;font-weight:400;';
+          }
+          el.replaceWith(m);
+        } else {
+          el.removeAttribute('id');
+        }
+      });
+      return clone;
+    }
+
+    /* Copy page-1 field values into every continuation-page mirror */
+    function syncHeaderMirrors() {
+      document.querySelectorAll('[data-mirror]').forEach(el => {
+        const src = document.getElementById(el.getAttribute('data-mirror'));
+        if (src) el.textContent = src.value || '';
+      });
+    }
+
+    /* Only the LAST page must not force a blank sheet after it */
+    function markLastPage() {
+      const pages = document.querySelectorAll('.form-page');
+      pages.forEach(p => p.classList.remove('form-final'));
+      if (pages.length) pages[pages.length - 1].classList.add('form-final');
+    }
+
+    function addPage() {
+      const pg = document.createElement('div');
+      pg.className = 'form-page';
+      const pages = document.querySelectorAll('.form-page');
+      const last = pages[pages.length - 1];
+      last.insertAdjacentElement('afterend', pg);
+      // Same header as page 1 (title, Req No, Dept fields, Payment Information bar)
+      pg.appendChild(buildContinuationHeader());
       const t = document.createElement('table');
       t.className = 'payment-table';
       t.appendChild(document.querySelector('#paymentTable thead').cloneNode(true));
@@ -397,12 +521,13 @@
       const wrap = document.createElement('div');
       wrap.className = 'overflow-x-auto mb-3';
       wrap.appendChild(t);
-      const pg = document.createElement('div');
-      pg.className = 'form-page';
       pg.appendChild(wrap);
-      finalPageEl.parentNode.insertBefore(pg, finalPageEl);
+      // Same tail sections as page 1 (Budget → Markazi Shoba) with mirrors
+      pg.appendChild(buildTailMirror());
       pageTbodies.push(tb);
       makePageLabel(pg, pageTbodies.length);
+      syncHeaderMirrors();
+      markLastPage();
       refreshPageBar();
       return tb;
     }
@@ -413,6 +538,7 @@
         const pg = tb.closest('.form-page');
         if (pg) pg.remove();
       }
+      markLastPage();
       refreshPageBar();
     }
 
@@ -436,7 +562,7 @@
       let row = findFirstEmptyRow();
       if (row) return row;
       let tb = activeTbody();
-      if (tb.children.length >= ROWS_PER_PAGE) tb = addPage(true);
+      if (tb.children.length >= ROWS_PER_PAGE) tb = addPage();
       const tr = createRow(tb.children.length + 1);
       tb.appendChild(tr);
       return tr;
@@ -449,12 +575,12 @@
       bar.innerHTML = `
         <span class="text-sm font-semibold text-gray-800" id="pageBarLabel">Page 1 of 1</span>
         <span class="flex items-center gap-2">
-          <span class="text-xs text-gray-500">${ROWS_PER_PAGE} rows per page</span>
+          <span class="text-xs text-gray-500">${ROWS_PER_PAGE} rows per page · everything on 1 page by default</span>
           <button id="addPageBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm transition">+ Add New Page</button>
         </span>`;
-      page1El.parentNode.insertBefore(bar, finalPageEl);
+      page1El.parentNode.insertBefore(bar, page1El);
       document.getElementById('addPageBtn').addEventListener('click', () => {
-        const tb = addPage(false);
+        const tb = addPage();
         for (let i = tb.children.length; i < ROWS_PER_PAGE; i++) tb.appendChild(createRow(i + 1));
       });
     }
@@ -731,7 +857,7 @@
 
     document.getElementById('addRowBtn').addEventListener('click', () => {
       let tb = activeTbody();
-      if (tb.children.length >= ROWS_PER_PAGE) tb = addPage(false);
+      if (tb.children.length >= ROWS_PER_PAGE) tb = addPage();
       tb.appendChild(createRow(tb.children.length + 1));
     });
 
@@ -743,11 +869,24 @@
       posAdvance.value = '';
       posBills.value = '';
       document.getElementById('paymentDetails').value = '';
+      syncHeaderMirrors();
     });
 
     document.getElementById('printBtn').addEventListener('click', () => {
+      syncHeaderMirrors();
       window.print();
     });
+
+    // Keep continuation-page mirrors in sync with page-1 fields
+    ['reqNoInput', 'deptName', 'deptBudget', 'modeSelect',
+     'posBudget', 'posImprest', 'posAdvance', 'posBills', 'paymentDetails'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', syncHeaderMirrors);
+        el.addEventListener('change', syncHeaderMirrors);
+      }
+    });
+    window.addEventListener('beforeprint', syncHeaderMirrors);
 
     initTable(INITIAL_ROWS);
 
