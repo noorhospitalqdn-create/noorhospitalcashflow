@@ -219,8 +219,8 @@
       </div>
     </div>
 
-    <!-- Top Metadata Row: Dept Name, Dept Budget, Head, Mode -->
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-3">
+    <!-- Top Metadata Row: Dept Name, Dept Budget, Mode -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
       <!-- Dept Name -->
       <div>
         <label for="deptName" class="top-field-label">Dept Name</label>
@@ -241,19 +241,6 @@
           value="73"
           class="top-field-input"
         />
-      </div>
-
-      <!-- Head -->
-      <div>
-        <label for="headSelect" class="top-field-label">Head</label>
-        <select id="headSelect" class="top-field-select italic font-normal text-gray-700">
-          <option value="">Drop Down* Not Mandatory</option>
-          <option value="Medical Supplies">Medical Supplies</option>
-          <option value="Equipment & Maintenance">Equipment & Maintenance</option>
-          <option value="Utilities & Operations">Utilities & Operations</option>
-          <option value="General Administration">General Administration</option>
-          <option value="Miscellaneous">Miscellaneous</option>
-        </select>
       </div>
 
       <!-- Mode -->
@@ -277,11 +264,12 @@
       <table class="payment-table" id="paymentTable">
         <thead>
           <tr>
-            <th style="width: 22%;">IND/Vendor</th>
-            <th style="width: 30%;">Name</th>
-            <th style="width: 18%;">Bill Amount</th>
-            <th style="width: 15%;">Advance</th>
-            <th style="width: 15%;">Payment</th>
+            <th style="width: 19%;">IND/Vendor</th>
+            <th style="width: 26%;">Name</th>
+            <th style="width: 14%;">Head</th>
+            <th style="width: 16%;">Bill Amount</th>
+            <th style="width: 12%;">Advance</th>
+            <th style="width: 13%;">Payment</th>
           </tr>
         </thead>
         <tbody id="paymentTableBody">
@@ -357,27 +345,12 @@
     const tbody = document.getElementById('paymentTableBody');
     const posAdvance = document.getElementById('posAdvance');
     const posBills = document.getElementById('posBills');
-    const headSelect = document.getElementById('headSelect');
-
     // ===== System Heads (loaded from Cashflow System via localStorage) =====
     let SYSTEM_HEADS = [];
     try {
       const storedHeads = JSON.parse(localStorage.getItem('noor_payment_form_heads') || 'null');
       if (Array.isArray(storedHeads)) SYSTEM_HEADS = storedHeads;
     } catch (_) {}
-    if (SYSTEM_HEADS.length && headSelect) {
-      // Replace the hardcoded options with the system's Head list (DOM-built for safe escaping)
-      headSelect.innerHTML = '';
-      const ph = document.createElement('option');
-      ph.value = ''; ph.textContent = 'Drop Down* Not Mandatory';
-      headSelect.appendChild(ph);
-      SYSTEM_HEADS.forEach(h => {
-        const opt = document.createElement('option');
-        opt.value = h;
-        opt.textContent = h;
-        headSelect.appendChild(opt);
-      });
-    }
 
     // ===== System vendors (loaded from Cashflow System via localStorage) =====
     let SYSTEM_VENDORS = [];
@@ -430,6 +403,11 @@
           <input type="text" aria-label="Name row ${index}" class="cell-input name-input" style="display:none" />
         </td>
         <td>
+          <select aria-label="Head row ${index}" class="cell-select head-row-select">
+            <option value="">Drop Down</option>
+          </select>
+        </td>
+        <td>
           <input type="text" inputmode="decimal" aria-label="Bill Amount row ${index}" class="cell-input text-right bill-input" />
         </td>
         <td>
@@ -446,6 +424,22 @@
       const billInput = tr.querySelector('.bill-input');
       const advInput = tr.querySelector('.advance-input');
       const payInput = tr.querySelector('.payment-input');
+
+      // ===== Head dropdown (system heads) =====
+      const headRowSelect = tr.querySelector('.head-row-select');
+      SYSTEM_HEADS.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = h;
+        headRowSelect.appendChild(opt);
+      });
+      headRowSelect.addEventListener('change', () => {
+        if (headRowSelect.value) {
+          headRowSelect.classList.add('selected-val');
+        } else {
+          headRowSelect.classList.remove('selected-val');
+        }
+      });
 
       // ===== Name cell: system vendors dropdown (click to open) with manual fallback =====
       if (SYSTEM_VENDORS.length) {
@@ -606,16 +600,6 @@
         tbody.appendChild(createRow(i));
       }
     }
-
-    headSelect.addEventListener('change', () => {
-      if (headSelect.value) {
-        headSelect.classList.remove('italic', 'font-normal', 'text-gray-700');
-        headSelect.classList.add('font-semibold', 'text-neutral-900');
-      } else {
-        headSelect.classList.add('italic', 'font-normal', 'text-gray-700');
-        headSelect.classList.remove('font-semibold', 'text-neutral-900');
-      }
-    });
 
     document.getElementById('addRowBtn').addEventListener('click', () => {
       const nextIndex = tbody.children.length + 1;
