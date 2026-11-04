@@ -1,5 +1,5 @@
 /* Staff Advance Receipts — standalone module (offline-first, localStorage).
- * Naam + Amount dalo → receipt khud ban jata hai. Subject changeable.
+ * Enter a name + amount → the receipt is created automatically. Subject is editable.
  */
 (function () {
   'use strict';
