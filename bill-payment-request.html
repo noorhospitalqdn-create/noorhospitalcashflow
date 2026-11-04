@@ -49,6 +49,25 @@
       text-align: left;
       padding-left: 8px;
     }
+    /* Running totals row (live sum of every Bill / Advance / Payment cell) */
+    .table-total-row td {
+      height: 28px;
+      background-color: #e5e5e5;
+      border: 1px solid #333333;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: #111111;
+      padding: 3px 5px;
+    }
+    .table-total-row .table-total-label {
+      text-align: right;
+      padding-right: 8px;
+      letter-spacing: 0.02em;
+    }
+    .table-total-row .table-total-cell {
+      text-align: right;
+      white-space: nowrap;
+    }
     .payment-table td {
       border: 1px solid #444444;
       padding: 0;
@@ -247,6 +266,11 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
+      .table-total-row td {
+        background-color: #e5e5e5 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
     }
   </style>
 </head>
@@ -345,6 +369,14 @@
         <tbody id="paymentTableBody">
           <!-- Populated dynamically — 9 rows fill page 1 together with all tail sections -->
         </tbody>
+        <tfoot id="paymentTableFoot">
+          <tr class="table-total-row">
+            <td colspan="3" class="table-total-label">Total</td>
+            <td class="table-total-cell" data-total="bill">0.00</td>
+            <td class="table-total-cell" data-total="advance">0.00</td>
+            <td class="table-total-cell" data-total="payment">0.00</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
 
@@ -603,6 +635,13 @@
       t.appendChild(document.querySelector('#paymentTable thead').cloneNode(true));
       const tb = document.createElement('tbody');
       t.appendChild(tb);
+      // Same live totals row as page 1 (grand total of all pages)
+      const foot = document.querySelector('#paymentTable tfoot');
+      if (foot) {
+        const footClone = foot.cloneNode(true);
+        footClone.removeAttribute('id'); // ids must stay unique to page 1
+        t.appendChild(footClone);
+      }
       const wrap = document.createElement('div');
       wrap.className = 'overflow-x-auto mb-3';
       wrap.appendChild(t);
@@ -614,6 +653,7 @@
       syncHeaderMirrors();
       markLastPage();
       refreshPageBar();
+      updateSummaryTotals();
       return tb;
     }
 
@@ -625,6 +665,7 @@
       }
       markLastPage();
       refreshPageBar();
+      updateSummaryTotals();
     }
 
     function activeTbody() { return pageTbodies[pageTbodies.length - 1]; }
@@ -668,6 +709,7 @@
       document.getElementById('addPageBtn').addEventListener('click', () => {
         const tb = addPage();
         for (let i = tb.children.length; i < ROWS_PER_PAGE; i++) tb.appendChild(createRow(i + 1));
+        updateSummaryTotals();
         requestAnimationFrame(fitAllRows);
       });
     }
@@ -1058,9 +1100,33 @@
       }
     }
 
+    // Live totals row inside the table (Bill / Advance / Payment columns).
+    // Sums every row on every page; each page's table gets the same grand total.
+    function parseAmount(raw) {
+      const n = parseFloat(String(raw == null ? '' : raw).replace(/,/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+
+    function formatTotal(n) {
+      const v = Math.round((Number(n) || 0) * 100) / 100;
+      return v.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function updateSummaryTotals() {
-      // Budget Position (Budget / Imprest / Advance / Bills) is entered MANUALLY.
-      // Totals are NOT auto-written to the form anymore.
+      let bill = 0, advance = 0, payment = 0;
+      allRows().forEach(tr => {
+        const b = tr.querySelector('.bill-input');
+        const a = tr.querySelector('.advance-input');
+        const p = tr.querySelector('.payment-input');
+        bill += parseAmount(b && b.value);
+        advance += parseAmount(a && a.value);
+        payment += parseAmount(p && p.value);
+      });
+      [['bill', bill], ['advance', advance], ['payment', payment]].forEach(([key, val]) => {
+        document.querySelectorAll(`[data-total="${key}"]`).forEach(el => {
+          el.textContent = formatTotal(val);
+        });
+      });
     }
 
     function initTable(rowCount = INITIAL_ROWS) {
@@ -1068,6 +1134,7 @@
       for (let i = 1; i <= rowCount; i++) {
         tbody.appendChild(createRow(i));
       }
+      updateSummaryTotals();
       requestAnimationFrame(fitAllRows);
     }
 
@@ -1076,6 +1143,7 @@
       if (tb.children.length >= ROWS_PER_PAGE) tb = addPage();
       const tr = createRow(tb.children.length + 1);
       tb.appendChild(tr);
+      updateSummaryTotals();
       requestAnimationFrame(() => fitRowText(tr));
     });
 
@@ -1109,6 +1177,7 @@
       document.querySelectorAll('.name-input').forEach(inp => {
         if (inp.value && inp.value.trim()) inp.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      updateSummaryTotals();
       syncHeaderMirrors();
       fitAllRows();
     });
