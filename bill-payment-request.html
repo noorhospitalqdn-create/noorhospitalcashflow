@@ -358,22 +358,22 @@
       Budget Position
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1 py-1.5 mb-2 text-xs sm:text-sm font-bold text-neutral-900">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1 py-0.5 mb-2 text-xs sm:text-sm font-bold text-neutral-900">
       <div class="flex items-center gap-1.5">
         <label for="posBudget" class="whitespace-nowrap">Budget:</label>
-        <input id="posBudget" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+        <input id="posBudget" type="text" class="w-full border-none outline-none px-1 py-0 font-normal bg-transparent" />
       </div>
       <div class="flex items-center gap-1.5">
         <label for="posImprest" class="whitespace-nowrap">Imprest:</label>
-        <input id="posImprest" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+        <input id="posImprest" type="text" class="w-full border-none outline-none px-1 py-0 font-normal bg-transparent" />
       </div>
       <div class="flex items-center gap-1.5">
         <label for="posAdvance" class="whitespace-nowrap">Advance:</label>
-        <input id="posAdvance" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+        <input id="posAdvance" type="text" class="w-full border-none outline-none px-1 py-0 font-normal bg-transparent" />
       </div>
       <div class="flex items-center gap-1.5">
         <label for="posBills" class="whitespace-nowrap">Bills:</label>
-        <input id="posBills" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
+        <input id="posBills" type="text" class="w-full border-none outline-none px-1 py-0 font-normal bg-transparent" />
       </div>
     </div>
 
@@ -504,7 +504,8 @@
           if (el.tagName === 'TEXTAREA') {
             m.style.cssText = 'border:1px solid #4b5563;padding:6px 8px;min-height:3.6em;white-space:pre-wrap;font-weight:400;';
           } else {
-            m.style.cssText = 'border-bottom:1px solid #9ca3af;font-weight:400;';
+            // No underline/border — page-1 Budget fields have no lines either
+            m.style.cssText = 'font-weight:400;';
           }
           el.replaceWith(m);
         } else {
