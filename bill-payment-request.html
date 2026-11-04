@@ -1318,9 +1318,9 @@
         updateSummaryTotals();
       }
 
-      billInput.addEventListener('input', () => { updateRowCalculation(); fitCellText(billInput, 12.5, 7.5); });
-      advInput.addEventListener('input', () => { updateRowCalculation(); fitCellText(advInput, 12.5, 7.5); });
-      payInput.addEventListener('input', () => { updateSummaryTotals(); fitCellText(payInput, 12.5, 7.5); });
+      billInput.addEventListener('input', () => { updateRowCalculation(); fitAmountsInRow(tr); });
+      advInput.addEventListener('input', () => { updateRowCalculation(); fitAmountsInRow(tr); });
+      payInput.addEventListener('input', () => { updateSummaryTotals(); fitAmountsInRow(tr); });
 
       // Manual-typed name: match a system vendor, otherwise CREATE it as a vendor
       function commitManualName() {
@@ -1444,33 +1444,46 @@
       scheduleFitTotals();
     }
 
-    /* ===== Fit big totals inside their own column =====
-       A long total (e.g. 1,23,45,678.00) must never spill out of the narrow
-       Bill/Advance/Payment cells — shrink the font just enough to keep the
-       whole number inside the box. */
-    function fitTextInBox(el, maxPx, minPx, availOverride) {
-      if (!el || !el.clientWidth) return;
-      const text = String(el.textContent || '').trim();
+    /* ===== Fit big numbers inside their own cells =====
+       A long number (e.g. 1,23,45,678.00) must never spill out of the narrow
+       Bill/Advance/Payment cells. The font shrinks just enough to fit, and the
+       SAME size is used for all three columns so the numbers never look
+       mismatched (Bill bigger than Payment etc.). */
+
+    // Measures how big the text may be and returns the font size in px.
+    // `textOverride` is required for <input> elements (their value is not
+    // textContent). Tabular figures are copied too, otherwise the measured
+    // width is narrower than the real one on the totals row.
+    function measureFittedFont(el, maxPx, minPx, avail, textOverride) {
+      const text = textOverride != null
+        ? String(textOverride).trim()
+        : String(el.textContent || '').trim();
       el.style.fontSize = '';
-      if (!text) return;
+      if (!text) return maxPx;
       const cs = getComputedStyle(el);
       const m = measureEl();
       m.style.fontFamily = cs.fontFamily;
       m.style.fontWeight = cs.fontWeight;
       m.style.fontStyle = cs.fontStyle;
       m.style.letterSpacing = cs.letterSpacing;
+      m.style.fontVariantNumeric = cs.fontVariantNumeric || 'normal';
       m.style.fontSize = maxPx + 'px';
       m.textContent = text;
-      // cell padding/border breathing room
-      const avail = availOverride || (el.clientWidth - 12);
-      if (m.offsetWidth <= avail) return;
+      if (m.offsetWidth <= avail) return maxPx;
       let lo = minPx, hi = maxPx;
       for (let i = 0; i < 10; i++) {
         const mid = (lo + hi) / 2;
         m.style.fontSize = mid + 'px';
         if (m.offsetWidth <= avail) lo = mid; else hi = mid;
       }
-      el.style.fontSize = lo.toFixed(2) + 'px';
+      return lo;
+    }
+
+    function fitTextInBox(el, maxPx, minPx, availOverride) {
+      if (!el || !el.clientWidth) return;
+      const avail = availOverride || (el.clientWidth - 12);
+      const size = measureFittedFont(el, maxPx, minPx, avail);
+      el.style.fontSize = size >= maxPx - 0.01 ? '' : size.toFixed(2) + 'px';
     }
 
     /* Printed A4 page: 210mm - 2 x 8mm margins = 194mm ≈ 733px, minus the
@@ -1479,42 +1492,62 @@
     const PRINT_TABLE_WIDTH = 705;
     const COLUMN_PCT = { bill: 0.13, advance: 0.10, payment: 0.10 };
 
+    // One shared size for Bill / Advance / Payment totals on every page.
     function fitTotalCells(printMode) {
-      document.querySelectorAll('.table-total-cell').forEach(td => {
+      const cells = Array.from(document.querySelectorAll('.table-total-cell'));
+      if (!cells.length) return;
+      let size = 12.8;
+      cells.forEach(td => {
+        if (!td.clientWidth) return;
         const pct = COLUMN_PCT[td.getAttribute('data-total')] || 0.10;
-        const avail = printMode ? (PRINT_TABLE_WIDTH * pct - 16) : 0;
-        fitTextInBox(td, 12.8, 6.5, avail);
+        const avail = printMode ? (PRINT_TABLE_WIDTH * pct - 16) : (td.clientWidth - 12);
+        const need = measureFittedFont(td, 12.8, 6.5, avail);
+        if (need < size) size = need;
+      });
+      cells.forEach(td => {
+        td.style.fontSize = size >= 12.79 ? '' : size.toFixed(2) + 'px';
       });
     }
 
-    /* Amount cells (Bill / Advance / Payment): shrink a long number so it is
-       fully readable instead of being cut off with "..." on the printed form. */
-    function fitAmountInputs(printMode) {
-      document.querySelectorAll('.bill-input, .advance-input, .payment-input').forEach(inp => {
-        inp.style.fontSize = '';
+    /* Amount cells (Bill / Advance / Payment): one shared font size per row,
+       so a long Payment value never renders smaller than the Bill value next
+       to it. */
+    function fitAmountsInRow(tr, printMode) {
+      if (!tr) return;
+      const inputs = [
+        tr.querySelector('.bill-input'),
+        tr.querySelector('.advance-input'),
+        tr.querySelector('.payment-input')
+      ].filter(Boolean);
+      if (!inputs.length) return;
+
+      inputs.forEach(inp => { inp.style.fontSize = ''; });
+      // .cell-input renders at 0.8rem (12.8px) by default — measure against that
+      // exact size, otherwise a value that just fits at 12.5px gets clipped.
+      const basePx = 12.8;
+      let size = basePx;
+      inputs.forEach(inp => {
         const text = String(inp.value || '').trim();
-        if (!inp.clientWidth || !text) return;
+        if (!text || !inp.clientWidth) return;
         const key = inp.classList.contains('bill-input') ? 'bill'
           : (inp.classList.contains('advance-input') ? 'advance' : 'payment');
         const pct = COLUMN_PCT[key] || 0.10;
-        const avail = printMode ? (PRINT_TABLE_WIDTH * pct - 14) : (inp.clientWidth - 12);
-        const cs = getComputedStyle(inp);
-        const m = measureEl();
-        m.style.fontFamily = cs.fontFamily;
-        m.style.fontWeight = cs.fontWeight;
-        m.style.fontStyle = cs.fontStyle;
-        m.style.letterSpacing = cs.letterSpacing;
-        m.style.fontSize = '12.5px';
-        m.textContent = text;
-        if (m.offsetWidth <= avail) return;
-        let lo = 7.5, hi = 12.5;
-        for (let i = 0; i < 10; i++) {
-          const mid = (lo + hi) / 2;
-          m.style.fontSize = mid + 'px';
-          if (m.offsetWidth <= avail) lo = mid; else hi = mid;
-        }
-        inp.style.fontSize = lo.toFixed(2) + 'px';
+        const avail = printMode ? (PRINT_TABLE_WIDTH * pct - 14) : (inp.clientWidth - 14);
+        const need = measureFittedFont(inp, basePx, 7.5, avail, inp.value);
+        if (need < size) size = need;
       });
+      inputs.forEach(inp => {
+        inp.style.fontSize = size >= basePx - 0.01 ? '' : size.toFixed(2) + 'px';
+      });
+    }
+
+    function fitAmountInputs(printMode) {
+      const rows = new Set();
+      document.querySelectorAll('.bill-input, .advance-input, .payment-input').forEach(inp => {
+        const tr = inp.closest('tr');
+        if (tr) rows.add(tr);
+      });
+      rows.forEach(tr => fitAmountsInRow(tr, printMode));
     }
 
     let _fitTotalsQueued = false;
