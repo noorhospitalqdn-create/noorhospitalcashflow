@@ -961,13 +961,27 @@
         if (res.ok) {
           const rows = await res.json().catch(() => null);
           const row = Array.isArray(rows) ? rows[0] : rows;
-          return { ok: true, created: true, id: row && row.id != null ? row.id : '' };
+          return {
+            ok: true,
+            created: true,
+            id: row && row.id != null ? row.id : '',
+            // NEVER expose the database row id as a "Vendor ID" — only the
+            // real vendorCode (entered by the user) is a vendor ID.
+            vendorCode: row && row.vendorCode != null ? String(row.vendorCode) : String(vendorCode || '')
+          };
         }
         const detail = await res.text().catch(() => '');
         // 409 / 23505 → the name already exists online; link that row instead
         if (res.status === 409 || /23505|duplicate|already exists/i.test(detail)) {
           const found = await findVendorOnline(name);
-          if (found) return { ok: true, created: false, id: found.id };
+          if (found) {
+            return {
+              ok: true,
+              created: false,
+              id: found.id,
+              vendorCode: found.vendorCode != null ? String(found.vendorCode) : ''
+            };
+          }
         }
         return { ok: false, reason: 'http-' + res.status, detail: String(detail).slice(0, 200) };
       } catch (err) {
@@ -995,19 +1009,28 @@
       } catch (_) {}
     }
 
-    // Shows the real Supabase ID as a badge on every row using this vendor name.
-    function applyVendorIdToRows(name, remoteId) {
-      if (remoteId === undefined || remoteId === null || remoteId === '') return;
+    // Marks the row(s) using this vendor as "Vendor" and shows the ID badge
+    // ONLY when the vendor really has a vendor code. The Supabase row id is
+    // internal bookkeeping and must never be printed as a vendor ID.
+    function applyVendorCodeToRows(name, vendorCode) {
+      const code = String(vendorCode || '').trim();
       const norm = s => String(s || '').trim().toLowerCase();
       allRows().forEach(tr => {
         if (norm(getNameCellValue(tr)) !== norm(name)) return;
         const indSel = tr.querySelector('.ind-vendor-select');
+        const badge = tr.querySelector('.vid-badge');
+        if (!code) {
+          // No vendor code → keep the cell clean (no random ID)
+          if (badge) badge.classList.remove('show');
+          if (indSel) indSel.classList.remove('id-only');
+          fitRowText(tr);
+          return;
+        }
         if (indSel && (!indSel.value || indSel.value === 'Vendor')) {
           indSel.value = 'Vendor';
           indSel.classList.add('selected-val');
         }
-        setVendorIdBadge(tr, 'ID: ' + remoteId);
-        const badge = tr.querySelector('.vid-badge');
+        setVendorIdBadge(tr, 'ID: ' + code);
         if (indSel && badge && badge.classList.contains('show') && indSel.value === 'Vendor') {
           indSel.classList.add('id-only');
         }
@@ -1110,10 +1133,14 @@
       // Online save runs in the background so the form never blocks
       saveVendorOnline(name, id || '').then(res => {
         if (res && res.ok) {
-          localVendor.id = String(res.id != null ? res.id : (localVendor.id || ''));
+          // Only a real vendorCode is a "Vendor ID" — the Supabase row id is
+          // internal and never shown in the form.
+          const savedCode = String(res.vendorCode || localVendor.id || '').trim();
+          localVendor.id = savedCode;
+          localVendor.remoteId = res.id;
           localVendor.pendingOnline = false;
           markQueuedVendorOnline(name, res.id);
-          applyVendorIdToRows(name, res.id);
+          applyVendorCodeToRows(name, savedCode);
           // Keep the vendor payload the form reads next time up to date
           try {
             const list = SYSTEM_VENDORS
@@ -1122,8 +1149,12 @@
             localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors: list }));
           } catch (_) {}
           formToast(res.created
-            ? `Vendor "${name}" saved online in Supabase (ID: ${res.id}).`
-            : `Vendor "${name}" already existed in Supabase — linked (ID: ${res.id}).`);
+            ? (savedCode
+                ? `Vendor "${name}" saved online in Supabase (Vendor ID: ${savedCode}).`
+                : `Vendor "${name}" saved online in Supabase.`)
+            : (savedCode
+                ? `Vendor "${name}" already existed in Supabase — linked (Vendor ID: ${savedCode}).`
+                : `Vendor "${name}" already existed in Supabase — linked.`));
         } else {
           formToast(`Vendor "${name}" added to this form. Supabase save pending — the Cashflow System will sync it when opened.`);
         }
