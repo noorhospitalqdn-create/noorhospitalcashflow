@@ -29,10 +29,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-width: 160px;
-      padding: 4px 16px 4px;
-      border: 2.5px solid #1d4ed8;
-      border-radius: 8px;
+      min-width: 140px;
+      padding: 4px 14px 4px;
+      border: 2px solid #1d4ed8;
+      border-radius: 7px;
       box-shadow: inset 0 0 0 1px #1d4ed8;
       color: #1d4ed8;
       background-color: rgba(29, 78, 216, 0.05);
@@ -50,34 +50,42 @@
       white-space: nowrap;
     }
     .hospital-stamp .stamp-hospital {
-      font-size: 1.45rem;
-      line-height: 1.5;
+      font-size: 1.25rem;
+      line-height: 1.3;
+      padding-bottom: 2px;
+      margin-bottom: 4px;
     }
     .hospital-stamp .stamp-rawangi {
-      font-size: 1.1rem;
-      line-height: 1.45;
+      font-size: 0.95rem;
+      line-height: 1.35;
       width: 100%;
       text-align: right;
+      margin-top: 1px;
     }
     .hospital-stamp .stamp-date {
       font-family: 'Inter', Arial, sans-serif;
-      font-size: 0.74rem;
+      font-size: 0.68rem;
       font-weight: 700;
-      letter-spacing: 0.08em;
-      line-height: 1.3;
+      letter-spacing: 0.07em;
+      line-height: 1.25;
       white-space: nowrap;
+      margin-top: 3px;
+      margin-bottom: 2px;
     }
     /* ===== Header: title left, hospital stamp exactly in the page middle ===== */
     .form-head {
       position: relative;
       display: flex;
-      align-items: flex-start;
-      min-height: 86px;
-      margin-bottom: 1.25rem;
+      align-items: flex-end;
+      min-height: 82px;
+      margin-bottom: 0.85rem;
+      padding-bottom: 2px;
     }
     .form-head h1 {
       /* keep the title on ONE line — the centred stamp must not squeeze it */
       white-space: nowrap;
+      margin-bottom: 6px;
+      line-height: 1.25;
     }
     .form-head .hospital-stamp {
       position: absolute;
@@ -234,6 +242,19 @@
       letter-spacing: -0.01em;
       padding-left: 3px;
       padding-right: 2px;
+    }
+    .label-id-input {
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #111827;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    .label-id-input::placeholder {
+      color: #9ca3af;
+      font-weight: 400;
+      font-style: italic;
     }
     .head-row-select option {
       font-size: 0.8rem;
@@ -466,12 +487,13 @@
       <table class="payment-table" id="paymentTable">
         <thead>
           <tr>
-            <th style="width: 13%;">IND/Vendor</th>
-            <th style="width: 30%;">Name</th>
-            <th style="width: 24%;">Head</th>
-            <th style="width: 13%;">Bill Amount</th>
+            <th style="width: 12%;">IND/Vendor</th>
+            <th style="width: 11%;">Label ID</th>
+            <th style="width: 24%;">Name</th>
+            <th style="width: 21%;">Head</th>
+            <th style="width: 11%;">Bill Amount</th>
             <th style="width: 10%;">Advance</th>
-            <th style="width: 10%;">Payment</th>
+            <th style="width: 11%;">Payment</th>
           </tr>
         </thead>
         <tbody id="paymentTableBody">
@@ -479,7 +501,7 @@
         </tbody>
         <tfoot id="paymentTableFoot">
           <tr class="table-total-row">
-            <td colspan="3" class="table-total-label">Total</td>
+            <td colspan="4" class="table-total-label">Total</td>
             <td class="table-total-cell" data-total="bill">0.00</td>
             <td class="table-total-cell" data-total="advance">0.00</td>
             <td class="table-total-cell" data-total="payment">0.00</td>
@@ -557,6 +579,47 @@
 
   </div>
 
+  <!-- Manual Vendor Entry Modal (Popup) -->
+  <div id="vendorModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 hidden no-print" role="dialog" aria-modal="true" aria-labelledby="vendorModalTitle">
+    <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden transform transition-all">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">🏪</span>
+          <div>
+            <h3 id="vendorModalTitle" class="text-sm font-bold text-gray-900">Add Vendor Entry</h3>
+            <p class="text-[11px] text-gray-500">Saves vendor permanently to system &amp; Supabase</p>
+          </div>
+        </div>
+        <button type="button" id="vendorModalCloseBtn" class="text-gray-400 hover:text-gray-600 rounded-lg p-1 text-xl leading-none" aria-label="Close">&times;</button>
+      </div>
+      <form id="vendorModalForm" class="p-5 space-y-4">
+        <div>
+          <label for="vendorModalName" class="block text-xs font-semibold text-gray-700 mb-1">
+            Vendor Name <span class="text-red-500">*</span>
+          </label>
+          <input type="text" id="vendorModalName" required placeholder="Enter vendor name..."
+            class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+        </div>
+        <div>
+          <label for="vendorModalCode" class="block text-xs font-semibold text-gray-700 mb-1">
+            Vendor ID / Code <span class="text-xs font-normal text-gray-400">(Optional)</span>
+          </label>
+          <input type="text" id="vendorModalCode" placeholder="e.g. V001 or ID code"
+            class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-mono" />
+          <p class="text-[11px] text-gray-500 mt-1">Vendor ID will be shown in the IND/Vendor badge.</p>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+          <button type="button" id="vendorModalCancelBtn" class="px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-lg transition border border-gray-300">
+            Cancel
+          </button>
+          <button type="submit" id="vendorModalSaveBtn" class="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">
+            Save &amp; Add Vendor
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     // EVERYTHING fits on ONE A4 page by default: rows + Budget Position +
     // Details of Payment + Approval + Markazi Shoba (measured: A4 content
@@ -564,6 +627,26 @@
     // 498px ≈ 1037px). Pages are only created when the user adds more rows.
     const INITIAL_ROWS = 9;
     const ROWS_PER_PAGE = 9;
+
+    // Department prefix mapping for Label ID: Noor Hospital = 73-, Homeopathy = 54-
+    function getDeptPrefix() {
+      const deptEl = document.getElementById('deptName');
+      return (deptEl && deptEl.value === 'Homeopathy') ? '54-' : '73-';
+    }
+
+    function updateLabelIdPrefixes() {
+      const pfx = getDeptPrefix();
+      const oldPfx = pfx === '73-' ? '54-' : '73-';
+      document.querySelectorAll('.label-id-input').forEach(inp => {
+        inp.placeholder = pfx;
+        const val = inp.value.trim();
+        if (val.startsWith(oldPfx)) {
+          inp.value = pfx + val.slice(oldPfx.length);
+        } else if (val === oldPfx) {
+          inp.value = pfx;
+        }
+      });
+    }
 
     // ===== Multi-page management: each page holds ROWS_PER_PAGE rows =====
     let page1El = null, tailSectionsEl = null;
@@ -714,6 +797,8 @@
       if (!tr) return;
       const head = tr.querySelector('.head-row-select');
       if (head) fitCellText(head, 11.5, 6.8);
+      const lbl = tr.querySelector('.label-id-input');
+      if (lbl) fitCellText(lbl, 11.5, 7.0);
       const nm = tr.querySelector('.name-select');
       if (nm && nm.style.display !== 'none') fitCellText(nm, 12.5, 7.2);
       const inp = tr.querySelector('.name-input');
@@ -1076,9 +1161,7 @@
         const opt = document.createElement('option');
         opt.value = target;
         opt.textContent = target;
-        const manual = sel.querySelector('option[value="__manual__"]');
-        if (manual) sel.insertBefore(opt, manual);
-        else sel.appendChild(opt);
+        sel.appendChild(opt);
       });
       // "Add System Vendor" picker bar
       const picker = document.getElementById('sysVendorSelect');
@@ -1104,11 +1187,26 @@
 
     // Registers a brand-new manual vendor: saves it in Supabase online, queues
     // it for the Cashflow System and makes it selectable here immediately.
-    function queueManualVendor(raw) {
-      const { name, id } = splitVendorName(raw);
+    function queueManualVendor(raw, explicitId) {
+      let name = '', id = '';
+      if (raw && typeof raw === 'object') {
+        name = String(raw.name || '').trim();
+        id = String(raw.id || raw.vendorCode || '').trim();
+      } else {
+        const s = splitVendorName(raw);
+        name = s.name;
+        id = explicitId !== undefined ? String(explicitId).trim() : s.id;
+      }
       if (!name) return null;
       // Already a known system vendor (case-insensitive) → nothing to create
-      if (SYSTEM_VENDORS.some(v => (v.name || '').trim().toLowerCase() === name.toLowerCase())) return null;
+      const existing = SYSTEM_VENDORS.find(v => (v.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (existing) {
+        if (id && !existing.id) {
+          existing.id = id;
+          applyVendorCodeToRows(name, id);
+        }
+        return existing.name;
+      }
 
       let queue = [];
       try { queue = JSON.parse(localStorage.getItem(NEW_VENDOR_QUEUE_KEY) || '[]') || []; } catch (_) { queue = []; }
@@ -1177,6 +1275,78 @@
       document.body.appendChild(dl);
     })();
 
+    // ===== Manual Vendor Entry Modal Logic =====
+    let activeRowForVendorModal = null;
+    let previousNameSelectValue = '';
+
+    function openVendorModal(tr, initialName = '', initialCode = '') {
+      activeRowForVendorModal = tr;
+      const sel = tr ? tr.querySelector('.name-select') : null;
+      previousNameSelectValue = (sel && sel.value !== '__manual__') ? sel.value : '';
+
+      const modal = document.getElementById('vendorModal');
+      const nameInp = document.getElementById('vendorModalName');
+      const codeInp = document.getElementById('vendorModalCode');
+      if (!modal || !nameInp || !codeInp) return;
+
+      nameInp.value = initialName || '';
+      codeInp.value = initialCode || '';
+      modal.classList.remove('hidden');
+      setTimeout(() => { nameInp.focus(); nameInp.select(); }, 50);
+    }
+
+    function closeVendorModal(revert = false) {
+      const modal = document.getElementById('vendorModal');
+      if (modal) modal.classList.add('hidden');
+      if (revert && activeRowForVendorModal) {
+        const sel = activeRowForVendorModal.querySelector('.name-select');
+        if (sel && sel.value === '__manual__') {
+          sel.value = previousNameSelectValue || '';
+          syncSelectState();
+        }
+      }
+      activeRowForVendorModal = null;
+    }
+
+    (function initVendorModalEvents() {
+      const modal = document.getElementById('vendorModal');
+      const form = document.getElementById('vendorModalForm');
+      const closeBtn = document.getElementById('vendorModalCloseBtn');
+      const cancelBtn = document.getElementById('vendorModalCancelBtn');
+      if (!modal || !form) return;
+
+      if (closeBtn) closeBtn.addEventListener('click', () => closeVendorModal(true));
+      if (cancelBtn) cancelBtn.addEventListener('click', () => closeVendorModal(true));
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeVendorModal(true);
+      });
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+          closeVendorModal(true);
+        }
+      });
+
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const nameInp = document.getElementById('vendorModalName');
+        const codeInp = document.getElementById('vendorModalCode');
+        const name = (nameInp ? nameInp.value : '').trim();
+        const code = (codeInp ? codeInp.value : '').trim();
+        if (!name) return;
+
+        const targetRow = activeRowForVendorModal || getOrCreateEmptyRow();
+        closeVendorModal(false);
+
+        // Save vendor (queued + Supabase)
+        queueManualVendor(name, code);
+
+        // Fill row
+        if (targetRow) {
+          fillRowAsVendor(targetRow, name, code);
+        }
+      });
+    })();
+
     function createRow(index) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -1187,6 +1357,9 @@
             <option value="Vendor">Vendor</option>
           </select>
           <span class="vid-badge"></span>
+        </td>
+        <td>
+          <input type="text" aria-label="Label ID row ${index}" class="cell-input label-id-input font-mono" placeholder="${getDeptPrefix()}" />
         </td>
         <td>
           <select aria-label="Name row ${index}" class="cell-select name-select" style="display:none"></select>
@@ -1209,11 +1382,39 @@
       `;
 
       const selectEl = tr.querySelector('.ind-vendor-select');
+      const labelIdInput = tr.querySelector('.label-id-input');
       const nameSelect = tr.querySelector('.name-select');
       const nameInput = tr.querySelector('.name-input');
       const billInput = tr.querySelector('.bill-input');
       const advInput = tr.querySelector('.advance-input');
       const payInput = tr.querySelector('.payment-input');
+
+      // ===== Label ID auto-prefix & format =====
+      labelIdInput.addEventListener('focus', () => {
+        if (!labelIdInput.value.trim()) {
+          labelIdInput.value = getDeptPrefix();
+        }
+      });
+      labelIdInput.addEventListener('input', () => {
+        const pfx = getDeptPrefix();
+        const altPfx = pfx === '73-' ? '54-' : '73-';
+        let val = labelIdInput.value;
+        if (val && !val.startsWith(pfx) && !val.startsWith(altPfx)) {
+          const m = val.match(/^(73|54)[-]?(\d*)$/);
+          if (m) {
+            labelIdInput.value = m[1] + '-' + m[2];
+          } else {
+            labelIdInput.value = pfx + val.replace(/^[-]+/, '');
+          }
+        }
+        fitCellText(labelIdInput, 11.5, 7.0);
+      });
+      labelIdInput.addEventListener('blur', () => {
+        const val = labelIdInput.value.trim();
+        if (val === '73-' || val === '54-' || val === '-') {
+          labelIdInput.value = '';
+        }
+      });
 
       // ===== Head dropdown (system heads) =====
       const headRowSelect = tr.querySelector('.head-row-select');
@@ -1237,6 +1438,10 @@
         const blank = document.createElement('option');
         blank.value = ''; blank.textContent = 'Select Vendor / Name';
         nameSelect.appendChild(blank);
+        const manual = document.createElement('option');
+        manual.value = '__manual__';
+        manual.textContent = 'Manual / Other (type name)';
+        nameSelect.appendChild(manual);
         SYSTEM_VENDORS.forEach(v => {
           const opt = document.createElement('option');
           // Name column shows ONLY the vendor name (ID is shown as the badge)
@@ -1244,10 +1449,6 @@
           opt.textContent = opt.value;
           nameSelect.appendChild(opt);
         });
-        const manual = document.createElement('option');
-        manual.value = '__manual__';
-        manual.textContent = 'Manual / Other (type name)';
-        nameSelect.appendChild(manual);
         nameSelect.style.display = 'block';
       } else {
         nameInput.style.display = 'block';
@@ -1268,10 +1469,7 @@
       nameSelect.addEventListener('change', () => {
         const vidBadge = tr.querySelector('.vid-badge');
         if (nameSelect.value === '__manual__') {
-          nameSelect.style.display = 'none';
-          nameInput.style.display = 'block';
-          if (document.getElementById('systemVendorsList')) nameInput.setAttribute('list', 'systemVendorsList');
-          nameInput.focus();
+          openVendorModal(tr);
           return;
         }
         if (nameSelect.value) {
@@ -1350,12 +1548,18 @@
             }
             if (vidBadge) vidBadge.classList.remove('show');
           }
+        } else if (SYSTEM_VENDORS.length) {
+          nameSelect.value = '';
+          nameSelect.style.display = 'block';
+          nameInput.style.display = 'none';
+          if (vidBadge) vidBadge.classList.remove('show');
         }
         syncIndCell();
         fitRowText(tr);
       }
 
       nameInput.addEventListener('input', () => fitCellText(nameInput, 12.5, 7.2));
+      nameInput.addEventListener('dblclick', () => openVendorModal(tr, nameInput.value));
       nameInput.addEventListener('change', commitManualName);
       nameInput.addEventListener('blur', commitManualName);
       nameInput.addEventListener('keydown', (e) => {
@@ -1397,15 +1601,17 @@
       if (!tr) return;
       const sel = tr.querySelector('.name-select');
       const inp = tr.querySelector('.name-input');
-      if (sel && sel.style.display !== 'none' && sel.options.length) {
+      if (sel && sel.options.length) {
         let opt = Array.from(sel.options).find(o => o.value === text);
         if (!opt) {
           opt = document.createElement('option');
           opt.value = text;
           opt.textContent = text;
-          sel.insertBefore(opt, sel.querySelector('option[value="__manual__"]'));
+          sel.appendChild(opt);
         }
         sel.value = text;
+        sel.style.display = 'block';
+        if (inp) { inp.value = text; inp.style.display = 'none'; }
         if (text) sel.classList.add('selected-val');
         else sel.classList.remove('selected-val');
       } else if (inp) {
@@ -1633,6 +1839,11 @@
       document.querySelectorAll('.name-input').forEach(inp => {
         if (inp.value && inp.value.trim()) inp.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      // Clear bare label ID prefixes (e.g. 73- or 54-) on empty rows so they don't print
+      document.querySelectorAll('.label-id-input').forEach(inp => {
+        const v = inp.value.trim();
+        if (v === '73-' || v === '54-' || v === '-') inp.value = '';
+      });
       syncSelectState();
       refreshStampDate();
       updateSummaryTotals();
@@ -1664,6 +1875,7 @@
         const b = DEPT_BUDGETS[deptEl.value];
         if (b != null) budgetEl.value = b;
         syncHeaderMirrors();
+        updateLabelIdPrefixes();
       };
       deptEl.addEventListener('change', applyBudget);
       applyBudget();
@@ -1696,9 +1908,14 @@
       const params = new URLSearchParams(window.location.search);
       const vName = (params.get('vendor') || '').trim();
       const vId = (params.get('id') || '').trim();
-      if (!vName && !vId) return;
+      const lbl = (params.get('label') || params.get('labelId') || '').trim();
+      if (!vName && !vId && !lbl) return;
       const firstRow = tbody.querySelector('tr');
       fillRowAsVendor(firstRow, vName, vId);
+      if (lbl && firstRow) {
+        const linp = firstRow.querySelector('.label-id-input');
+        if (linp) linp.value = lbl;
+      }
     })();
 
     // ===== System Vendor Picker (multiple vendors can be added one by one) =====
@@ -1714,6 +1931,7 @@
           ${systemVendors.map((v, i) => `<option value="${i}">${(v.name || '')}</option>`).join('')}
         </select>
         <button id="sysVendorAddBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm transition">+ Add to Table</button>
+        <button id="sysVendorManualBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded border border-gray-300 transition">+ New / Manual Vendor</button>
         ${systemVendors.length ? '' : '<span class="text-xs text-gray-500 italic">Open this form from the Cashflow System (Vendors → Bill Payment Form) to load the vendor list.</span>'}
       `;
       document.body.insertBefore(pickerBar, document.querySelector('.form-page'));
@@ -1730,6 +1948,11 @@
         const targetRow = getOrCreateEmptyRow();
         fillRowAsVendor(targetRow, name, id);
         sel.value = '';
+      });
+
+      document.getElementById('sysVendorManualBtn').addEventListener('click', () => {
+        const targetRow = getOrCreateEmptyRow();
+        openVendorModal(targetRow);
       });
     })();
 
@@ -1759,6 +1982,13 @@
           indSel.classList.remove('italic', 'font-normal', 'text-gray-700');
           if (vId) setVendorIdBadge(targetRow, 'ID: ' + vId);
           if (indSel.value === 'Vendor' && vId) indSel.classList.add('id-only');
+        }
+
+        // Label ID column
+        const lbl = (r.labelId || r.label || '').trim();
+        if (lbl) {
+          const linp = targetRow.querySelector('.label-id-input');
+          if (linp) linp.value = lbl;
         }
 
         // Name column
