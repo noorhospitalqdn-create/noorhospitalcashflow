@@ -6822,9 +6822,23 @@ const app = {
           created_at: now,
           updated_at: now
         };
+        const remoteId = item ? item.remoteId : null;
         try {
-          const newId = await app.db.add('vendors', rec);
-          rec.id = newId;
+          if (remoteId !== undefined && remoteId !== null && remoteId !== '') {
+            // The Bill Payment Request Form already created this vendor in
+            // Supabase. Mirror that remote row locally (never insert it twice).
+            rec.id = remoteId;
+            const twin = (app.state.vendors || []).find(v =>
+              v && norm(v.name) === key && String(v.id) !== String(remoteId)
+            );
+            if (twin) {
+              try { await app.db.delete('vendors', twin.id, true); } catch (_) {}
+            }
+            await app.db.put('vendors', null, rec, true);
+          } else {
+            const newId = await app.db.add('vendors', rec);
+            rec.id = newId;
+          }
           app.state.vendors = (app.state.vendors || []).filter(v => norm(v && v.name) !== key);
           app.state.vendors.push(rec);
           existing.add(key);
@@ -13427,6 +13441,15 @@ tfoot .r{text-align:right;}
           .then(() => app.vendors.importQueuedVendors())
           .then((n) => { if (n && isLoggedIn) return app.syncState(); })
           .catch((err) => console.warn('Live vendor import failed:', err));
+      });
+
+      // 4d. Safety net — storage events can be throttled; re-check the queue
+      // whenever the window regains focus (no-op when the queue is empty).
+      window.addEventListener('focus', () => {
+        Promise.resolve()
+          .then(() => app.vendors.importQueuedVendors({ silent: true }))
+          .then((n) => { if (n && isLoggedIn) return app.syncState(); })
+          .catch(() => {});
       });
 
       // Trigger initial run of sync queue

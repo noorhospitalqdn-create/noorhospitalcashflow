@@ -863,10 +863,157 @@
     }
 
     // ===== Manual vendor creation =====
-    // This page is standalone (no IndexedDB access). Any vendor name the user
-    // types manually is queued in localStorage; the Cashflow System imports the
-    // queue on startup (and live, if it is open in another tab).
+    // A vendor typed manually in the Name cell is saved in three places:
+    //   1) this form — selectable immediately,
+    //   2) Supabase online right away, with the same REST API the Cashflow
+    //      System uses (so it shows up on every device, like normal vendors),
+    //   3) the system vendor list — the Cashflow System imports this queue on
+    //      startup, or live through the storage event while it is open.
+    // If Supabase is unreachable the name stays queued and the system syncs it
+    // later, so nothing typed here is ever lost.
     const NEW_VENDOR_QUEUE_KEY = 'noor_payment_form_new_vendors';
+    const VENDOR_TABLE = 'vendors';
+    // Credentials the Cashflow System ships with; only used when this browser
+    // has not stored them yet (form opened directly, e.g. from a file).
+    const SUPABASE_FALLBACK = {
+      url: 'https://lwnowxuqsqffhttfudxd.supabase.co',
+      key: 'sb_publishable_nLS45eVXGjhh2N_GF_l2mQ_c5TGpqWm'
+    };
+
+    function getSupabaseCredentials() {
+      let url = '', key = '';
+      try {
+        url = localStorage.getItem('noor_supabase_url') || '';
+        key = localStorage.getItem('noor_supabase_key') || '';
+      } catch (_) {}
+      if (!url || !key) {
+        url = SUPABASE_FALLBACK.url;
+        key = SUPABASE_FALLBACK.key;
+      }
+      return { url: String(url).replace(/\/+$/, ''), key: String(key) };
+    }
+
+    function supabaseHeaders(key, extra) {
+      return Object.assign({
+        'apikey': key,
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json'
+      }, extra || {});
+    }
+
+    function formDeviceId() {
+      try {
+        let id = localStorage.getItem('noor_device_id');
+        if (!id) {
+          id = 'device_' + Math.random().toString(36).slice(2, 15) + '_' + Date.now();
+          localStorage.setItem('noor_device_id', id);
+        }
+        return id;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    // Finds an existing vendor row online (the name column is UNIQUE).
+    async function findVendorOnline(name) {
+      const { url, key } = getSupabaseCredentials();
+      if (!url || !key) return null;
+      const base = url + '/rest/v1/' + VENDOR_TABLE + '?select=id,name,vendorCode';
+      const urls = [
+        base + '&name=eq.' + encodeURIComponent(name),
+        base + '&name=ilike.' + encodeURIComponent(name)
+      ];
+      for (const u of urls) {
+        try {
+          const res = await fetch(u, { headers: supabaseHeaders(key) });
+          if (!res.ok) continue;
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length) return rows[0];
+        } catch (_) {}
+      }
+      return null;
+    }
+
+    // Creates the vendor in Supabase. Resolves { ok, id, created, reason }.
+    async function saveVendorOnline(name, vendorCode) {
+      const { url, key } = getSupabaseCredentials();
+      if (!url || !key) return { ok: false, reason: 'not-configured' };
+      if (navigator.onLine === false) return { ok: false, reason: 'offline' };
+
+      const now = new Date().toISOString();
+      const payload = {
+        name: name,
+        category: 'General',
+        phone: '',
+        remarks: 'Auto-created from Bill Payment Request Form',
+        vendorCode: String(vendorCode || ''),
+        created_at: now,
+        updated_at: now,
+        device_id: formDeviceId()
+      };
+
+      try {
+        const res = await fetch(url + '/rest/v1/' + VENDOR_TABLE, {
+          method: 'POST',
+          headers: supabaseHeaders(key, { 'Prefer': 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const rows = await res.json().catch(() => null);
+          const row = Array.isArray(rows) ? rows[0] : rows;
+          return { ok: true, created: true, id: row && row.id != null ? row.id : '' };
+        }
+        const detail = await res.text().catch(() => '');
+        // 409 / 23505 → the name already exists online; link that row instead
+        if (res.status === 409 || /23505|duplicate|already exists/i.test(detail)) {
+          const found = await findVendorOnline(name);
+          if (found) return { ok: true, created: false, id: found.id };
+        }
+        return { ok: false, reason: 'http-' + res.status, detail: String(detail).slice(0, 200) };
+      } catch (err) {
+        return { ok: false, reason: 'network', detail: String((err && err.message) || err) };
+      }
+    }
+
+    // Stores the online ID on the queued vendor so the Cashflow System mirrors
+    // the remote row instead of inserting the same name a second time.
+    function markQueuedVendorOnline(name, remoteId) {
+      if (remoteId === undefined || remoteId === null || remoteId === '') return;
+      const norm = s => String(s || '').trim().toLowerCase();
+      try {
+        const queue = JSON.parse(localStorage.getItem(NEW_VENDOR_QUEUE_KEY) || '[]') || [];
+        if (!Array.isArray(queue)) return;
+        let changed = false;
+        queue.forEach(item => {
+          if (item && norm(item.name) === norm(name)) {
+            item.remoteId = remoteId;
+            item.savedOnlineAt = new Date().toISOString();
+            changed = true;
+          }
+        });
+        if (changed) localStorage.setItem(NEW_VENDOR_QUEUE_KEY, JSON.stringify(queue));
+      } catch (_) {}
+    }
+
+    // Shows the real Supabase ID as a badge on every row using this vendor name.
+    function applyVendorIdToRows(name, remoteId) {
+      if (remoteId === undefined || remoteId === null || remoteId === '') return;
+      const norm = s => String(s || '').trim().toLowerCase();
+      allRows().forEach(tr => {
+        if (norm(getNameCellValue(tr)) !== norm(name)) return;
+        const indSel = tr.querySelector('.ind-vendor-select');
+        if (indSel && (!indSel.value || indSel.value === 'Vendor')) {
+          indSel.value = 'Vendor';
+          indSel.classList.add('selected-val');
+        }
+        setVendorIdBadge(tr, 'ID: ' + remoteId);
+        const badge = tr.querySelector('.vid-badge');
+        if (indSel && badge && badge.classList.contains('show') && indSel.value === 'Vendor') {
+          indSel.classList.add('id-only');
+        }
+        fitRowText(tr);
+      });
+    }
 
     function splitVendorName(raw) {
       const t = String(raw || '').trim();
@@ -932,7 +1079,8 @@
       }
     }
 
-    // Registers a brand-new manual vendor name so the system can create it.
+    // Registers a brand-new manual vendor: saves it in Supabase online, queues
+    // it for the Cashflow System and makes it selectable here immediately.
     function queueManualVendor(raw) {
       const { name, id } = splitVendorName(raw);
       if (!name) return null;
@@ -954,9 +1102,33 @@
       }
 
       // Make it selectable inside this form immediately
-      SYSTEM_VENDORS.push({ name: name, id: id || '' });
+      const localVendor = { name: name, id: id || '', pendingOnline: true };
+      SYSTEM_VENDORS.push(localVendor);
       addVendorToFormSelects(name);
-      formToast(`Vendor "${name}" added to this form. It will also be created in the system vendors list when the Cashflow System is opened.`);
+      formToast(`Vendor "${name}" added — saving to the system & Supabase...`);
+
+      // Online save runs in the background so the form never blocks
+      saveVendorOnline(name, id || '').then(res => {
+        if (res && res.ok) {
+          localVendor.id = String(res.id != null ? res.id : (localVendor.id || ''));
+          localVendor.pendingOnline = false;
+          markQueuedVendorOnline(name, res.id);
+          applyVendorIdToRows(name, res.id);
+          // Keep the vendor payload the form reads next time up to date
+          try {
+            const list = SYSTEM_VENDORS
+              .map(v => ({ name: (v.name || '').trim(), id: String(v.id || '').trim() }))
+              .filter(v => v.name);
+            localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors: list }));
+          } catch (_) {}
+          formToast(res.created
+            ? `Vendor "${name}" saved online in Supabase (ID: ${res.id}).`
+            : `Vendor "${name}" already existed in Supabase — linked (ID: ${res.id}).`);
+        } else {
+          formToast(`Vendor "${name}" added to this form. Supabase save pending — the Cashflow System will sync it when opened.`);
+        }
+      });
+
       return name;
     }
 
