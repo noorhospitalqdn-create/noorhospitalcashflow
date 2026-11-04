@@ -179,6 +179,21 @@
       min-height: 1.5em;
       overflow-wrap: anywhere;
     }
+    /* Markazi row: give the last label enough width so "Nigran Markazi Shoba
+       Imprest" always stays on ONE line */
+    .markazi-nigran {
+      white-space: nowrap !important;
+    }
+    @media (max-width: 639px) {
+      /* On phones the 4-column row becomes 2 columns — allow a tidy wrap */
+      .markazi-nigran { white-space: normal !important; font-size: 0.7rem; }
+    }
+    @media (min-width: 640px) {
+      .markazi-row { grid-template-columns: 0.85fr 0.85fr 0.9fr 1.45fr !important; }
+    }
+    @media print {
+      .markazi-row { grid-template-columns: 0.85fr 0.85fr 0.9fr 1.45fr !important; }
+    }
     @media print {
       /* A4 paper for the Bill Payment Request Form */
       @page {
@@ -345,7 +360,7 @@
       Budget Position
     </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1 py-1.5 mb-3 text-xs sm:text-sm font-bold text-neutral-900">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 px-1 py-1.5 mb-2 text-xs sm:text-sm font-bold text-neutral-900">
       <div class="flex items-center gap-1.5">
         <label for="posBudget" class="whitespace-nowrap">Budget:</label>
         <input id="posBudget" type="text" class="w-full border-b border-gray-400 focus:border-black outline-none px-1 py-0.5 font-normal bg-transparent" />
@@ -369,7 +384,7 @@
       Details of payment
     </div>
 
-    <div class="mb-3">
+    <div class="mb-2">
       <textarea
         id="paymentDetails"
         rows="3"
@@ -383,7 +398,7 @@
       Approval and Authorisation
     </div>
 
-    <div class="pt-8 pb-1.5 px-1 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-xs sm:text-sm font-bold text-neutral-900">
+    <div class="pt-14 pb-1.5 px-1 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 text-xs sm:text-sm font-bold text-neutral-900">
       <div>Signature of Nazir/Officer with Stamp</div>
       <div class="sm:text-right">Signature of Naib Nazir/Senior Karkun</div>
     </div>
@@ -393,11 +408,11 @@
       For Use of Markazi Shoba Imprest
     </div>
 
-    <div class="pt-8 pb-1 px-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm font-bold text-neutral-900">
+    <div class="pt-14 pb-1 px-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm font-bold text-neutral-900 markazi-row">
       <div>Receiver</div>
       <div class="sm:text-center">Verifier</div>
       <div class="sm:text-center">Amad Bank</div>
-      <div class="sm:text-right">Nigran Markazi Shoba Imprest</div>
+      <div class="sm:text-right markazi-nigran">Nigran Markazi Shoba Imprest</div>
     </div>
 
     </div><!-- /tailSections -->
