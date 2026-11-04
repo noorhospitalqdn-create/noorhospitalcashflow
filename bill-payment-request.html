@@ -6,6 +6,7 @@
   <title>Bill Payment Request Form - Noor Hospital</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Inter', Arial, Helvetica, sans-serif;
@@ -19,6 +20,50 @@
       border: 2px solid #222222;
       padding: 20px 22px 16px 22px;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    /* ===== Hospital stamp (Urdu / Nastaliq) =====
+       Prefers the locally installed Jameel Noori Nastaleeq, then the
+       Noto Nastaliq Urdu web font, then any available Nastaliq/serif face. */
+    .hospital-stamp {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 160px;
+      padding: 4px 16px 4px;
+      border: 2.5px solid #1d4ed8;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px #1d4ed8;
+      color: #1d4ed8;
+      background-color: rgba(29, 78, 216, 0.05);
+      transform: rotate(-3deg);
+      line-height: 1.1;
+      text-align: center;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .hospital-stamp .stamp-urdu {
+      font-family: 'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', 'Urdu Typesetting', 'Alvi Nastaleeq', serif;
+      direction: rtl;
+      unicode-bidi: embed;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .hospital-stamp .stamp-hospital {
+      font-size: 1.45rem;
+      line-height: 1.5;
+    }
+    .hospital-stamp .stamp-rawangi {
+      font-size: 1.1rem;
+      line-height: 1.45;
+    }
+    .hospital-stamp .stamp-date {
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      line-height: 1.3;
+      white-space: nowrap;
     }
     .section-bar {
       background-color: #525252;
@@ -298,20 +343,15 @@
   <!-- Main Printable Form Container -->
   <div class="form-page">
     
-    <!-- Form Title & Request Number -->
-    <div class="flex flex-wrap items-baseline justify-between gap-4 mb-5">
+    <!-- Form Title & Hospital Stamp -->
+    <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
       <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
         Bill Payment Request Form
       </h1>
-      <div class="flex items-baseline gap-6 text-sm sm:text-base font-bold text-neutral-900">
-        <span>Req No:</span>
-        <input
-          id="reqNoInput"
-          type="text"
-          value=""
-          aria-label="Request Number"
-          class="font-bold text-neutral-900 bg-transparent border-b border-transparent focus:border-neutral-500 outline-none w-40 text-right sm:text-left"
-        />
+      <div class="hospital-stamp" role="img" aria-label="Noor Hospital stamp">
+        <div class="stamp-urdu stamp-hospital" lang="ur" dir="rtl">نور ہسپتال</div>
+        <div class="stamp-date"></div>
+        <div class="stamp-urdu stamp-rawangi" lang="ur" dir="rtl">روانگی</div>
       </div>
     </div>
 
@@ -486,20 +526,21 @@
       lbl.textContent = `Bill Payment Request Form (Page ${num})`;
     }
 
-    /* Full page-1 header replica for continuation pages: title, Req No,
+    /* Full page-1 header replica for continuation pages: title, hospital stamp,
        Dept Name / Dept Budget / Mode and the Payment Information bar —
        so every printed table page looks exactly like page 1. */
     function buildContinuationHeader() {
       const hdr = document.createElement('div');
       hdr.className = 'page-head-mirror';
       hdr.innerHTML = `
-        <div class="flex flex-wrap items-baseline justify-between gap-4 mb-5">
+        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
           <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
             Bill Payment Request Form
           </h1>
-          <div class="flex items-baseline gap-6 text-sm sm:text-base font-bold text-neutral-900">
-            <span>Req No:</span>
-            <span class="mirror reqNo-mirror" data-mirror="reqNoInput" style="min-width:10rem;display:inline-block"></span>
+          <div class="hospital-stamp" role="img" aria-label="Noor Hospital stamp">
+            <div class="stamp-urdu stamp-hospital" lang="ur" dir="rtl">نور ہسپتال</div>
+            <div class="stamp-date"></div>
+            <div class="stamp-urdu stamp-rawangi" lang="ur" dir="rtl">روانگی</div>
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
@@ -628,7 +669,7 @@
       const pages = document.querySelectorAll('.form-page');
       const last = pages[pages.length - 1];
       last.insertAdjacentElement('afterend', pg);
-      // Same header as page 1 (title, Req No, Dept fields, Payment Information bar)
+      // Same header as page 1 (title, hospital stamp, Dept fields, Payment Information bar)
       pg.appendChild(buildContinuationHeader());
       const t = document.createElement('table');
       t.className = 'payment-table';
@@ -651,6 +692,7 @@
       pageTbodies.push(tb);
       makePageLabel(pg, pageTbodies.length);
       syncHeaderMirrors();
+      refreshStampDate();
       markLastPage();
       refreshPageBar();
       updateSummaryTotals();
@@ -1164,7 +1206,7 @@
     });
 
     // Keep continuation-page mirrors in sync with page-1 fields
-    ['reqNoInput', 'deptName', 'deptBudget', 'modeSelect',
+    ['deptName', 'deptBudget', 'modeSelect',
      'posBudget', 'posImprest', 'posAdvance', 'posBills', 'paymentDetails'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
@@ -1172,11 +1214,22 @@
         el.addEventListener('change', syncHeaderMirrors);
       }
     });
+
+    // ===== Hospital stamp date (always the current date, refreshed for print) =====
+    function refreshStampDate() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const txt = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+      document.querySelectorAll('.stamp-date').forEach(el => { el.textContent = txt; });
+    }
+    refreshStampDate();
+
     window.addEventListener('beforeprint', () => {
       // Catch any manual vendor name that hasn't been committed yet (no blur happened)
       document.querySelectorAll('.name-input').forEach(inp => {
         if (inp.value && inp.value.trim()) inp.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      refreshStampDate();
       updateSummaryTotals();
       syncHeaderMirrors();
       fitAllRows();
