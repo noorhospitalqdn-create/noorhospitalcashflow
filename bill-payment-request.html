@@ -67,6 +67,42 @@
       line-height: 1.3;
       white-space: nowrap;
     }
+    /* ===== Header: title left, hospital stamp exactly in the page middle ===== */
+    .form-head {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      min-height: 86px;
+      margin-bottom: 1.25rem;
+    }
+    .form-head h1 {
+      /* keep the title on ONE line — the centred stamp must not squeeze it */
+      white-space: nowrap;
+    }
+    .form-head .hospital-stamp {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      transform: translateX(-50%) rotate(-3deg);
+    }
+    /* Narrow screens only — the printed A4 sheet (≈733px content width) must
+       always keep the title left + stamp centred, so this is screen-only. */
+    @media screen and (max-width: 760px) {
+      .form-head {
+        flex-direction: column;
+        align-items: center;
+        row-gap: 10px;
+        min-height: 0;
+      }
+      .form-head h1 {
+        text-align: center;
+        white-space: normal;
+      }
+      .form-head .hospital-stamp {
+        position: static;
+        transform: rotate(-3deg);
+      }
+    }
     .section-bar {
       background-color: #525252;
       color: #ffffff;
@@ -91,10 +127,17 @@
       border: 1px solid #333333;
       padding: 5px 4px;
       text-align: center;
+      /* Long header labels must never spill out of their own column */
+      white-space: nowrap;
+      overflow: hidden;
     }
     .payment-table th:first-child {
       text-align: left;
-      padding-left: 8px;
+      padding-left: 6px;
+      padding-right: 2px;
+      /* "IND/Vendor" must fit inside its own column (never spill into Name) */
+      font-size: 0.71rem;
+      letter-spacing: -0.02em;
     }
     /* Running totals row (live sum of every Bill / Advance / Payment cell) */
     .table-total-row td {
@@ -114,6 +157,11 @@
     .table-total-row .table-total-cell {
       text-align: right;
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: clip;
+      font-variant-numeric: tabular-nums;
+      font-size: 0.8rem;
+      /* JS shrinks this font when a big total would not fit (see fitTotalCells) */
     }
     .payment-table td {
       border: 1px solid #444444;
@@ -139,7 +187,11 @@
     }
     .cell-select {
       font-style: italic;
-      color: #374151;
+      /* Placeholder text ("Drop Down" / "Select Vendor / Name") is a screen-only
+         hint: kept very light here and made fully invisible on print (see the
+         @media print block), because it has no meaning on a printed form.
+         Real values use .selected-val (dark + normal style). */
+      color: #d3d8e0;
       cursor: pointer;
     }
     .cell-select.selected-val {
@@ -151,7 +203,7 @@
     .name-select {
       font-style: italic;
       font-weight: 500;
-      color: #9ca3af;
+      color: #d3d8e0;
     }
     .name-select option {
       font-style: normal;
@@ -318,6 +370,20 @@
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
+      /* Empty dropdowns must print as clean empty cells: hide the light hint
+         text ("Drop Down" / "Select Vendor / Name") and the native chevron.
+         Selected values keep their dark .selected-val colour. */
+      select.cell-select:not(.selected-val),
+      select.name-select:not(.selected-val) {
+        color: transparent !important;
+      }
+      select.cell-select,
+      select.name-select,
+      select.top-field-select {
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        background-image: none !important;
+      }
     }
   </style>
 </head>
@@ -345,8 +411,8 @@
   <!-- Main Printable Form Container -->
   <div class="form-page">
     
-    <!-- Form Title & Hospital Stamp -->
-    <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+    <!-- Form Title & Hospital Stamp (stamp sits in the exact page middle) -->
+    <div class="form-head">
       <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
         Bill Payment Request Form
       </h1>
@@ -400,10 +466,10 @@
       <table class="payment-table" id="paymentTable">
         <thead>
           <tr>
-            <th style="width: 10%;">IND/Vendor</th>
-            <th style="width: 33%;">Name</th>
-            <th style="width: 25%;">Head</th>
-            <th style="width: 12%;">Bill Amount</th>
+            <th style="width: 13%;">IND/Vendor</th>
+            <th style="width: 30%;">Name</th>
+            <th style="width: 24%;">Head</th>
+            <th style="width: 13%;">Bill Amount</th>
             <th style="width: 10%;">Advance</th>
             <th style="width: 10%;">Payment</th>
           </tr>
@@ -535,7 +601,7 @@
       const hdr = document.createElement('div');
       hdr.className = 'page-head-mirror';
       hdr.innerHTML = `
-        <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+        <div class="form-head">
           <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
             Bill Payment Request Form
           </h1>
@@ -1167,9 +1233,109 @@
         payment += parseAmount(p && p.value);
       });
       [['bill', bill], ['advance', advance], ['payment', payment]].forEach(([key, val]) => {
+        const txt = formatTotal(val);
         document.querySelectorAll(`[data-total="${key}"]`).forEach(el => {
-          el.textContent = formatTotal(val);
+          if (el.textContent !== txt) el.textContent = txt;
         });
+      });
+      scheduleFitTotals();
+    }
+
+    /* ===== Fit big totals inside their own column =====
+       A long total (e.g. 1,23,45,678.00) must never spill out of the narrow
+       Bill/Advance/Payment cells — shrink the font just enough to keep the
+       whole number inside the box. */
+    function fitTextInBox(el, maxPx, minPx, availOverride) {
+      if (!el || !el.clientWidth) return;
+      const text = String(el.textContent || '').trim();
+      el.style.fontSize = '';
+      if (!text) return;
+      const cs = getComputedStyle(el);
+      const m = measureEl();
+      m.style.fontFamily = cs.fontFamily;
+      m.style.fontWeight = cs.fontWeight;
+      m.style.fontStyle = cs.fontStyle;
+      m.style.letterSpacing = cs.letterSpacing;
+      m.style.fontSize = maxPx + 'px';
+      m.textContent = text;
+      // cell padding/border breathing room
+      const avail = availOverride || (el.clientWidth - 12);
+      if (m.offsetWidth <= avail) return;
+      let lo = minPx, hi = maxPx;
+      for (let i = 0; i < 10; i++) {
+        const mid = (lo + hi) / 2;
+        m.style.fontSize = mid + 'px';
+        if (m.offsetWidth <= avail) lo = mid; else hi = mid;
+      }
+      el.style.fontSize = lo.toFixed(2) + 'px';
+    }
+
+    /* Printed A4 page: 210mm - 2 x 8mm margins = 194mm ≈ 733px, minus the
+       form-page padding (24px) and borders (4px) → table is ~705px wide.
+       Used so the print-fit matches the real sheet, not the screen width. */
+    const PRINT_TABLE_WIDTH = 705;
+    const COLUMN_PCT = { bill: 0.13, advance: 0.10, payment: 0.10 };
+
+    function fitTotalCells(printMode) {
+      document.querySelectorAll('.table-total-cell').forEach(td => {
+        const pct = COLUMN_PCT[td.getAttribute('data-total')] || 0.10;
+        const avail = printMode ? (PRINT_TABLE_WIDTH * pct - 16) : 0;
+        fitTextInBox(td, 12.8, 6.5, avail);
+      });
+    }
+
+    /* Amount cells (Bill / Advance / Payment): shrink a long number so it is
+       fully readable instead of being cut off with "..." on the printed form. */
+    function fitAmountInputs(printMode) {
+      document.querySelectorAll('.bill-input, .advance-input, .payment-input').forEach(inp => {
+        inp.style.fontSize = '';
+        const text = String(inp.value || '').trim();
+        if (!inp.clientWidth || !text) return;
+        const key = inp.classList.contains('bill-input') ? 'bill'
+          : (inp.classList.contains('advance-input') ? 'advance' : 'payment');
+        const pct = COLUMN_PCT[key] || 0.10;
+        const avail = printMode ? (PRINT_TABLE_WIDTH * pct - 14) : (inp.clientWidth - 12);
+        const cs = getComputedStyle(inp);
+        const m = measureEl();
+        m.style.fontFamily = cs.fontFamily;
+        m.style.fontWeight = cs.fontWeight;
+        m.style.fontStyle = cs.fontStyle;
+        m.style.letterSpacing = cs.letterSpacing;
+        m.style.fontSize = '12.5px';
+        m.textContent = text;
+        if (m.offsetWidth <= avail) return;
+        let lo = 7.5, hi = 12.5;
+        for (let i = 0; i < 10; i++) {
+          const mid = (lo + hi) / 2;
+          m.style.fontSize = mid + 'px';
+          if (m.offsetWidth <= avail) lo = mid; else hi = mid;
+        }
+        inp.style.fontSize = lo.toFixed(2) + 'px';
+      });
+    }
+
+    let _fitTotalsQueued = false;
+    function scheduleFitTotals() {
+      if (_fitTotalsQueued) return;
+      _fitTotalsQueued = true;
+      requestAnimationFrame(() => {
+        _fitTotalsQueued = false;
+        fitTotalCells();
+      });
+    }
+
+    /* Keep .selected-val in sync with the real select values, so the print
+       rule (empty dropdowns print as blank cells) never hides a real value
+       restored by the browser after a reload. */
+    function syncSelectState() {
+      document.querySelectorAll('#paymentTable .cell-select, .form-page .cell-select').forEach(sel => {
+        const hasValue = sel.value && sel.value !== '__manual__';
+        sel.classList.toggle('selected-val', !!hasValue);
+        if (sel.classList.contains('ind-vendor-select')) {
+          const badge = sel.parentElement && sel.parentElement.querySelector('.vid-badge');
+          const badgeShown = badge && badge.classList.contains('show');
+          sel.classList.toggle('id-only', sel.value === 'Vendor' && badgeShown);
+        }
       });
     }
 
@@ -1231,16 +1397,22 @@
       document.querySelectorAll('.name-input').forEach(inp => {
         if (inp.value && inp.value.trim()) inp.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      syncSelectState();
       refreshStampDate();
       updateSummaryTotals();
       syncHeaderMirrors();
       fitAllRows();
+      // Print fits are measured against the real A4 sheet width
+      fitTotalCells(true);
+      fitAmountInputs(true);
     });
-    window.addEventListener('resize', () => requestAnimationFrame(fitAllRows));
+    window.addEventListener('resize', () => {
+      requestAnimationFrame(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); });
+    });
     window.addEventListener('load', () => {
-      requestAnimationFrame(fitAllRows);
+      requestAnimationFrame(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); });
       if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(() => fitAllRows()).catch(() => {});
+        document.fonts.ready.then(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); }).catch(() => {});
       }
     });
 
@@ -1380,6 +1552,14 @@
       // Clear the payload so a plain refresh doesn't re-insert the same bills
       try { localStorage.removeItem('noor_payment_form_bills'); } catch (_) {}
     })();
+
+    // Final pass after every prefill source has run
+    requestAnimationFrame(() => {
+      syncSelectState();
+      fitAllRows();
+      fitTotalCells();
+      fitAmountInputs();
+    });
   </script>
 </body>
 </html>
