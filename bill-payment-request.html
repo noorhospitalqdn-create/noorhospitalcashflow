@@ -256,6 +256,14 @@
       font-weight: 400;
       font-style: italic;
     }
+    #paymentDetails {
+      min-height: 62px;
+      max-height: 72px;
+      height: 68px;
+      overflow-y: hidden;
+      resize: none;
+      line-height: 1.3;
+    }
     .head-row-select option {
       font-size: 0.8rem;
       font-weight: 500;
@@ -405,6 +413,13 @@
         appearance: none !important;
         background-image: none !important;
       }
+      #paymentDetails {
+        min-height: 62px !important;
+        max-height: 72px !important;
+        height: 68px !important;
+        overflow: hidden !important;
+        border: 1px solid #333333 !important;
+      }
     }
   </style>
 </head>
@@ -540,8 +555,20 @@
     </div>
 
     <!-- Section: Details of payment -->
-    <div class="section-bar mb-2">
-      Details of payment
+    <div class="section-bar mb-1.5 flex flex-wrap items-center justify-between gap-1">
+      <span>Details of payment</span>
+      <div class="no-print flex items-center gap-1.5 font-normal text-xs">
+        <label for="paymentDetailsTemplateSelect" class="text-white text-[11px] font-medium hidden sm:inline">Template:</label>
+        <select id="paymentDetailsTemplateSelect" class="bg-white text-gray-900 border border-gray-300 rounded px-2 py-0.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
+          <option value="">-- Choose Template --</option>
+        </select>
+        <button type="button" id="saveDetailsTemplateBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2 py-0.5 rounded text-[11px] transition shadow-xs" title="Save current text as a reusable template">
+          + Save Template
+        </button>
+        <button type="button" id="manageDetailsTemplatesBtn" class="bg-neutral-600 hover:bg-neutral-700 text-white font-semibold px-2 py-0.5 rounded text-[11px] transition" title="Manage saved templates">
+          ⚙️
+        </button>
+      </div>
     </div>
 
     <div class="mb-2">
@@ -549,7 +576,7 @@
         id="paymentDetails"
         rows="3"
         aria-label="Details of payment"
-        class="w-full border border-neutral-700 p-2 text-sm text-neutral-900 outline-none focus:bg-sky-50/30 resize-y"
+        class="w-full border border-neutral-700 p-2 text-sm text-neutral-900 outline-none focus:bg-sky-50/30 resize-none"
       ></textarea>
     </div>
 
@@ -617,6 +644,73 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Save Details Template Modal -->
+  <div id="saveTemplateModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 hidden no-print" role="dialog" aria-modal="true" aria-labelledby="saveTemplateModalTitle">
+    <div class="bg-white w-full max-w-md rounded-xl shadow-2xl border border-gray-200 overflow-hidden transform transition-all">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">📝</span>
+          <div>
+            <h3 id="saveTemplateModalTitle" class="text-sm font-bold text-gray-900">Save Payment Details Template</h3>
+            <p class="text-[11px] text-gray-500">Reusable snippet for Details of payment</p>
+          </div>
+        </div>
+        <button type="button" id="saveTemplateModalCloseBtn" class="text-gray-400 hover:text-gray-600 rounded-lg p-1 text-xl leading-none" aria-label="Close">&times;</button>
+      </div>
+      <form id="saveTemplateModalForm" class="p-5 space-y-3.5">
+        <div>
+          <label for="templateTitleInput" class="block text-xs font-semibold text-gray-700 mb-1">
+            Template Name / Title <span class="text-red-500">*</span>
+          </label>
+          <input type="text" id="templateTitleInput" required placeholder="e.g. Monthly Medical Supplies"
+            class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
+        </div>
+        <div>
+          <label for="templateContentInput" class="block text-xs font-semibold text-gray-700 mb-1">
+            Template Details Text <span class="text-red-500">*</span>
+          </label>
+          <textarea id="templateContentInput" rows="4" required placeholder="Type the reusable description here..."
+            class="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-y"></textarea>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+          <button type="button" id="saveTemplateModalCancelBtn" class="px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-lg transition border border-gray-300">
+            Cancel
+          </button>
+          <button type="submit" id="saveTemplateModalSubmitBtn" class="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">
+            Save Template
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Manage Templates Modal -->
+  <div id="manageTemplatesModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 hidden no-print" role="dialog" aria-modal="true" aria-labelledby="manageTemplatesModalTitle">
+    <div class="bg-white w-full max-w-lg rounded-xl shadow-2xl border border-gray-200 overflow-hidden transform transition-all">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-200 bg-gray-50">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">⚙️</span>
+          <div>
+            <h3 id="manageTemplatesModalTitle" class="text-sm font-bold text-gray-900">Manage Payment Details Templates</h3>
+            <p class="text-[11px] text-gray-500">View, use or delete saved payment descriptions</p>
+          </div>
+        </div>
+        <button type="button" id="manageTemplatesModalCloseBtn" class="text-gray-400 hover:text-gray-600 rounded-lg p-1 text-xl leading-none" aria-label="Close">&times;</button>
+      </div>
+      <div class="p-4 max-h-[60vh] overflow-y-auto space-y-2.5" id="manageTemplatesList">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="flex items-center justify-between px-5 py-3 bg-gray-50 border-t border-gray-200">
+        <button type="button" id="manageAddNewTemplateBtn" class="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition">
+          + Add New Template
+        </button>
+        <button type="button" id="manageTemplatesModalDoneBtn" class="px-4 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-200 rounded-lg transition border border-gray-300">
+          Done
+        </button>
+      </div>
     </div>
   </div>
 
@@ -719,6 +813,8 @@
     function buildTailMirror() {
       const clone = tailSectionsEl.cloneNode(true);
       clone.removeAttribute('id');
+      // Continuation pages only mirror content, so remove interactive template buttons
+      clone.querySelectorAll('.no-print').forEach(el => el.remove());
       clone.querySelectorAll('[id]').forEach(el => {
         const id = el.id;
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
@@ -742,7 +838,13 @@
     /* Copy page-1 field values into every continuation-page mirror */
     function syncHeaderMirrors() {
       document.querySelectorAll('[data-mirror]').forEach(el => {
-        const src = document.getElementById(el.getAttribute('data-mirror'));
+        const mirrorId = el.getAttribute('data-mirror');
+        // Details of payment text only shows on Page 1 (continuation pages stay blank)
+        if (mirrorId === 'paymentDetails') {
+          el.textContent = '';
+          return;
+        }
+        const src = document.getElementById(mirrorId);
         if (src) el.textContent = src.value || '';
       });
     }
@@ -807,6 +909,40 @@
 
     function fitAllRows() {
       allRows().forEach(fitRowText);
+    }
+
+    /* Automatically scales font size and padding down when payment details text is long
+       so all text stays fully visible inside the box and nothing overflows or clips on A4. */
+    function fitPaymentDetailsText() {
+      const el = document.getElementById('paymentDetails');
+      if (!el) return;
+      const text = (el.value || '').trim();
+      if (!text) {
+        el.style.fontSize = '';
+        el.style.lineHeight = '';
+        el.style.padding = '';
+        return;
+      }
+
+      let maxFont = 13.5;
+      let minFont = 7.0;
+      let currentFont = maxFont;
+
+      el.style.padding = '6px 8px';
+      el.style.fontSize = currentFont + 'px';
+      el.style.lineHeight = '1.3';
+
+      let guard = 0;
+      while (el.scrollHeight > el.clientHeight && currentFont > minFont && guard++ < 35) {
+        currentFont -= 0.35;
+        if (currentFont < 9.5) {
+          el.style.padding = '3px 6px';
+          el.style.lineHeight = '1.18';
+        } else {
+          el.style.lineHeight = '1.25';
+        }
+        el.style.fontSize = currentFont.toFixed(2) + 'px';
+      }
     }
 
     /* Only the LAST page must not force a blank sheet after it */
@@ -1151,6 +1287,298 @@
       }, 4000);
     }
 
+    // ===== Details of Payment Templates (Supabase + localStorage) =====
+    const TEMPLATES_TABLE = 'bill_payment_templates';
+    const TEMPLATES_LOCAL_KEY = 'noor_bill_payment_templates';
+
+    let paymentTemplates = [];
+
+    async function fetchTemplatesFromSupabase() {
+      const { url, key } = getSupabaseCredentials();
+      if (!url || !key || navigator.onLine === false) return null;
+      try {
+        const res = await fetch(url + '/rest/v1/' + TEMPLATES_TABLE + '?select=id,title,content&order=title.asc', {
+          headers: supabaseHeaders(key)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function saveTemplateToSupabase(title, content) {
+      const { url, key } = getSupabaseCredentials();
+      if (!url || !key || navigator.onLine === false) return null;
+      try {
+        const res = await fetch(url + '/rest/v1/' + TEMPLATES_TABLE, {
+          method: 'POST',
+          headers: supabaseHeaders(key, { 'Prefer': 'return=representation' }),
+          body: JSON.stringify({ title, content })
+        });
+        if (res.ok) {
+          const rows = await res.json().catch(() => null);
+          return Array.isArray(rows) ? rows[0] : rows;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    async function deleteTemplateFromSupabase(id) {
+      const { url, key } = getSupabaseCredentials();
+      if (!url || !key || navigator.onLine === false || !id) return false;
+      try {
+        const res = await fetch(url + '/rest/v1/' + TEMPLATES_TABLE + '?id=eq.' + encodeURIComponent(id), {
+          method: 'DELETE',
+          headers: supabaseHeaders(key)
+        });
+        return res.ok;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function getLocalTemplates() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(TEMPLATES_LOCAL_KEY) || 'null');
+        if (Array.isArray(stored) && stored.length) return stored;
+      } catch (_) {}
+      return [
+        {
+          id: 'def_1',
+          title: 'Monthly Medical Supplies',
+          content: 'Payment for monthly hospital medical supplies and consumables as per approved vendor quotation.'
+        },
+        {
+          id: 'def_2',
+          title: 'Routine Repair & Maintenance',
+          content: 'Payment for routine hospital repair and maintenance work carried out during the current period.'
+        },
+        {
+          id: 'def_3',
+          title: 'Staff Travel & Conveyance',
+          content: 'Reimbursement of travel and conveyance expenses incurred for official hospital duties.'
+        }
+      ];
+    }
+
+    function setLocalTemplates(list) {
+      paymentTemplates = list;
+      try {
+        localStorage.setItem(TEMPLATES_LOCAL_KEY, JSON.stringify(list));
+      } catch (_) {}
+      renderTemplateOptions();
+      renderManageTemplatesList();
+    }
+
+    function renderTemplateOptions() {
+      const sel = document.getElementById('paymentDetailsTemplateSelect');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">-- Choose Template --</option>';
+      paymentTemplates.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.id || t.title;
+        opt.textContent = t.title;
+        sel.appendChild(opt);
+      });
+      const manageOpt = document.createElement('option');
+      manageOpt.value = '__manage__';
+      manageOpt.textContent = '⚙️ Manage Templates...';
+      sel.appendChild(manageOpt);
+    }
+
+    function renderManageTemplatesList() {
+      const listEl = document.getElementById('manageTemplatesList');
+      if (!listEl) return;
+      if (!paymentTemplates.length) {
+        listEl.innerHTML = '<p class="text-xs text-gray-500 italic text-center py-4">No saved templates yet.</p>';
+        return;
+      }
+      listEl.innerHTML = '';
+      paymentTemplates.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'border border-gray-200 rounded-lg p-2.5 bg-gray-50/50 flex items-start justify-between gap-3';
+        card.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <h4 class="text-xs font-bold text-gray-900 truncate"></h4>
+            <p class="text-[11px] text-gray-600 line-clamp-2 mt-0.5 whitespace-pre-wrap"></p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0 pt-0.5">
+            <button type="button" class="use-tpl-btn px-2 py-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded border border-emerald-300 transition">
+              Use
+            </button>
+            <button type="button" class="del-tpl-btn px-2 py-1 text-[11px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition">
+              Delete
+            </button>
+          </div>
+        `;
+        card.querySelector('h4').textContent = t.title;
+        card.querySelector('p').textContent = t.content;
+
+        card.querySelector('.use-tpl-btn').addEventListener('click', () => {
+          applyDetailsTemplate(t.content);
+          closeManageTemplatesModal();
+        });
+
+        card.querySelector('.del-tpl-btn').addEventListener('click', async () => {
+          if (!confirm(`Delete template "${t.title}"?`)) return;
+          if (t.id && !String(t.id).startsWith('def_') && !String(t.id).startsWith('loc_')) {
+            await deleteTemplateFromSupabase(t.id);
+          }
+          const updated = paymentTemplates.filter(item => String(item.id) !== String(t.id) && item.title !== t.title);
+          setLocalTemplates(updated);
+          formToast(`Template "${t.title}" deleted.`);
+        });
+
+        listEl.appendChild(card);
+      });
+    }
+
+    function applyDetailsTemplate(content) {
+      const textarea = document.getElementById('paymentDetails');
+      if (!textarea) return;
+      if (textarea.value.trim() && textarea.value.trim() !== content.trim()) {
+        if (!confirm('Replace current Details of payment with selected template?')) return;
+      }
+      textarea.value = content;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+      fitPaymentDetailsText();
+      syncHeaderMirrors();
+      formToast('Template applied to Details of payment.');
+    }
+
+    function openSaveTemplateModal(initialText = '') {
+      const modal = document.getElementById('saveTemplateModal');
+      const titleInp = document.getElementById('templateTitleInput');
+      const contentInp = document.getElementById('templateContentInput');
+      if (!modal) return;
+      titleInp.value = '';
+      contentInp.value = initialText || (document.getElementById('paymentDetails') ? document.getElementById('paymentDetails').value : '') || '';
+      modal.classList.remove('hidden');
+      setTimeout(() => { (titleInp.value ? contentInp : titleInp).focus(); }, 50);
+    }
+
+    function closeSaveTemplateModal() {
+      const modal = document.getElementById('saveTemplateModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function openManageTemplatesModal() {
+      const modal = document.getElementById('manageTemplatesModal');
+      if (!modal) return;
+      renderManageTemplatesList();
+      modal.classList.remove('hidden');
+    }
+
+    function closeManageTemplatesModal() {
+      const modal = document.getElementById('manageTemplatesModal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    (function initDetailsTemplateHandlers() {
+      const sel = document.getElementById('paymentDetailsTemplateSelect');
+      const saveBtn = document.getElementById('saveDetailsTemplateBtn');
+      const manageBtn = document.getElementById('manageDetailsTemplatesBtn');
+      const saveModal = document.getElementById('saveTemplateModal');
+      const saveForm = document.getElementById('saveTemplateModalForm');
+      const saveCloseBtn = document.getElementById('saveTemplateModalCloseBtn');
+      const saveCancelBtn = document.getElementById('saveTemplateModalCancelBtn');
+      const manageModal = document.getElementById('manageTemplatesModal');
+      const manageCloseBtn = document.getElementById('manageTemplatesModalCloseBtn');
+      const manageDoneBtn = document.getElementById('manageTemplatesModalDoneBtn');
+      const manageAddNewBtn = document.getElementById('manageAddNewTemplateBtn');
+
+      if (sel) {
+        sel.addEventListener('change', (e) => {
+          const val = e.target.value;
+          if (!val) return;
+          if (val === '__manage__') {
+            e.target.value = '';
+            openManageTemplatesModal();
+            return;
+          }
+          const t = paymentTemplates.find(item => String(item.id) === String(val) || item.title === val);
+          if (t) applyDetailsTemplate(t.content);
+          e.target.value = '';
+        });
+      }
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const current = (document.getElementById('paymentDetails') ? document.getElementById('paymentDetails').value : '').trim();
+          openSaveTemplateModal(current);
+        });
+      }
+
+      if (manageBtn) {
+        manageBtn.addEventListener('click', openManageTemplatesModal);
+      }
+
+      if (manageAddNewBtn) {
+        manageAddNewBtn.addEventListener('click', () => {
+          closeManageTemplatesModal();
+          openSaveTemplateModal('');
+        });
+      }
+
+      if (saveCloseBtn) saveCloseBtn.addEventListener('click', closeSaveTemplateModal);
+      if (saveCancelBtn) saveCancelBtn.addEventListener('click', closeSaveTemplateModal);
+      if (manageCloseBtn) manageCloseBtn.addEventListener('click', closeManageTemplatesModal);
+      if (manageDoneBtn) manageDoneBtn.addEventListener('click', closeManageTemplatesModal);
+
+      if (saveModal) {
+        saveModal.addEventListener('click', (e) => {
+          if (e.target === saveModal) closeSaveTemplateModal();
+        });
+      }
+
+      if (manageModal) {
+        manageModal.addEventListener('click', (e) => {
+          if (e.target === manageModal) closeManageTemplatesModal();
+        });
+      }
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          if (saveModal && !saveModal.classList.contains('hidden')) closeSaveTemplateModal();
+          if (manageModal && !manageModal.classList.contains('hidden')) closeManageTemplatesModal();
+        }
+      });
+
+      if (saveForm) {
+        saveForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const title = (document.getElementById('templateTitleInput').value || '').trim();
+          const content = (document.getElementById('templateContentInput').value || '').trim();
+          if (!title || !content) return;
+          closeSaveTemplateModal();
+
+          formToast(`Saving template "${title}"...`);
+          let saved = await saveTemplateToSupabase(title, content);
+          if (!saved) {
+            saved = { id: 'loc_' + Date.now(), title, content };
+          }
+          const updated = paymentTemplates.filter(t => t.title.toLowerCase() !== title.toLowerCase());
+          updated.unshift(saved);
+          setLocalTemplates(updated);
+          formToast(`Template "${title}" saved successfully!`);
+        });
+      }
+
+      // Initial load: local cache first, then Supabase async sync
+      paymentTemplates = getLocalTemplates();
+      renderTemplateOptions();
+      renderManageTemplatesList();
+
+      fetchTemplatesFromSupabase().then(remote => {
+        if (Array.isArray(remote) && remote.length) {
+          setLocalTemplates(remote);
+        }
+      }).catch(() => {});
+    })();
+
     function addVendorToFormSelects(name) {
       const target = String(name || '').trim();
       if (!target) return;
@@ -1163,17 +1591,6 @@
         opt.textContent = target;
         sel.appendChild(opt);
       });
-      // "Add System Vendor" picker bar
-      const picker = document.getElementById('sysVendorSelect');
-      if (picker) {
-        const exists = Array.from(picker.options).some(o => (o.textContent || '').trim().toLowerCase() === norm);
-        if (!exists) {
-          const opt = document.createElement('option');
-          opt.value = String(SYSTEM_VENDORS.length - 1);
-          opt.textContent = target;
-          picker.appendChild(opt);
-        }
-      }
       const dl = document.getElementById('systemVendorsList');
       if (dl) {
         const exists = Array.from(dl.options).some(o => (o.value || '').trim().toLowerCase() === norm);
@@ -1807,6 +2224,7 @@
       posAdvance.value = '';
       posBills.value = '';
       document.getElementById('paymentDetails').value = '';
+      fitPaymentDetailsText();
       syncHeaderMirrors();
     });
 
@@ -1824,6 +2242,12 @@
         el.addEventListener('change', syncHeaderMirrors);
       }
     });
+
+    const pdInputEl = document.getElementById('paymentDetails');
+    if (pdInputEl) {
+      pdInputEl.addEventListener('input', fitPaymentDetailsText);
+      pdInputEl.addEventListener('change', fitPaymentDetailsText);
+    }
 
     // ===== Hospital stamp date (always the current date, refreshed for print) =====
     function refreshStampDate() {
@@ -1849,17 +2273,18 @@
       updateSummaryTotals();
       syncHeaderMirrors();
       fitAllRows();
+      fitPaymentDetailsText();
       // Print fits are measured against the real A4 sheet width
       fitTotalCells(true);
       fitAmountInputs(true);
     });
     window.addEventListener('resize', () => {
-      requestAnimationFrame(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); });
+      requestAnimationFrame(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); fitPaymentDetailsText(); });
     });
     window.addEventListener('load', () => {
-      requestAnimationFrame(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); });
+      requestAnimationFrame(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); fitPaymentDetailsText(); });
       if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); }).catch(() => {});
+        document.fonts.ready.then(() => { fitAllRows(); fitTotalCells(); fitAmountInputs(); fitPaymentDetailsText(); }).catch(() => {});
       }
     });
 
@@ -1916,44 +2341,6 @@
         const linp = firstRow.querySelector('.label-id-input');
         if (linp) linp.value = lbl;
       }
-    })();
-
-    // ===== System Vendor Picker (multiple vendors can be added one by one) =====
-    (function initSystemVendorPicker() {
-      const systemVendors = SYSTEM_VENDORS;
-
-      const pickerBar = document.createElement('div');
-      pickerBar.className = 'no-print max-w-[850px] mx-auto mb-3 bg-white border border-gray-300 rounded-lg px-4 py-2.5 shadow-sm flex flex-wrap items-center gap-2';
-      pickerBar.innerHTML = `
-        <span class="text-sm font-semibold text-gray-800 whitespace-nowrap">Add System Vendor:</span>
-        <select id="sysVendorSelect" class="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 bg-white min-w-[220px] flex-1 outline-none focus:border-emerald-500">
-          <option value="">-- Select vendor --</option>
-          ${systemVendors.map((v, i) => `<option value="${i}">${(v.name || '')}</option>`).join('')}
-        </select>
-        <button id="sysVendorAddBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded shadow-sm transition">+ Add to Table</button>
-        <button id="sysVendorManualBtn" type="button" class="px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded border border-gray-300 transition">+ New / Manual Vendor</button>
-        ${systemVendors.length ? '' : '<span class="text-xs text-gray-500 italic">Open this form from the Cashflow System (Vendors → Bill Payment Form) to load the vendor list.</span>'}
-      `;
-      document.body.insertBefore(pickerBar, document.querySelector('.form-page'));
-
-      const sel = document.getElementById('sysVendorSelect');
-      document.getElementById('sysVendorAddBtn').addEventListener('click', () => {
-        const idx = parseInt(sel.value, 10);
-        if (isNaN(idx) || !systemVendors[idx]) return;
-        const name = systemVendors[idx].name || '';
-        const id = systemVendors[idx].id || '';
-        if (!name) return;
-
-        // Find first empty row across all pages, else new row (auto new page if full)
-        const targetRow = getOrCreateEmptyRow();
-        fillRowAsVendor(targetRow, name, id);
-        sel.value = '';
-      });
-
-      document.getElementById('sysVendorManualBtn').addEventListener('click', () => {
-        const targetRow = getOrCreateEmptyRow();
-        openVendorModal(targetRow);
-      });
     })();
 
     // ===== Auto-fill rows from Cashflow System selected bills =====
@@ -2025,6 +2412,7 @@
       fitAllRows();
       fitTotalCells();
       fitAmountInputs();
+      fitPaymentDetailsText();
     });
   </script>
 </body>
