@@ -6791,6 +6791,84 @@ const app = {
       }
     },
 
+    // ===== Import vendors created from the standalone Bill Payment Request Form =====
+    // The standalone form has no IndexedDB access, so manually typed vendor names
+    // are queued in localStorage. Import them here (deduped by name) so a vendor
+    // typed in the payment form becomes a real system vendor.
+    async importQueuedVendors(opts = {}) {
+      const KEY = 'noor_payment_form_new_vendors';
+      let queue = [];
+      try { queue = JSON.parse(localStorage.getItem(KEY) || '[]') || []; } catch (_) { queue = []; }
+      if (!Array.isArray(queue) || !queue.length) return 0;
+
+      const norm = s => String(s || '').trim().toLowerCase();
+      const existing = new Set((app.state.vendors || []).map(v => norm(v && v.name)));
+      const imported = [];
+
+      for (const item of queue) {
+        const name = String((item && item.name) || '').trim();
+        const key = norm(name);
+        if (!key) continue;
+        if (existing.has(key)) continue;
+        if (app.vendors.isVendorDeleted && app.vendors.isVendorDeleted(key)) continue;
+
+        const now = new Date().toISOString();
+        const rec = {
+          name: name,
+          vendorCode: String((item && item.vendorCode) || '').trim(),
+          category: 'General',
+          phone: '',
+          remarks: 'Auto-created from Bill Payment Request Form',
+          created_at: now,
+          updated_at: now
+        };
+        try {
+          const newId = await app.db.add('vendors', rec);
+          rec.id = newId;
+          app.state.vendors = (app.state.vendors || []).filter(v => norm(v && v.name) !== key);
+          app.state.vendors.push(rec);
+          existing.add(key);
+          imported.push(name);
+        } catch (err) {
+          console.warn('Could not import vendor from Bill Payment Form:', name, err);
+        }
+      }
+
+      if (imported.length) {
+        try { app.vendors.populateVendorDropdowns(); } catch (_) {}
+        try { app.vendors.renderVendorsTable(); } catch (_) {}
+        try {
+          const badge = document.getElementById('nav-vendors-badge');
+          if (badge) badge.textContent = app.vendors.getUniqueVendors().length;
+        } catch (_) {}
+        // Keep the payload the standalone form reads next time up to date
+        try {
+          const vendors = app.vendors.getUniqueVendors().map(v => ({
+            name: (v.name || '').trim(),
+            id: String(v.vendorCode || v.code || '').trim()
+          })).filter(v => v.name);
+          localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors }));
+        } catch (_) {}
+        if (!opts.silent) {
+          app.ui.showToast(
+            imported.length === 1
+              ? `Vendor "${imported[0]}" created from the Bill Payment Form.`
+              : `${imported.length} vendors created from the Bill Payment Form.`,
+            'success'
+          );
+        }
+      }
+
+      // Drop the processed entries; keep anything that still needs importing
+      try {
+        const left = (JSON.parse(localStorage.getItem(KEY) || '[]') || []).filter(q => !existing.has(norm(q && q.name)));
+        if (left.length) localStorage.setItem(KEY, JSON.stringify(left));
+        else localStorage.removeItem(KEY);
+      } catch (_) {}
+
+      return imported.length;
+    },
+
     // Opens the Bill Payment Request Form with the full system vendor list
     // (stored in localStorage) so multiple vendors can be added at once.
     openPaymentForm() {
@@ -13333,6 +13411,23 @@ tfoot .r{text-align:right;}
         // Re-render restored active panel with freshly synced data
         app.ui.restoreActivePanel();
       }
+
+      // 4b. Import vendors typed manually in the standalone Bill Payment Request Form
+      try {
+        const importedCount = await app.vendors.importQueuedVendors();
+        if (importedCount && isLoggedIn) await app.syncState();
+      } catch (importErr) {
+        console.warn('Vendor import from Bill Payment Form failed:', importErr);
+      }
+
+      // 4c. Bill Payment Form open in another tab → import new vendors live
+      window.addEventListener('storage', (e) => {
+        if (!e || e.key !== 'noor_payment_form_new_vendors' || !e.newValue) return;
+        Promise.resolve()
+          .then(() => app.vendors.importQueuedVendors())
+          .then((n) => { if (n && isLoggedIn) return app.syncState(); })
+          .catch((err) => console.warn('Live vendor import failed:', err));
+      });
 
       // Trigger initial run of sync queue
       app.attachments.runSyncQueue();

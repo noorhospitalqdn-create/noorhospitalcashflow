@@ -710,6 +710,104 @@
       return null;
     }
 
+    // ===== Manual vendor creation =====
+    // This page is standalone (no IndexedDB access). Any vendor name the user
+    // types manually is queued in localStorage; the Cashflow System imports the
+    // queue on startup (and live, if it is open in another tab).
+    const NEW_VENDOR_QUEUE_KEY = 'noor_payment_form_new_vendors';
+
+    function splitVendorName(raw) {
+      const t = String(raw || '').trim();
+      const m = t.match(/^(.*?)\s*\(ID:\s*([^)]*)\)\s*$/i);
+      return m ? { name: m[1].trim(), id: m[2].trim() } : { name: t, id: '' };
+    }
+
+    function formToast(message) {
+      let el = document.getElementById('formToast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'formToast';
+        el.className = 'no-print';
+        el.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;max-width:340px;' +
+          'background:#065f46;color:#fff;font-size:0.8rem;font-weight:600;line-height:1.35;' +
+          'padding:10px 14px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);' +
+          'opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none;';
+        document.body.appendChild(el);
+      }
+      el.textContent = message;
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+      clearTimeout(el._hideTimer);
+      el._hideTimer = setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(8px)';
+      }, 4000);
+    }
+
+    function addVendorToFormSelects(name) {
+      const target = String(name || '').trim();
+      if (!target) return;
+      const norm = target.toLowerCase();
+      document.querySelectorAll('.name-select').forEach(sel => {
+        const exists = Array.from(sel.options).some(o => (o.value || '').trim().toLowerCase() === norm);
+        if (exists) return;
+        const opt = document.createElement('option');
+        opt.value = target;
+        opt.textContent = target;
+        const manual = sel.querySelector('option[value="__manual__"]');
+        if (manual) sel.insertBefore(opt, manual);
+        else sel.appendChild(opt);
+      });
+      // "Add System Vendor" picker bar
+      const picker = document.getElementById('sysVendorSelect');
+      if (picker) {
+        const exists = Array.from(picker.options).some(o => (o.textContent || '').trim().toLowerCase() === norm);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = String(SYSTEM_VENDORS.length - 1);
+          opt.textContent = target;
+          picker.appendChild(opt);
+        }
+      }
+      const dl = document.getElementById('systemVendorsList');
+      if (dl) {
+        const exists = Array.from(dl.options).some(o => (o.value || '').trim().toLowerCase() === norm);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = target;
+          dl.appendChild(opt);
+        }
+      }
+    }
+
+    // Registers a brand-new manual vendor name so the system can create it.
+    function queueManualVendor(raw) {
+      const { name, id } = splitVendorName(raw);
+      if (!name) return null;
+      // Already a known system vendor (case-insensitive) → nothing to create
+      if (SYSTEM_VENDORS.some(v => (v.name || '').trim().toLowerCase() === name.toLowerCase())) return null;
+
+      let queue = [];
+      try { queue = JSON.parse(localStorage.getItem(NEW_VENDOR_QUEUE_KEY) || '[]') || []; } catch (_) { queue = []; }
+      if (!Array.isArray(queue)) queue = [];
+      const alreadyQueued = queue.some(q => (q && q.name || '').trim().toLowerCase() === name.toLowerCase());
+      if (!alreadyQueued) {
+        queue.push({
+          name: name,
+          vendorCode: id || '',
+          source: 'bill-payment-request',
+          queuedAt: new Date().toISOString()
+        });
+        try { localStorage.setItem(NEW_VENDOR_QUEUE_KEY, JSON.stringify(queue)); } catch (_) {}
+      }
+
+      // Make it selectable inside this form immediately
+      SYSTEM_VENDORS.push({ name: name, id: id || '' });
+      addVendorToFormSelects(name);
+      formToast(`Vendor "${name}" form me add ho gaya. Cashflow System kholne par system vendors me bhi add ho jayega.`);
+      return name;
+    }
+
     // Datalist so the Name cell offers ALL system vendors as a dropdown
     (function buildSystemVendorDatalist() {
       if (!SYSTEM_VENDORS.length) return;
@@ -869,23 +967,48 @@
       advInput.addEventListener('input', () => { updateRowCalculation(); fitCellText(advInput, 12.5, 7.5); });
       payInput.addEventListener('input', () => { updateSummaryTotals(); fitCellText(payInput, 12.5, 7.5); });
 
-      // Manual-typed name still auto-fills ID + IND/Vendor if it matches a system vendor
-      nameInput.addEventListener('input', () => fitCellText(nameInput, 12.5, 7.2));
-      nameInput.addEventListener('change', () => {
-        const v = matchSystemVendor(nameInput.value);
+      // Manual-typed name: match a system vendor, otherwise CREATE it as a vendor
+      function commitManualName() {
+        const raw = nameInput.value;
+        const v = matchSystemVendor(raw);
         const vidBadge = tr.querySelector('.vid-badge');
-        if (v && (!selectEl.value || selectEl.value === 'Vendor')) {
+        if (v) {
           nameInput.value = v.name;
-          selectEl.value = 'Vendor';
-          selectEl.classList.add('selected-val');
-          selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+          if (!selectEl.value || selectEl.value === 'Vendor') {
+            selectEl.value = 'Vendor';
+            selectEl.classList.add('selected-val');
+            selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+          }
           if (vidBadge) {
             if (v.id) { vidBadge.textContent = 'ID: ' + v.id; vidBadge.classList.add('show'); }
             else { vidBadge.classList.remove('show'); }
           }
+        } else if (raw && raw.trim()) {
+          // Brand-new name → add it to the system vendor list (queued for import)
+          const created = queueManualVendor(raw);
+          if (created) {
+            nameInput.value = created;
+            if (!selectEl.value || selectEl.value === 'Vendor') {
+              selectEl.value = 'Vendor';
+              selectEl.classList.add('selected-val');
+              selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+            }
+            if (vidBadge) vidBadge.classList.remove('show');
+          }
         }
         syncIndCell();
         fitRowText(tr);
+      }
+
+      nameInput.addEventListener('input', () => fitCellText(nameInput, 12.5, 7.2));
+      nameInput.addEventListener('change', commitManualName);
+      nameInput.addEventListener('blur', commitManualName);
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitManualName();
+          nameInput.blur();
+        }
       });
 
       return tr;
@@ -981,7 +1104,14 @@
         el.addEventListener('change', syncHeaderMirrors);
       }
     });
-    window.addEventListener('beforeprint', () => { syncHeaderMirrors(); fitAllRows(); });
+    window.addEventListener('beforeprint', () => {
+      // Catch any manual vendor name that hasn't been committed yet (no blur happened)
+      document.querySelectorAll('.name-input').forEach(inp => {
+        if (inp.value && inp.value.trim()) inp.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      syncHeaderMirrors();
+      fitAllRows();
+    });
     window.addEventListener('resize', () => requestAnimationFrame(fitAllRows));
     window.addEventListener('load', () => {
       requestAnimationFrame(fitAllRows);
