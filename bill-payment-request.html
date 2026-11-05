@@ -771,22 +771,17 @@
       lbl.textContent = `Bill Payment Request Form (Page ${num})`;
     }
 
-    /* Full page-1 header replica for continuation pages: title, hospital stamp,
-       Dept Name / Dept Budget / Mode and the Payment Information bar —
-       so every printed table page looks exactly like page 1. */
+    /* Page-1 header replica for continuation pages: title, Dept Name /
+       Dept Budget / Mode and the Payment Information bar. The hospital stamp
+       belongs to page 1 only. */
     function buildContinuationHeader() {
       const hdr = document.createElement('div');
       hdr.className = 'page-head-mirror';
       hdr.innerHTML = `
-        <div class="form-head">
+        <div class="flex items-center mb-4">
           <h1 class="text-lg sm:text-xl font-bold tracking-tight text-neutral-900">
             Bill Payment Request Form
           </h1>
-          <div class="hospital-stamp" role="img" aria-label="Noor Hospital stamp">
-            <div class="stamp-urdu stamp-hospital" lang="ur" dir="rtl">نور ہسپتال</div>
-            <div class="stamp-date"></div>
-            <div class="stamp-urdu stamp-rawangi" lang="ur" dir="rtl">روانگی</div>
-          </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-3">
           <div>
