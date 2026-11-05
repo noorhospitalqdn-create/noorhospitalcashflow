@@ -1064,6 +1064,14 @@
       if (stored && Array.isArray(stored.vendors)) SYSTEM_VENDORS = stored.vendors;
     } catch (_) {}
 
+    // Vendors are always listed A → Z (case-insensitive)
+    function sortVendorsAlphabetically(list) {
+      return (list || []).slice().sort((a, b) =>
+        String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
+      );
+    }
+    SYSTEM_VENDORS = sortVendorsAlphabetically(SYSTEM_VENDORS);
+
     // Finds a system vendor by exact name, or by "Name (ID: xxx)" format
     function matchSystemVendor(raw) {
       const t = String(raw || '').trim();
@@ -1577,24 +1585,41 @@
     function addVendorToFormSelects(name) {
       const target = String(name || '').trim();
       if (!target) return;
-      const norm = target.toLowerCase();
-      document.querySelectorAll('.name-select').forEach(sel => {
-        const exists = Array.from(sel.options).some(o => (o.value || '').trim().toLowerCase() === norm);
+      const lower = target.toLowerCase();
+      const cmp = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base' });
+
+      const insertAlphabetically = (container, makeOption) => {
+        const exists = Array.from(container.options || container.children || [])
+          .some(o => String(o.value || '').trim().toLowerCase() === lower);
         if (exists) return;
-        const opt = document.createElement('option');
-        opt.value = target;
-        opt.textContent = target;
-        sel.appendChild(opt);
+        const opt = makeOption();
+        const after = Array.from(container.options || container.children || []).find(o => {
+          const v = String(o.value || '').trim();
+          // skip the two helper entries at the top of the name dropdowns
+          if (!v || v === '__manual__') return false;
+          return cmp(v, target) > 0;
+        });
+        if (after) container.insertBefore(opt, after);
+        else container.appendChild(opt);
+      };
+
+      document.querySelectorAll('.name-select').forEach(sel => {
+        insertAlphabetically(sel, () => {
+          const opt = document.createElement('option');
+          opt.value = target;
+          opt.textContent = target;
+          return opt;
+        });
       });
       const dl = document.getElementById('systemVendorsList');
       if (dl) {
-        const exists = Array.from(dl.options).some(o => (o.value || '').trim().toLowerCase() === norm);
-        if (!exists) {
+        insertAlphabetically(dl, () => {
           const opt = document.createElement('option');
           opt.value = target;
-          dl.appendChild(opt);
-        }
+          return opt;
+        });
       }
+      SYSTEM_VENDORS = sortVendorsAlphabetically(SYSTEM_VENDORS);
     }
 
     // Registers a brand-new manual vendor: saves it in Supabase online, queues
@@ -1678,7 +1703,7 @@
       if (!SYSTEM_VENDORS.length) return;
       const dl = document.createElement('datalist');
       dl.id = 'systemVendorsList';
-      SYSTEM_VENDORS.forEach(v => {
+      sortVendorsAlphabetically(SYSTEM_VENDORS).forEach(v => {
         const opt = document.createElement('option');
         opt.value = v.name || '';
         opt.label = v.id || '';
@@ -1854,7 +1879,7 @@
         manual.value = '__manual__';
         manual.textContent = 'Manual / Other (type name)';
         nameSelect.appendChild(manual);
-        SYSTEM_VENDORS.forEach(v => {
+        sortVendorsAlphabetically(SYSTEM_VENDORS).forEach(v => {
           const opt = document.createElement('option');
           // Name column shows ONLY the vendor name (ID is shown as the badge)
           opt.value = v.name || '';

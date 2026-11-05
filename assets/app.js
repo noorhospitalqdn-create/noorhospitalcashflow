@@ -6583,7 +6583,7 @@ const app = {
     },
 
     populateVendorDropdowns(selectedVendor = '') {
-      const sorted = app.vendors.getUniqueVendors().sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+      const sorted = app.vendors.getUniqueVendors().sort((a,b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
       // Show ONLY the vendor name in dropdowns — vendor ID/code is not glued to it
       const optLabel = v => app.ui.escapeHTML(v.name || '');
 
@@ -6717,8 +6717,8 @@ const app = {
       list.sort((a,b) => {
         const statsA = vendorStats.get(a.id) || { totalSpend: 0, totalBillsCount: 0 };
         const statsB = vendorStats.get(b.id) || { totalSpend: 0, totalBillsCount: 0 };
-        if (sortVal === 'name_asc') return (a.name || '').localeCompare(b.name || '');
-        if (sortVal === 'name_desc') return (b.name || '').localeCompare(a.name || '');
+        if (sortVal === 'name_asc') return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' });
+        if (sortVal === 'name_desc') return (b.name || '').localeCompare(a.name || '', undefined, { sensitivity: 'base' });
         if (sortVal === 'spend_desc') return statsB.totalSpend - statsA.totalSpend;
         if (sortVal === 'bills_desc') return statsB.totalBillsCount - statsA.totalBillsCount;
         return 0;
@@ -6860,7 +6860,8 @@ const app = {
           const vendors = app.vendors.getUniqueVendors().map(v => ({
             name: (v.name || '').trim(),
             id: String(v.vendorCode || v.code || '').trim()
-          })).filter(v => v.name);
+          })).filter(v => v.name)
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
           localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors }));
         } catch (_) {}
         if (!opts.silent) {
@@ -6890,7 +6891,8 @@ const app = {
         const vendors = app.vendors.getUniqueVendors().map(v => ({
           name: (v.name || '').trim(),
           id: String(v.vendorCode || v.code || '').trim()
-        })).filter(v => v.name);
+        })).filter(v => v.name)
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
         localStorage.setItem('noor_payment_form_vendors', JSON.stringify({
           updatedAt: Date.now(),
           vendors
@@ -6914,7 +6916,8 @@ const app = {
         const vendors = app.vendors.getUniqueVendors().map(v => ({
           name: (v.name || '').trim(),
           id: String(v.vendorCode || v.code || '').trim()
-        })).filter(v => v.name);
+        })).filter(v => v.name)
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
         localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors }));
         const heads = (app.heads.getUniqueHeads() || []).map(h => (h.name || '').trim()).filter(Boolean);
         localStorage.setItem('noor_payment_form_heads', JSON.stringify(heads));

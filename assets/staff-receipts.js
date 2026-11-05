@@ -491,7 +491,7 @@
 
     var sorted = (vendors || []).filter(function (v) { return v && v.name && v.name.trim(); })
       .slice()
-      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+      .sort(function (a, b) { return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }); });
 
     function optLabel(v) {
       // Show only the vendor name (ID/code stays available in the vendor directory)
