@@ -291,6 +291,62 @@
     .vid-badge.show {
       display: inline-block;
     }
+    /* ===== Custom ID typed directly in the IND/Vendor cell =====
+       Choosing "Custom ID" from the IND/Vendor dropdown swaps the dropdown for
+       a small text field, so an ID can be written for a vendor/person that is
+       not in the system vendor list. */
+    .ind-vendor-select.custom-id-mode {
+      visibility: hidden;
+    }
+    .custom-id-input {
+      display: none;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      /* right padding keeps the typed ID clear of the ✕ clear button */
+      padding: 3px 16px 3px 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: #065f46;
+      background: #f0fdf4;
+      outline: none;
+      text-align: left;
+    }
+    .custom-id-input.show {
+      display: block;
+    }
+    .custom-id-input::placeholder {
+      color: #d3d8e0;
+      font-weight: 400;
+      font-style: italic;
+    }
+    .custom-id-clear {
+      display: none;
+      position: absolute;
+      right: 1px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 13px;
+      height: 13px;
+      padding: 0;
+      line-height: 11px;
+      text-align: center;
+      font-size: 9px;
+      font-weight: 700;
+      border-radius: 50%;
+      color: #065f46;
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      cursor: pointer;
+      z-index: 2;
+    }
+    .custom-id-clear.show {
+      display: block;
+    }
     .top-field-label {
       font-weight: 700;
       font-size: 0.82rem;
@@ -419,6 +475,15 @@
         height: 68px !important;
         overflow: hidden !important;
         border: 1px solid #333333 !important;
+      }
+      /* Custom ID prints as plain black text (no green field background) */
+      .custom-id-input {
+        background: transparent !important;
+        color: #111827 !important;
+        padding-right: 5px;
+      }
+      .custom-id-input::placeholder {
+        color: transparent !important;
       }
     }
   </style>
@@ -1254,7 +1319,7 @@
           indSel.value = 'Vendor';
           indSel.classList.add('selected-val');
         }
-        setVendorIdBadge(tr, 'ID: ' + code);
+        setVendorIdBadge(tr, code);
         if (indSel && badge && badge.classList.contains('show') && indSel.value === 'Vendor') {
           indSel.classList.add('id-only');
         }
@@ -1792,7 +1857,10 @@
             <option value="">Drop Down</option>
             <option value="IND">IND</option>
             <option value="Vendor">Vendor</option>
+            <option value="__custom_id__">Custom ID</option>
           </select>
+          <input type="text" class="custom-id-input" aria-label="Custom ID row ${index}" placeholder="Type ID" autocomplete="off" title="Type the ID here. Clear the box and click away to go back to the dropdown." />
+          <button type="button" class="custom-id-clear no-print" aria-label="Clear custom ID" tabindex="-1">&#10005;</button>
           <span class="vid-badge"></span>
         </td>
         <td>
@@ -1825,6 +1893,78 @@
       const billInput = tr.querySelector('.bill-input');
       const advInput = tr.querySelector('.advance-input');
       const payInput = tr.querySelector('.payment-input');
+      const customIdInput = tr.querySelector('.custom-id-input');
+      const customIdClear = tr.querySelector('.custom-id-clear');
+
+      // ===== Custom ID mode (IND/Vendor → "Custom ID") =====
+      // Swaps the narrow dropdown for a text field so a vendor/person ID can
+      // be written by hand when it is not in the system vendor list.
+      function setCustomIdMode(on, value) {
+        if (!customIdInput) return;
+        if (on) {
+          // A hand-typed ID replaces the vendor-code badge in this cell
+          const badge = tr.querySelector('.vid-badge');
+          if (badge) badge.classList.remove('show');
+          selectEl.classList.add('custom-id-mode');
+          selectEl.classList.remove('id-only');
+          customIdInput.classList.add('show');
+          if (customIdClear) customIdClear.classList.add('show');
+          if (value !== undefined) customIdInput.value = value;
+          setTimeout(() => { try { customIdInput.focus(); customIdInput.select(); } catch (_) {} }, 0);
+        } else {
+          selectEl.classList.remove('custom-id-mode');
+          customIdInput.classList.remove('show');
+          if (customIdClear) customIdClear.classList.remove('show');
+        }
+        fitRowText(tr);
+      }
+      tr._setCustomIdMode = setCustomIdMode;
+      tr._exitCustomId = () => setCustomIdMode(false);
+
+      function leaveCustomId() {
+        setCustomIdMode(false);
+        selectEl.value = '';
+        selectEl.classList.remove('selected-val');
+        const vidBadge = tr.querySelector('.vid-badge');
+        if (vidBadge) vidBadge.classList.remove('show');
+      }
+
+      customIdInput.addEventListener('input', () => {
+        const vidBadge = tr.querySelector('.vid-badge');
+        if (vidBadge) vidBadge.classList.remove('show');
+        fitCellText(customIdInput, 12, 7);
+      });
+
+      customIdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          customIdInput.value = '';
+          leaveCustomId();
+          selectEl.focus();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          customIdInput.blur();
+        }
+      });
+
+      customIdInput.addEventListener('blur', () => {
+        const value = customIdInput.value.trim();
+        if (!value) {
+          leaveCustomId();
+        } else {
+          customIdInput.value = value;
+          fitCellText(customIdInput, 12, 7);
+        }
+      });
+
+      if (customIdClear) {
+        customIdClear.addEventListener('mousedown', (e) => e.preventDefault());
+        customIdClear.addEventListener('click', () => {
+          customIdInput.value = '';
+          leaveCustomId();
+          try { selectEl.focus(); } catch (_) {}
+        });
+      }
 
       // ===== Label ID auto-prefix & format =====
       labelIdInput.addEventListener('focus', () => {
@@ -1917,8 +2057,11 @@
             selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
           }
           if (vidBadge) {
-            if (v && v.id) { vidBadge.textContent = 'ID: ' + v.id; vidBadge.classList.add('show'); }
-            else { vidBadge.classList.remove('show'); }
+            if (v && v.id) {
+              vidBadge.textContent = String(v.id);
+              vidBadge.classList.add('show');
+              if (tr._exitCustomId) tr._exitCustomId();
+            } else { vidBadge.classList.remove('show'); }
           }
         } else {
           if (vidBadge) vidBadge.classList.remove('show');
@@ -1931,6 +2074,14 @@
 
       selectEl.addEventListener('change', () => {
         const vidBadge = tr.querySelector('.vid-badge');
+        // "Custom ID" → swap the dropdown for a free-text ID field
+        if (selectEl.value === '__custom_id__') {
+          if (vidBadge) vidBadge.classList.remove('show');
+          selectEl.classList.remove('id-only');
+          setCustomIdMode(true);
+          return;
+        }
+        setCustomIdMode(false);
         if (selectEl.value) {
           selectEl.classList.add('selected-val');
           if (selectEl.value !== 'Vendor' && vidBadge) vidBadge.classList.remove('show');
@@ -1970,8 +2121,11 @@
             selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
           }
           if (vidBadge) {
-            if (v.id) { vidBadge.textContent = 'ID: ' + v.id; vidBadge.classList.add('show'); }
-            else { vidBadge.classList.remove('show'); }
+            if (v.id) {
+              vidBadge.textContent = String(v.id);
+              vidBadge.classList.add('show');
+              if (tr._exitCustomId) tr._exitCustomId();
+            } else { vidBadge.classList.remove('show'); }
           }
         } else if (raw && raw.trim()) {
           // Brand-new name → add it to the system vendor list (queued for import)
@@ -2133,7 +2287,7 @@
        form-page padding (24px) and borders (4px) → table is ~705px wide.
        Used so the print-fit matches the real sheet, not the screen width. */
     const PRINT_TABLE_WIDTH = 705;
-    const COLUMN_PCT = { bill: 0.13, advance: 0.10, payment: 0.10 };
+    const COLUMN_PCT = { bill: 0.11, advance: 0.10, payment: 0.11 };
 
     // One shared size for Bill / Advance / Payment totals on every page.
     function fitTotalCells(printMode) {
@@ -2332,13 +2486,15 @@
     // Usage: bill-payment-request.html?vendor=<name>&id=<vendorCode>
     function fillRowAsVendor(tr, vName, vId) {
       if (!tr) return;
+      // A system vendor replaces any hand-typed custom ID in this row
+      if (tr._exitCustomId) tr._exitCustomId();
       const selectEl = tr.querySelector('.ind-vendor-select');
       if (selectEl) {
         selectEl.value = 'Vendor';
         selectEl.classList.add('selected-val');
         selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
       }
-      setVendorIdBadge(tr, vId ? 'ID: ' + vId : '');
+      setVendorIdBadge(tr, vId || '');
       const selEl = tr.querySelector('.ind-vendor-select');
       if (selEl) {
         if (vId) selEl.classList.add('id-only');
@@ -2387,7 +2543,7 @@
           indSel.value = (vendor && (vId || isSystemVendor)) ? 'Vendor' : (vendor ? 'Vendor' : 'IND');
           indSel.classList.add('selected-val');
           indSel.classList.remove('italic', 'font-normal', 'text-gray-700');
-          if (vId) setVendorIdBadge(targetRow, 'ID: ' + vId);
+          if (vId) setVendorIdBadge(targetRow, vId);
           if (indSel.value === 'Vendor' && vId) indSel.classList.add('id-only');
         }
 
