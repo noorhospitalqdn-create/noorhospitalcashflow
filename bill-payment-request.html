@@ -291,6 +291,15 @@
     .vid-badge.show {
       display: inline-block;
     }
+    /* A custom ID that has been committed shows as the same pill as system
+       vendor IDs; clicking it re-opens the small editor. */
+    .vid-badge.custom-display {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .vid-badge.custom-display:hover {
+      outline: 1px solid #6ee7b7;
+    }
     /* ===== Custom ID typed directly in the IND/Vendor cell =====
        Choosing "Custom ID" from the IND/Vendor dropdown swaps the dropdown for
        a small text field, so an ID can be written for a vendor/person that is
@@ -1422,6 +1431,8 @@
         if (norm(getNameCellValue(tr)) !== norm(name)) return;
         const indSel = tr.querySelector('.ind-vendor-select');
         const badge = tr.querySelector('.vid-badge');
+        // A hand-typed custom ID always wins in its own row
+        if (indSel && indSel.value === '__custom_id__') return;
         if (!code) {
           // No vendor code → keep the cell clean (no random ID)
           if (badge) badge.classList.remove('show');
@@ -1964,6 +1975,60 @@
       });
     })();
 
+    // ===== Mode aware amounts =====
+    // Payment = Bill Amount - Advance.
+    // In "Wapasi Peshgi" mode the amount belongs to Bill Amount + Advance only:
+    // Payment stays EMPTY, and the two columns mirror each other so the same
+    // amount is visible in both.
+    function isWapasiPeshgiMode() {
+      const sel = document.getElementById('modeSelect');
+      return !!sel && sel.value === 'Wapasi Peshgi';
+    }
+
+    function recalcRowPayment(tr, source) {
+      if (!tr) return;
+      const bill = tr.querySelector('.bill-input');
+      const adv = tr.querySelector('.advance-input');
+      const pay = tr.querySelector('.payment-input');
+      if (!bill || !adv || !pay) return;
+
+      if (isWapasiPeshgiMode()) {
+        if (source === 'bill') {
+          delete bill.dataset.auto;
+          if (!adv.value.trim() || adv.dataset.auto === '1') {
+            adv.value = bill.value;
+            adv.dataset.auto = '1';
+          }
+        } else if (source === 'advance') {
+          delete adv.dataset.auto;
+          if (!bill.value.trim() || bill.dataset.auto === '1') {
+            bill.value = adv.value;
+            bill.dataset.auto = '1';
+          }
+        }
+        pay.value = '';
+      } else {
+        delete bill.dataset.auto;
+        delete adv.dataset.auto;
+        const b = parseFloat(String(bill.value).replace(/,/g, ''));
+        const a = parseFloat(String(adv.value).replace(/,/g, ''));
+        if (!isNaN(b) || !isNaN(a)) {
+          const diff = (isNaN(b) ? 0 : b) - (isNaN(a) ? 0 : a);
+          pay.value = Number.isInteger(diff) ? String(diff) : diff.toFixed(2);
+        }
+      }
+      updateSummaryTotals();
+    }
+
+    // Applies the current Mode to every existing row (used when Mode changes)
+    function recalcAllRows() {
+      allRows().forEach(tr => {
+        recalcRowPayment(tr);
+        fitAmountsInRow(tr);
+      });
+      updateSummaryTotals();
+    }
+
     function createRow(index) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -2016,10 +2081,13 @@
       // be written by hand when it is not in the system vendor list.
       function setCustomIdMode(on, value) {
         if (!customIdInput) return;
+        const badge = tr.querySelector('.vid-badge');
         if (on) {
           // A hand-typed ID replaces the vendor-code badge in this cell
-          const badge = tr.querySelector('.vid-badge');
-          if (badge) badge.classList.remove('show');
+          if (badge) {
+            badge.classList.remove('show');
+            badge.classList.remove('custom-display');
+          }
           selectEl.classList.add('custom-id-mode');
           selectEl.classList.remove('id-only');
           customIdInput.classList.add('show');
@@ -2030,18 +2098,39 @@
           selectEl.classList.remove('custom-id-mode');
           customIdInput.classList.remove('show');
           if (customIdClear) customIdClear.classList.remove('show');
+          if (badge) badge.classList.remove('custom-display');
         }
         fitRowText(tr);
       }
       tr._setCustomIdMode = setCustomIdMode;
       tr._exitCustomId = () => setCustomIdMode(false);
 
+      // Committed state: the ID is shown as a normal vendor-ID pill (same size
+      // and style as system vendor IDs). No text box, no ✕ button — click the
+      // pill to edit it again.
+      function showCustomIdSaved(value) {
+        const badge = tr.querySelector('.vid-badge');
+        selectEl.classList.add('custom-id-mode');
+        selectEl.classList.remove('id-only');
+        customIdInput.classList.remove('show');
+        if (customIdClear) customIdClear.classList.remove('show');
+        if (badge) {
+          badge.textContent = value;
+          badge.classList.add('custom-display');
+          badge.classList.add('show');
+        }
+        fitRowText(tr);
+      }
+
       function leaveCustomId() {
         setCustomIdMode(false);
         selectEl.value = '';
         selectEl.classList.remove('selected-val');
         const vidBadge = tr.querySelector('.vid-badge');
-        if (vidBadge) vidBadge.classList.remove('show');
+        if (vidBadge) {
+          vidBadge.classList.remove('show');
+          vidBadge.classList.remove('custom-display');
+        }
       }
 
       customIdInput.addEventListener('input', () => {
@@ -2069,6 +2158,7 @@
         } else {
           customIdInput.value = value;
           fitCellText(customIdInput, 12, 7);
+          showCustomIdSaved(value);
           // A custom ID belongs to the vendor written in the Name column:
           // save it as that vendor's permanent ID (locally + Supabase).
           const vendorName = String(getNameCellValue(tr) || '').trim();
@@ -2076,6 +2166,18 @@
           else formToast(`Vendor ID "${value}" set for this row. Type the vendor name to save it permanently.`);
         }
       });
+
+      // Click a saved custom ID to edit it again
+      const vidBadgeEl = tr.querySelector('.vid-badge');
+      if (vidBadgeEl) {
+        vidBadgeEl.addEventListener('click', () => {
+          if (!vidBadgeEl.classList.contains('custom-display')) return;
+          const current = vidBadgeEl.textContent || '';
+          vidBadgeEl.classList.remove('show');
+          vidBadgeEl.classList.remove('custom-display');
+          setCustomIdMode(true, current);
+        });
+      }
 
       if (customIdClear) {
         customIdClear.addEventListener('mousedown', (e) => e.preventDefault());
@@ -2212,20 +2314,8 @@
         syncIndCell();
       });
 
-      function updateRowCalculation() {
-        const billVal = parseFloat(billInput.value.replace(/,/g, ''));
-        const advVal = parseFloat(advInput.value.replace(/,/g, ''));
-        if (!isNaN(billVal) || !isNaN(advVal)) {
-          const b = isNaN(billVal) ? 0 : billVal;
-          const a = isNaN(advVal) ? 0 : advVal;
-          const diff = b - a;
-          payInput.value = Number.isInteger(diff) ? String(diff) : diff.toFixed(2);
-        }
-        updateSummaryTotals();
-      }
-
-      billInput.addEventListener('input', () => { updateRowCalculation(); fitAmountsInRow(tr); });
-      advInput.addEventListener('input', () => { updateRowCalculation(); fitAmountsInRow(tr); });
+      billInput.addEventListener('input', () => { recalcRowPayment(tr, 'bill'); fitAmountsInRow(tr); });
+      advInput.addEventListener('input', () => { recalcRowPayment(tr, 'advance'); fitAmountsInRow(tr); });
       payInput.addEventListener('input', () => { updateSummaryTotals(); fitAmountsInRow(tr); });
 
       // Manual-typed name: match a system vendor, otherwise CREATE it as a vendor
@@ -2557,6 +2647,10 @@
       document.querySelectorAll('.name-input').forEach(inp => {
         if (inp.value && inp.value.trim()) inp.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      // Commit a custom ID that is still being typed
+      document.querySelectorAll('.custom-id-input').forEach(inp => {
+        if (inp.classList.contains('show') && inp.value.trim()) inp.blur();
+      });
       // Clear bare label ID prefixes (e.g. 73- or 54-) on empty rows so they don't print
       document.querySelectorAll('.label-id-input').forEach(inp => {
         const v = inp.value.trim();
@@ -2601,6 +2695,19 @@
     })();
 
     initTable(INITIAL_ROWS);
+
+    // ===== Mode → amount behaviour =====
+    // Switching to "Wapasi Peshgi" clears every Payment cell (amount stays in
+    // Bill Amount / Advance); switching back recalculates Payment = Bill - Adv.
+    (function initPaymentModeBehaviour() {
+      const modeEl = document.getElementById('modeSelect');
+      if (!modeEl) return;
+      modeEl.addEventListener('change', () => {
+        recalcAllRows();
+        const details = document.getElementById('paymentDetails');
+        if (details) fitPaymentDetailsText();
+      });
+    })();
 
     // ===== Vendor pre-fill from Cashflow System (URL params) =====
     // Usage: bill-payment-request.html?vendor=<name>&id=<vendorCode>
