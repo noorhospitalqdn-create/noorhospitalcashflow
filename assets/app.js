@@ -6884,6 +6884,61 @@ const app = {
       return imported.length;
     },
 
+    // ===== Apply custom Vendor IDs typed in the standalone payment form =====
+    // The form saves them in Supabase itself; when it was offline (or the
+    // vendor did not exist online yet) the pending { name, code } entries are
+    // applied here — the normal local put → sync queue pushes them online.
+    async importQueuedVendorCodes(opts = {}) {
+      const KEY = 'noor_payment_form_vendor_codes';
+      let list = [];
+      try { list = JSON.parse(localStorage.getItem(KEY) || '[]') || []; } catch (_) { list = []; }
+      if (!Array.isArray(list) || !list.length) return 0;
+
+      const norm = s => String(s || '').trim().toLowerCase();
+      const left = [];
+      const changed = [];
+
+      for (const item of list) {
+        const name = String((item && item.name) || '').trim();
+        const code = String((item && item.code) || '').trim();
+        if (!name || !code) continue;
+
+        const vendor = (app.state.vendors || []).find(v => v && norm(v.name) === norm(name));
+        if (!vendor) { left.push(item); continue; } // may not be pulled yet — retry later
+        if (String(vendor.vendorCode || '').trim() === code) { changed.push(name); continue; }
+
+        const rec = { ...vendor, vendorCode: code, updated_at: new Date().toISOString() };
+        try {
+          await app.db.put('vendors', vendor.id, rec);
+          const idx = (app.state.vendors || []).findIndex(v => v && v.id === vendor.id);
+          if (idx !== -1) app.state.vendors[idx] = rec;
+          changed.push(name);
+        } catch (err) {
+          console.warn('Could not apply vendor ID from Bill Payment Form:', name, err);
+          left.push(item);
+        }
+      }
+
+      try {
+        if (left.length) localStorage.setItem(KEY, JSON.stringify(left));
+        else localStorage.removeItem(KEY);
+      } catch (_) {}
+
+      if (changed.length) {
+        try { app.vendors.populateVendorDropdowns(); } catch (_) {}
+        try { app.vendors.renderVendorsTable(); } catch (_) {}
+        if (!opts.silent) {
+          app.ui.showToast(
+            changed.length === 1
+              ? `Vendor ID saved for "${changed[0]}".`
+              : `Vendor IDs saved for ${changed.length} vendors.`,
+            'success'
+          );
+        }
+      }
+      return changed.length;
+    },
+
     // Opens the Bill Payment Request Form with the full system vendor list
     // (stored in localStorage) so multiple vendors can be added at once.
     openPaymentForm() {
@@ -13437,20 +13492,38 @@ tfoot .r{text-align:right;}
         console.warn('Vendor import from Bill Payment Form failed:', importErr);
       }
 
+      // 4b-2. Custom vendor IDs typed in the payment form that could not be
+      // saved online from there (offline / vendor not created yet)
+      try {
+        const codeCount = await app.vendors.importQueuedVendorCodes({ silent: true });
+        if (codeCount && isLoggedIn) await app.syncState();
+      } catch (codeErr) {
+        console.warn('Vendor ID import from Bill Payment Form failed:', codeErr);
+      }
+
       // 4c. Bill Payment Form open in another tab → import new vendors live
       window.addEventListener('storage', (e) => {
-        if (!e || e.key !== 'noor_payment_form_new_vendors' || !e.newValue) return;
+        if (!e || !e.key) return;
+        if (e.key === 'noor_payment_form_vendor_codes') {
+          Promise.resolve()
+            .then(() => app.vendors.importQueuedVendorCodes())
+            .then((n) => { if (n && isLoggedIn) return app.syncState(); })
+            .catch((err) => console.warn('Live vendor ID import failed:', err));
+          return;
+        }
+        if (e.key !== 'noor_payment_form_new_vendors' || !e.newValue) return;
         Promise.resolve()
           .then(() => app.vendors.importQueuedVendors())
           .then((n) => { if (n && isLoggedIn) return app.syncState(); })
           .catch((err) => console.warn('Live vendor import failed:', err));
       });
 
-      // 4d. Safety net — storage events can be throttled; re-check the queue
-      // whenever the window regains focus (no-op when the queue is empty).
+      // 4d. Safety net — storage events can be throttled; re-check the queues
+      // whenever the window regains focus (no-op when the queues are empty).
       window.addEventListener('focus', () => {
         Promise.resolve()
           .then(() => app.vendors.importQueuedVendors({ silent: true }))
+          .then(() => app.vendors.importQueuedVendorCodes({ silent: true }))
           .then((n) => { if (n && isLoggedIn) return app.syncState(); })
           .catch(() => {});
       });

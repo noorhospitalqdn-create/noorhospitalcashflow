@@ -1278,6 +1278,120 @@
       }
     }
 
+    // ===== Custom ID → becomes that vendor's permanent Vendor ID =====
+    // A hand-typed ID in the IND/Vendor cell is written to the vendor row as
+    // `vendorCode` (by name) so it shows up online in Supabase, in the system
+    // vendor list, and on every other device — not just on this printed form.
+    const VENDOR_CODE_QUEUE_KEY = 'noor_payment_form_vendor_codes';
+
+    function readCodeQueue() {
+      try {
+        const list = JSON.parse(localStorage.getItem(VENDOR_CODE_QUEUE_KEY) || '[]');
+        return Array.isArray(list) ? list : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function writeCodeQueue(list) {
+      try {
+        if (!list || !list.length) localStorage.removeItem(VENDOR_CODE_QUEUE_KEY);
+        else localStorage.setItem(VENDOR_CODE_QUEUE_KEY, JSON.stringify(list));
+      } catch (_) {}
+    }
+
+    // Kept for the Cashflow System: it applies these IDs locally and pushes
+    // them to Supabase when the form was offline / not able to save.
+    function queuePendingVendorCode(name, code) {
+      const norm = s => String(s || '').trim().toLowerCase();
+      const list = readCodeQueue();
+      const hit = list.find(x => x && norm(x.name) === norm(name));
+      if (hit) {
+        hit.code = code;
+        hit.at = new Date().toISOString();
+      } else {
+        list.push({ name: name, code: code, at: new Date().toISOString() });
+      }
+      writeCodeQueue(list);
+    }
+
+    function clearPendingVendorCode(name) {
+      const norm = s => String(s || '').trim().toLowerCase();
+      writeCodeQueue(readCodeQueue().filter(x => !(x && norm(x.name) === norm(name))));
+    }
+
+    // PATCH the vendor row by name. Resolves { ok, reason }.
+    async function patchVendorCodeOnline(name, vendorCode) {
+      const { url, key } = getSupabaseCredentials();
+      if (!url || !key) return { ok: false, reason: 'not-configured' };
+      if (navigator.onLine === false) return { ok: false, reason: 'offline' };
+      const payload = {
+        vendorCode: vendorCode,
+        updated_at: new Date().toISOString(),
+        device_id: formDeviceId()
+      };
+      try {
+        const res = await fetch(url + '/rest/v1/' + VENDOR_TABLE + '?name=eq.' + encodeURIComponent(name), {
+          method: 'PATCH',
+          headers: supabaseHeaders(key, { 'Prefer': 'return=representation' }),
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const detail = await res.text().catch(() => '');
+          return { ok: false, reason: 'http-' + res.status, detail: String(detail).slice(0, 200) };
+        }
+        const rows = await res.json().catch(() => []);
+        if (Array.isArray(rows) && rows.length) return { ok: true };
+        return { ok: false, reason: 'not-found' };
+      } catch (err) {
+        return { ok: false, reason: 'network', detail: String((err && err.message) || err) };
+      }
+    }
+
+    // Saves a hand-typed custom ID as the vendor's permanent vendorCode.
+    function persistVendorCode(name, code) {
+      const norm = s => String(s || '').trim().toLowerCase();
+      const target = String(name || '').trim();
+      const vendorCode = String(code || '').trim();
+      if (!target || !vendorCode) return;
+
+      // 1) this form's own vendor list (so the dropdown/badge use the new ID)
+      const entry = SYSTEM_VENDORS.find(v => norm(v.name) === norm(target));
+      if (entry) entry.id = vendorCode;
+      else SYSTEM_VENDORS.push({ name: target, id: vendorCode });
+      try {
+        const list = SYSTEM_VENDORS
+          .map(v => ({ name: (v.name || '').trim(), id: String(v.id || '').trim() }))
+          .filter(v => v.name);
+        localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors: list }));
+      } catch (_) {}
+
+      // 2) if the vendor is still waiting to be created in the system, carry
+      //    the ID along so it is created with this vendorCode
+      try {
+        const queue = JSON.parse(localStorage.getItem(NEW_VENDOR_QUEUE_KEY) || '[]') || [];
+        let changed = false;
+        queue.forEach(item => {
+          if (item && norm(item.name) === norm(target)) {
+            item.vendorCode = vendorCode;
+            changed = true;
+          }
+        });
+        if (changed) localStorage.setItem(NEW_VENDOR_QUEUE_KEY, JSON.stringify(queue));
+      } catch (_) {}
+
+      // 3) save it online (and keep a pending record if that is not possible)
+      patchVendorCodeOnline(target, vendorCode).then(res => {
+        if (res && res.ok) {
+          clearPendingVendorCode(target);
+          formToast(`Vendor ID "${vendorCode}" saved permanently for "${target}" (online).`);
+        } else {
+          queuePendingVendorCode(target, vendorCode);
+          formToast(`Vendor ID "${vendorCode}" set for "${target}". Online save pending — the Cashflow System will sync it when opened.`);
+        }
+      });
+    }
+
     // Stores the online ID on the queued vendor so the Cashflow System mirrors
     // the remote row instead of inserting the same name a second time.
     function markQueuedVendorOnline(name, remoteId) {
@@ -1735,12 +1849,13 @@
         if (res && res.ok) {
           // Only a real vendorCode is a "Vendor ID" — the Supabase row id is
           // internal and never shown in the form.
-          const savedCode = String(res.vendorCode || localVendor.id || '').trim();
-          localVendor.id = savedCode;
+          const savedCode = String(res.vendorCode || '').trim();
+          // Never clobber an ID the user typed in the meantime (custom ID)
+          if (savedCode) localVendor.id = savedCode;
           localVendor.remoteId = res.id;
           localVendor.pendingOnline = false;
           markQueuedVendorOnline(name, res.id);
-          applyVendorCodeToRows(name, savedCode);
+          applyVendorCodeToRows(name, localVendor.id);
           // Keep the vendor payload the form reads next time up to date
           try {
             const list = SYSTEM_VENDORS
@@ -1954,6 +2069,11 @@
         } else {
           customIdInput.value = value;
           fitCellText(customIdInput, 12, 7);
+          // A custom ID belongs to the vendor written in the Name column:
+          // save it as that vendor's permanent ID (locally + Supabase).
+          const vendorName = String(getNameCellValue(tr) || '').trim();
+          if (vendorName) persistVendorCode(vendorName, value);
+          else formToast(`Vendor ID "${value}" set for this row. Type the vendor name to save it permanently.`);
         }
       });
 
