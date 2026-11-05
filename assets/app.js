@@ -1348,6 +1348,22 @@ const app = {
      * Prompts the user to delete a record and handles dependencies.
      */
     promptDelete(storeName, id) {
+      // Locked batches: bills inside them cannot be deleted (removed)
+      if (storeName === 'bills') {
+        const lockedBill = app.state.bills.find(b => b.id === id);
+        if (lockedBill && app.ui.isBillLocked(lockedBill)) {
+          app.ui.batchLockedToast(app.ui.batchTypeOfBill(lockedBill), lockedBill.clearBatch);
+          return;
+        }
+      }
+      if (storeName === 'temporary_slips') {
+        // Deleting a converted slip also deletes its bill
+        const linkedBill = app.state.bills.find(b => b.slipId === id);
+        if (linkedBill && app.ui.isBillLocked(linkedBill)) {
+          app.ui.batchLockedToast(app.ui.batchTypeOfBill(linkedBill), linkedBill.clearBatch);
+          return;
+        }
+      }
       let message = 'Are you sure you want to delete this record?';
       if (storeName === 'temporary_slips') {
         const slip = app.state.temporarySlips.find(s => s.id === id);
@@ -1866,6 +1882,8 @@ const app = {
     selectedHospitalBills:new Set(),
     applyFilter(page, patch){
       Object.assign(app.ui.filters[page], patch);
+      // Any filter/sort change starts the list from page 1
+      if (app.ui.pagination && app.ui.pagination[page]) app.ui.pagination[page].page = 1;
       const map={advance:'renderAdvanceTable',hospital:'renderHospitalTable',deposits:'renderDepositsTable',slips:'renderSlipsTable','advance-slips':'renderAdvanceSlipsTable',bills:'renderBillsTable','advance-bills':'renderAdvanceBillsTable','advance-cleared':'renderAdvanceClearedTable','hospital-cleared':'renderHospitalClearedTable',accounts:'renderAccountsTable',transfers:'renderTransfersTable'};
       if(map[page]) app.ui[map[page]]();
       const mmap={advance:'renderAdvanceCards',hospital:'renderHospitalCards',deposits:'renderDepositsCards',slips:'renderSlipsCards','advance-slips':'renderAdvanceSlipsCards',bills:'renderBillsCards','advance-bills':'renderAdvanceBillsCards','advance-cleared':'renderAdvanceClearedCards','hospital-cleared':'renderHospitalClearedCards',accounts:'renderAccountsCards',transfers:'renderTransfersCards'};
@@ -1906,12 +1924,13 @@ const app = {
       const batches=[...new Set((items||[]).map(b=>String(b&&b.clearBatch?b.clearBatch:'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
       const hasUnassigned = (items||[]).some(b=>!b || !b.clearBatch || !String(b.clearBatch).trim());
       const cur=(app.ui.filters[page] && app.ui.filters[page].batch !== undefined) ? app.ui.filters[page].batch : sel.value;
-      const optionsHash = batches.join('||') + '||' + (hasUnassigned ? 'none' : '');
+      const lockType = page === 'hospital-cleared' ? 'hospital' : 'advance';
+      const optionsHash = batches.join('||') + '||' + (hasUnassigned ? 'none' : '') + '||' + batches.map(b => app.ui.isBatchLocked(lockType, b) ? 'L' : 'u').join('');
       if(sel._lastOptionsHash !== optionsHash){
         sel._lastOptionsHash = optionsHash;
         let html='<option value="">All Batches</option>';
         if(hasUnassigned) html+='<option value="__none__">Without Batch</option>';
-        html+=batches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.escapeHTML(b)}</option>`).join('');
+        html+=batches.map(b=>`<option value="${app.ui.escapeHTML(b)}">${app.ui.isBatchLocked(lockType, b) ? '🔒 ' : ''}${app.ui.escapeHTML(b)}</option>`).join('');
         sel.innerHTML=html;
       }
       if(cur && (batches.includes(cur) || (cur==='__none__' && hasUnassigned))) {
@@ -1941,6 +1960,151 @@ const app = {
     promptRenameHospitalBatch(){
       const b=app.ui.filters['hospital-cleared']?.batch || document.getElementById('filter-hospital-cleared-batch')?.value;
       app.ui.openRenameBatchModal('hospital', b==='__none__' ? '' : b);
+    },
+
+    // ===== Batch lock =====
+    // A created batch is locked automatically: no bill can be added to it or
+    // removed from it until someone explicitly unlocks it. The lock list is
+    // stored locally and mirrored into the synced settings table.
+    BATCH_LOCK_KEY: 'noor_batch_locks_v1',
+    _batchLocks: null,
+
+    getBatchLocks() {
+      if (app.ui._batchLocks) return app.ui._batchLocks;
+      let data = {};
+      try { data = JSON.parse(localStorage.getItem(app.ui.BATCH_LOCK_KEY) || '{}') || {}; } catch (_) { data = {}; }
+      if (!Array.isArray(data.advance)) data.advance = [];
+      if (!Array.isArray(data.hospital)) data.hospital = [];
+      app.ui._batchLocks = data;
+      return data;
+    },
+
+    saveBatchLocks() {
+      const data = app.ui.getBatchLocks();
+      try { localStorage.setItem(app.ui.BATCH_LOCK_KEY, JSON.stringify(data)); } catch (_) {}
+      try {
+        const p = app.db.setSetting('batchLocks', JSON.stringify(data));
+        if (p && p.catch) p.catch(() => {});
+      } catch (_) {}
+      app.ui.refreshBatchLockUi();
+    },
+
+    isBatchLocked(type, name) {
+      const n = String(name || '').trim();
+      if (!n) return false;
+      const data = app.ui.getBatchLocks();
+      const list = String(type || 'advance').toLowerCase() === 'hospital' ? data.hospital : data.advance;
+      return list.some(x => String(x || '').trim().toLowerCase() === n.toLowerCase());
+    },
+
+    setBatchLocked(type, name, locked) {
+      const n = String(name || '').trim();
+      if (!n) return;
+      const key = String(type || 'advance').toLowerCase() === 'hospital' ? 'hospital' : 'advance';
+      const data = app.ui.getBatchLocks();
+      const list = data[key].filter(x => String(x || '').trim().toLowerCase() !== n.toLowerCase());
+      if (locked) list.push(n);
+      data[key] = list;
+      app.ui.saveBatchLocks();
+    },
+
+    batchTypeOfBill(bill) {
+      return String((bill && bill.expenseType) || '').toLowerCase().trim() === 'hospital' ? 'hospital' : 'advance';
+    },
+
+    isBillLocked(bill) {
+      if (!bill) return false;
+      const b = String(bill.clearBatch || '').trim();
+      if (!b) return false;
+      return app.ui.isBatchLocked(app.ui.batchTypeOfBill(bill), b);
+    },
+
+    // True when the batch name belongs to a locked batch of either type
+    isBatchNameLockedAnywhere(name) {
+      return app.ui.isBatchLocked('advance', name) || app.ui.isBatchLocked('hospital', name);
+    },
+
+    // Shows the unlock notification for a blocked action
+    batchLockedToast(type, name) {
+      app.ui.showToast(
+        `Batch "${String(name || '').trim()}" is LOCKED. Unlock it first — bills cannot be added to or removed from a locked batch.`,
+        'error'
+      );
+    },
+
+    toggleCurrentBatchLock(type) {
+      const isAdv = String(type || 'advance').toLowerCase() === 'advance';
+      const page = isAdv ? 'advance-cleared' : 'hospital-cleared';
+      const name = String(app.ui.filters[page]?.batch || document.getElementById(isAdv ? 'filter-advance-cleared-batch' : 'filter-hospital-cleared-batch')?.value || '').trim();
+      if (!name || name === '__none__') {
+        app.ui.showToast('Select a specific batch first (from the batch filter).', 'warning');
+        return;
+      }
+      const locked = app.ui.isBatchLocked(type, name);
+      app.ui.setBatchLocked(type, name, !locked);
+      app.ui.showToast(
+        locked
+          ? `Batch "${name}" UNLOCKED — bills can be added or removed again.`
+          : `Batch "${name}" LOCKED — no bills can be added or removed until it is unlocked.`,
+        locked ? 'info' : 'success'
+      );
+      if (isAdv) {
+        app.ui.renderAdvanceClearedTable();
+        try { app.ui.renderAdvanceBillsTable(); } catch (_) {}
+      } else {
+        app.ui.renderHospitalClearedTable();
+        try { app.ui.renderBillsTable(); } catch (_) {}
+      }
+    },
+
+    // Refreshes the lock/unlock buttons of the cleared panels
+    refreshBatchLockUi() {
+      try {
+        const adv = document.getElementById('btn-lock-advance-batch');
+        if (adv) {
+          const b = String(app.ui.filters['advance-cleared']?.batch || document.getElementById('filter-advance-cleared-batch')?.value || '').trim();
+          app.ui.applyBatchLockButton(adv, 'advance', b);
+        }
+        const hosp = document.getElementById('btn-lock-hospital-batch');
+        if (hosp) {
+          const b = String(app.ui.filters['hospital-cleared']?.batch || document.getElementById('filter-hospital-cleared-batch')?.value || '').trim();
+          app.ui.applyBatchLockButton(hosp, 'hospital', b);
+        }
+      } catch (_) {}
+    },
+
+    applyBatchLockButton(btn, type, batchName) {
+      if (!btn) return;
+      if (!batchName || batchName === '__none__') {
+        btn.style.display = 'none';
+        return;
+      }
+      const locked = app.ui.isBatchLocked(type, batchName);
+      btn.style.display = 'inline-flex';
+      btn.textContent = locked ? `🔓 Unlock "${batchName}"` : `🔒 Lock "${batchName}"`;
+      btn.title = locked
+        ? 'Unlock this batch so bills can be added or removed again'
+        : 'Lock this batch — no bills can be added or removed until unlocked';
+      btn.style.color = locked ? 'var(--warning)' : 'var(--success)';
+    },
+
+    // Merge locks coming from the synced settings (other devices)
+    async refreshBatchLocksFromSettings() {
+      try {
+        const raw = await app.db.getSetting('batchLocks', '');
+        if (!raw) return;
+        const remote = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!remote || typeof remote !== 'object') return;
+        const data = { advance: [], hospital: [] };
+        ['advance', 'hospital'].forEach(k => {
+          if (Array.isArray(remote[k])) {
+            data[k] = [...new Set(remote[k].map(x => String(x || '').trim()).filter(Boolean))];
+          }
+        });
+        app.ui._batchLocks = data;
+        try { localStorage.setItem(app.ui.BATCH_LOCK_KEY, JSON.stringify(data)); } catch (_) {}
+        app.ui.refreshBatchLockUi();
+      } catch (_) {}
     },
     generateNextBillNumber() {
       const bills = app.state.bills || [];
@@ -2050,6 +2214,85 @@ const app = {
         return 0;
       });
       return out;
+    },
+
+    // ===== Pagination for long tables =====
+    // Rendering hundreds of rows at once made the pages feel slow. Each list now
+    // builds only its current page (25 rows by default, switchable to 50 / 100).
+    pagination: {},
+    PAGE_SIZES: [25, 50, 100],
+
+    pageState(key) {
+      if (!app.ui.pagination[key]) app.ui.pagination[key] = { page: 1, size: 25 };
+      return app.ui.pagination[key];
+    },
+
+    resetPage(key) {
+      if (app.ui.pagination && app.ui.pagination[key]) app.ui.pagination[key].page = 1;
+    },
+
+    sliceList(key, items) {
+      const st = app.ui.pageState(key);
+      const total = items.length;
+      const pages = Math.max(1, Math.ceil(total / st.size));
+      if (st.page > pages) st.page = pages;
+      if (st.page < 1) st.page = 1;
+      const start = (st.page - 1) * st.size;
+      return {
+        items: items.slice(start, start + st.size),
+        page: st.page,
+        pages: pages,
+        size: st.size,
+        total: total,
+        start: start
+      };
+    },
+
+    pagerHTML(key, meta, colspan) {
+      if (!meta || meta.total <= meta.size) return '';
+      const from = meta.start + 1;
+      const to = Math.min(meta.total, meta.start + meta.size);
+      const sizeOpts = app.ui.PAGE_SIZES.map(n =>
+        `<option value="${n}"${n === meta.size ? ' selected' : ''}>${n} / page</option>`).join('');
+      const hasPrev = meta.page > 1;
+      const hasNext = meta.page < meta.pages;
+      return `<tr class="pager-row"><td colspan="${colspan}">
+        <div class="list-pager">
+          <span class="list-pager-info">Showing <strong>${from}–${to}</strong> of <strong>${meta.total}</strong></span>
+          <span class="list-pager-controls">
+            <select class="form-select form-input-sm list-pager-size" onchange="app.ui.setPageSize('${key}', this.value)" title="Rows per page">${sizeOpts}</select>
+            <button type="button" class="btn btn-secondary btn-sm" ${hasPrev ? '' : 'disabled'} onclick="app.ui.goPage('${key}', 1)" title="First page">«</button>
+            <button type="button" class="btn btn-secondary btn-sm" ${hasPrev ? '' : 'disabled'} onclick="app.ui.goPage('${key}', ${meta.page - 1})">‹ Prev</button>
+            <span class="list-pager-page">Page ${meta.page} / ${meta.pages}</span>
+            <button type="button" class="btn btn-secondary btn-sm" ${hasNext ? '' : 'disabled'} onclick="app.ui.goPage('${key}', ${meta.page + 1})">Next ›</button>
+            <button type="button" class="btn btn-secondary btn-sm" ${hasNext ? '' : 'disabled'} onclick="app.ui.goPage('${key}', ${meta.pages})" title="Last page">»</button>
+          </span>
+        </div></td></tr>`;
+    },
+
+    goPage(key, page) {
+      app.ui.pageState(key).page = Math.max(1, parseInt(page, 10) || 1);
+      app.ui.refreshPagedList(key);
+    },
+
+    setPageSize(key, size) {
+      const st = app.ui.pageState(key);
+      st.size = parseInt(size, 10) || 25;
+      st.page = 1;
+      app.ui.refreshPagedList(key);
+    },
+
+    refreshPagedList(key) {
+      const map = {
+        'vendors': () => app.vendors.renderVendorsTable(),
+        'advance-bills': () => app.ui.renderAdvanceBillsTable(),
+        'bills': () => app.ui.renderBillsTable(),
+        'advance-slips': () => app.ui.renderAdvanceSlipsTable(),
+        'slips': () => app.ui.renderSlipsTable(),
+        'advance-cleared': () => app.ui.renderAdvanceClearedTable(),
+        'hospital-cleared': () => app.ui.renderHospitalClearedTable()
+      };
+      try { if (map[key]) map[key](); } catch (e) { console.error('Pager render failed:', e); }
     },
     /**
      * Initializes listeners for click, navigation, form submissions, and dropdown changes.
@@ -3794,6 +4037,12 @@ const app = {
           return;
         }
 
+        // Bills that sit in a locked batch cannot be edited
+        if (storeName === 'bills' && app.ui.isBillLocked(record)) {
+          app.ui.batchLockedToast(app.ui.batchTypeOfBill(record), record.clearBatch);
+          return;
+        }
+
         app.attachments.activeViewedStore = storeName;
         app.attachments.activeViewedRecord = record;
 
@@ -4644,7 +4893,8 @@ const app = {
         list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No pending hospital temporary slips registered.'}</td></tr>`;
         return;
       }
-      list.innerHTML = filtered.map(slip => {
+      const pageMeta = app.ui.sliceList('slips', filtered);
+      list.innerHTML = pageMeta.items.map(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
         
         let actionBtn = '';
@@ -4686,7 +4936,7 @@ const app = {
             <td class="text-center">${actionBtn}</td>
           </tr>
         `;
-      }).join('');
+      }).join('') + app.ui.pagerHTML('slips', pageMeta, 6);
     },
 
     renderAdvanceSlipsTable() {
@@ -4702,7 +4952,8 @@ const app = {
         list.innerHTML=`<tr><td colspan="6" class="text-center text-muted">${isF?'No records match filter.':'No pending muhasib temporary slips registered.'}</td></tr>`;
         return;
       }
-      list.innerHTML = filtered.map(slip => {
+      const pageMeta = app.ui.sliceList('advance-slips', filtered);
+      list.innerHTML = pageMeta.items.map(slip => {
         const statusClass = slip.status === 'pending' ? 'pending' : 'converted';
         
         let actionBtn = '';
@@ -4744,7 +4995,7 @@ const app = {
             <td class="text-center">${actionBtn}</td>
           </tr>
         `;
-      }).join('');
+      }).join('') + app.ui.pagerHTML('advance-slips', pageMeta, 6);
     },
 
     renderAdvanceBillsTable() {
@@ -4766,7 +5017,8 @@ const app = {
         list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No muhasib bills found.'}</td></tr>`;
         return;
       }
-      list.innerHTML = filtered.map(bill=>{
+      const pageMeta = app.ui.sliceList('advance-bills', filtered);
+      list.innerHTML = pageMeta.items.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
@@ -4781,12 +5033,13 @@ const app = {
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Clear against Muhasib Advance" onclick="app.ui.clearAdvanceBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Hospital Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
-      }).join('');
+      }).join('') + app.ui.pagerHTML('advance-bills', pageMeta, 8);
       try{ app.ui.updateAdvanceBatchBar(); }catch(e){}
     },
     async convertBill(id){
       const bill=app.state.bills.find(b=>b.id===id);
       if(!bill){ app.ui.showToast('Bill not found','error'); return; }
+      if(app.ui.isBillLocked(bill)){ app.ui.batchLockedToast(app.ui.batchTypeOfBill(bill), bill.clearBatch); return; }
       const toHospital=bill.expenseType==='advance';
       const targetType=toHospital?'hospital':'advance';
       const targetLabel=toHospital?'Hospital Bill':'Muhasib Bill';
@@ -4888,6 +5141,7 @@ const app = {
       const nameEl=document.getElementById('batch-clear-name');
       const batch=(nameEl?.value||'').trim();
       if(!batch){ app.ui.showToast('Batch name is required to identify all bills in this batch.','warning'); nameEl?.focus(); return; }
+      if(app.ui.isBatchLocked('advance', batch)){ app.ui.batchLockedToast('advance', batch); return; }
       const btn=document.getElementById('btn-batch-clear-confirm'); if(btn) btn.disabled=true;
       try{
         const now=new Date().toISOString();
@@ -4897,10 +5151,12 @@ const app = {
           b.clearedAt=now;
           await app.db.put('bills',b.id,b);
         }
+        // A finished batch is locked: no bills may be added or removed until unlocked
+        app.ui.setBatchLocked('advance', batch, true);
         const inline=document.getElementById('advance-batch-name-inline'); if(inline) inline.value='';
         app.ui.selectedAdvanceBills.clear();
         app.ui.closeModal('dialog-batch-clear');
-        app.ui.showToast(`${sel.length} bills cleared in Batch "${batch}"!`);
+        app.ui.showToast(`${sel.length} bills cleared in Batch "${batch}" — batch LOCKED.`);
         app.syncState();
       }catch(e){ app.ui.showToast('Batch clear failed: '+(e.message||e),'error'); }
       if(btn) btn.disabled=false;
@@ -4908,7 +5164,9 @@ const app = {
     async undoAdvanceClear(id){
       const bill=app.state.bills.find(b=>b.id===id);
       if(!bill){ app.ui.showToast('Bill not found','error'); return; }
+      if(app.ui.isBillLocked(bill)){ app.ui.batchLockedToast('advance', bill.clearBatch); return; }
       app.ui.showConfirm('Undo Clear', `Move Bill #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) back to Muhasib Bills?`, async()=>{
+        if(app.ui.isBillLocked(bill)){ app.ui.batchLockedToast('advance', bill.clearBatch); return; }
         try{
           bill.status='pending';
           bill.clearBatch='';
@@ -4922,7 +5180,9 @@ const app = {
     async undoAdvanceClearBatch(batchName){
       const items=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared' && String(b.clearBatch||'')===String(batchName));
       if(!items.length){ app.ui.showToast('No bills found in this batch.','warning'); return; }
+      if(app.ui.isBatchLocked('advance', batchName)){ app.ui.batchLockedToast('advance', batchName); return; }
       app.ui.showConfirm('Undo Batch', `Move all ${items.length} bills in batch "${batchName}" back to Muhasib Bills?`, async()=>{
+        if(app.ui.isBatchLocked('advance', batchName)){ app.ui.batchLockedToast('advance', batchName); return; }
         try{
           for(const b of items){ b.status='pending'; b.clearBatch=''; b.clearedAt=null; await app.db.put('bills',b.id,b); }
           app.ui.showToast(`Batch "${batchName}" moved back to Muhasib Bills.`);
@@ -5018,6 +5278,14 @@ const app = {
       const targetType = isAdvance ? 'advance' : 'hospital';
       const targetStatus = isAdvance ? 'adv_cleared' : 'hosp_cleared';
       const isUnassigned = !oldName || oldName === '__none__';
+      const lockType = isAdvance ? 'advance' : 'hospital';
+      const wasLocked = !isUnassigned && app.ui.isBatchLocked(lockType, oldName);
+
+      // Renaming into an already-locked batch would silently add bills to it
+      if(!isUnassigned && app.ui.isBatchLocked(lockType, newName) && newName !== oldName){
+        app.ui.batchLockedToast(lockType, newName);
+        return;
+      }
 
       const items = (app.state.bills||[]).filter(b => {
         const t = String(b.expenseType||'').toLowerCase().trim();
@@ -5041,6 +5309,12 @@ const app = {
           b.clearBatch = newName;
           if(!b.clearedAt) b.clearedAt = now;
           await app.db.put('bills', b.id, b);
+        }
+
+        // Keep the lock attached to the renamed batch
+        if(wasLocked){
+          app.ui.setBatchLocked(lockType, oldName, false);
+          app.ui.setBatchLocked(lockType, newName, true);
         }
 
         app.ui.closeModal('dialog-rename-batch');
@@ -5237,6 +5511,15 @@ const app = {
         return;
       }
 
+      // Locked batches: no bill may leave them or be added to them
+      const lockType = isAdvance ? 'advance' : 'hospital';
+      if(curBatch && app.ui.isBatchLocked(lockType, curBatch)){ app.ui.batchLockedToast(lockType, curBatch); return; }
+      if(targetBatch && app.ui.isBatchLocked(lockType, targetBatch)){ app.ui.batchLockedToast(lockType, targetBatch); return; }
+      for(const id of billIds){
+        const b = (app.state.bills||[]).find(x => x.id === id);
+        if(b && app.ui.isBillLocked(b)){ app.ui.batchLockedToast(app.ui.batchTypeOfBill(b), b.clearBatch); return; }
+      }
+
       const btnConfirm = document.getElementById('btn-move-bill-batch-confirm');
       if(btnConfirm) btnConfirm.disabled = true;
 
@@ -5301,6 +5584,8 @@ const app = {
           renameBtn.style.display = 'none';
         }
       }
+      const lockBtn = document.getElementById('btn-lock-advance-batch');
+      if(lockBtn) app.ui.applyBatchLockButton(lockBtn, 'advance', curBatch);
       const allFiltered=app.ui.getFiltered(app.state.bills,'advance-cleared');
       const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status==='adv_cleared');
       const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
@@ -5311,12 +5596,13 @@ const app = {
         list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No cleared bills yet. Clear bills from Muhasib Bills via ✓ Adv Clear.'}</td></tr>`;
         return;
       }
-      list.innerHTML = filtered.map(bill=>{
+      const pageMeta = app.ui.sliceList('advance-cleared', filtered);
+      list.innerHTML = pageMeta.items.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
         const batchHtml = bill.clearBatch
-          ? `<span class="batch-badge" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">${app.ui.escapeHTML(bill.clearBatch)}</span>`
+          ? `<span class="batch-badge" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">${app.ui.isBillLocked(bill) ? '🔒 ' : ''}${app.ui.escapeHTML(bill.clearBatch)}</span>`
           : `<span class="batch-badge-unassigned" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">No Batch</span>`;
         return `<tr>
           <td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td>
@@ -5328,7 +5614,7 @@ const app = {
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Muhasib Bills" onclick="app.ui.undoAdvanceClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
-      }).join('');
+      }).join('') + app.ui.pagerHTML('advance-cleared', pageMeta, 8);
     },
     renderBillsTable() {
       const list=document.getElementById('list-bills');
@@ -5350,7 +5636,8 @@ const app = {
         try{ app.ui.updateHospitalBatchBar(); }catch(e){}
         return;
       }
-      list.innerHTML = filtered.map(bill=>{
+      const pageMeta = app.ui.sliceList('bills', filtered);
+      list.innerHTML = pageMeta.items.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
@@ -5365,7 +5652,7 @@ const app = {
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act clear" title="Move to Hospital Bill Clear" onclick="app.ui.clearHospitalBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></button><button type="button" class="bill-act convert" title="Convert to Muhasib Bill" onclick="app.ui.convertBill(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4M20 7H4M8 21l-4-4 4-4M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
-      }).join('');
+      }).join('') + app.ui.pagerHTML('bills', pageMeta, 8);
       try{ app.ui.updateHospitalBatchBar(); }catch(e){}
     },
     async clearHospitalBill(id){
@@ -5450,6 +5737,7 @@ const app = {
       const nameEl=document.getElementById('hospital-batch-clear-name');
       const batch=(nameEl?.value||'').trim();
       if(!batch){ app.ui.showToast('Batch name is required to identify all bills in this batch.','warning'); nameEl?.focus(); return; }
+      if(app.ui.isBatchLocked('hospital', batch)){ app.ui.batchLockedToast('hospital', batch); return; }
       const btn=document.getElementById('btn-hospital-batch-clear-confirm'); if(btn) btn.disabled=true;
       try{
         const now=new Date().toISOString();
@@ -5459,10 +5747,12 @@ const app = {
           b.clearedAt=now;
           await app.db.put('bills',b.id,b);
         }
+        // A finished batch is locked: no bills may be added or removed until unlocked
+        app.ui.setBatchLocked('hospital', batch, true);
         const inline=document.getElementById('hospital-batch-name-inline'); if(inline) inline.value='';
         app.ui.selectedHospitalBills.clear();
         app.ui.closeModal('dialog-hospital-batch-clear');
-        app.ui.showToast(`${sel.length} hospital bills cleared in Batch "${batch}"!`);
+        app.ui.showToast(`${sel.length} hospital bills cleared in Batch "${batch}" — batch LOCKED.`);
         app.syncState();
       }catch(e){ app.ui.showToast('Batch clear failed: '+(e.message||e),'error'); }
       if(btn) btn.disabled=false;
@@ -5470,7 +5760,9 @@ const app = {
     async undoHospitalClear(id){
       const bill=app.state.bills.find(b=>b.id===id);
       if(!bill){ app.ui.showToast('Bill not found','error'); return; }
+      if(app.ui.isBillLocked(bill)){ app.ui.batchLockedToast('hospital', bill.clearBatch); return; }
       app.ui.showConfirm('Undo Clear', `Move Hospital Bill #${bill.billNumber} (${app.ui.formatCurrency(bill.amount)}) back to Hospital Bills?`, async()=>{
+        if(app.ui.isBillLocked(bill)){ app.ui.batchLockedToast('hospital', bill.clearBatch); return; }
         try{
           bill.status='pending';
           bill.clearBatch='';
@@ -5484,7 +5776,9 @@ const app = {
     async undoHospitalClearBatch(batchName){
       const items=app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared' && String(b.clearBatch||'')===String(batchName));
       if(!items.length){ app.ui.showToast('No bills found in this batch.','warning'); return; }
+      if(app.ui.isBatchLocked('hospital', batchName)){ app.ui.batchLockedToast('hospital', batchName); return; }
       app.ui.showConfirm('Undo Batch', `Move all ${items.length} bills in batch "${batchName}" back to Hospital Bills?`, async()=>{
+        if(app.ui.isBatchLocked('hospital', batchName)){ app.ui.batchLockedToast('hospital', batchName); return; }
         try{
           for(const b of items){ b.status='pending'; b.clearBatch=''; b.clearedAt=null; await app.db.put('bills',b.id,b); }
           app.ui.showToast(`Batch "${batchName}" moved back to Hospital Bills.`);
@@ -5518,6 +5812,8 @@ const app = {
           renameBtn.style.display = 'none';
         }
       }
+      const lockBtn = document.getElementById('btn-lock-hospital-batch');
+      if(lockBtn) app.ui.applyBatchLockButton(lockBtn, 'hospital', curBatch);
       const allFiltered=app.ui.getFiltered(app.state.bills,'hospital-cleared');
       const filtered=allFiltered.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status==='hosp_cleared');
       const total=filtered.reduce((s,e)=>s+(Number(e.amount)||0),0);
@@ -5528,12 +5824,13 @@ const app = {
         list.innerHTML=`<tr><td colspan="8" class="text-center text-muted">${isF?'No records match filter.':'No cleared hospital bills yet. Clear bills from Hospital Bills via ✓.'}</td></tr>`;
         return;
       }
-      list.innerHTML = filtered.map(bill=>{
+      const pageMeta = app.ui.sliceList('hospital-cleared', filtered);
+      list.innerHTML = pageMeta.items.map(bill=>{
         const isDirect=!bill.slipId;
         const note=isDirect?'Direct':'From Slip';
         const headTxt=app.ui.escapeHTML(bill.head||bill.category||'-');
         const batchHtml = bill.clearBatch
-          ? `<span class="batch-badge" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">${app.ui.escapeHTML(bill.clearBatch)}</span>`
+          ? `<span class="batch-badge" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">${app.ui.isBillLocked(bill) ? '🔒 ' : ''}${app.ui.escapeHTML(bill.clearBatch)}</span>`
           : `<span class="batch-badge-unassigned" style="font-size:0.75rem;padding:3px 8px;border-radius:6px;">No Batch</span>`;
         return `<tr>
           <td class="num-val" style="white-space:nowrap">${app.ui.formatDate(bill.date)}</td>
@@ -5545,7 +5842,7 @@ const app = {
           <td style="font-size:0.84rem;color:var(--text-muted);">${app.ui.escapeHTML(bill.remarks||'-')}</td>
           <td class="text-center"><div class="bill-actions"><button type="button" class="bill-act undo" title="Move back to Hospital Bills" onclick="app.ui.undoHospitalClear(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg></button><button type="button" class="bill-act move" title="Move to another batch" onclick="app.ui.openMoveBillBatchModal(${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button><button type="button" class="bill-act" title="Edit" onclick="app.ui.initiateEdit('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="bill-act del" title="Delete" onclick="app.db.promptDelete('bills', ${bill.id})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>
         </tr>`;
-      }).join('');
+      }).join('') + app.ui.pagerHTML('hospital-cleared', pageMeta, 8);
     },
 
     openAccountsModal() {
@@ -6661,39 +6958,56 @@ const app = {
 
       let list = app.vendors.getUniqueVendors();
 
-      // Calculate aggregates for each vendor
+      // Calculate aggregates for each vendor — one pass over bills/slips instead
+      // of filtering them once per vendor (that was O(vendors × bills) and made
+      // the Vendors page slow with a big ledger).
       const vendorStats = new Map();
       let totalHospVol = 0;
       let totalMuhasibVol = 0;
       let totalSpendAll = 0;
 
-      list.forEach(v => {
-        const norm = (v.name || '').trim().toLowerCase();
-        const hospBills = (app.state.bills || []).filter(b => b.expenseType === 'hospital' && (b.vendor || '').trim().toLowerCase() === norm);
-        const muBills = (app.state.bills || []).filter(b => b.expenseType === 'advance' && (b.vendor || '').trim().toLowerCase() === norm);
-        const slips = app.getActiveTemporarySlips().filter(s => (s.vendor || '').trim().toLowerCase() === norm);
+      const statsByName = new Map();
+      const statFor = (name) => {
+        const k = String(name || '').trim().toLowerCase();
+        let s = statsByName.get(k);
+        if (!s) {
+          s = { hospBillsCount: 0, hospAmt: 0, muBillsCount: 0, muAmt: 0, slipsCount: 0, slipAmt: 0 };
+          statsByName.set(k, s);
+        }
+        return s;
+      };
+      (app.state.bills || []).forEach(b => {
+        const s = statFor(b.vendor);
+        const amt = Number(b.amount) || 0;
+        if (b.expenseType === 'hospital') { s.hospBillsCount++; s.hospAmt += amt; }
+        else if (b.expenseType === 'advance') { s.muBillsCount++; s.muAmt += amt; }
+      });
+      app.getActiveTemporarySlips().forEach(sl => {
+        const s = statFor(sl.vendor);
+        s.slipsCount++;
+        s.slipAmt += Number(sl.amount) || 0;
+      });
 
-        const hospAmt = hospBills.reduce((s, x) => s + (x.amount || 0), 0);
-        const muAmt = muBills.reduce((s, x) => s + (x.amount || 0), 0);
-        const slipAmt = slips.reduce((s, x) => s + (x.amount || 0), 0);
-        const totalBillsCount = hospBills.length + muBills.length;
-        const totalBillsAmt = hospAmt + muAmt;
-        const totalSpend = totalBillsAmt + slipAmt;
+      list.forEach(v => {
+        const s = statFor(v.name);
+        const totalBillsCount = s.hospBillsCount + s.muBillsCount;
+        const totalBillsAmt = s.hospAmt + s.muAmt;
+        const totalSpend = totalBillsAmt + s.slipAmt;
 
         vendorStats.set(v.id, {
-          hospBillsCount: hospBills.length,
-          hospAmt,
-          muBillsCount: muBills.length,
-          muAmt,
-          slipsCount: slips.length,
-          slipAmt,
+          hospBillsCount: s.hospBillsCount,
+          hospAmt: s.hospAmt,
+          muBillsCount: s.muBillsCount,
+          muAmt: s.muAmt,
+          slipsCount: s.slipsCount,
+          slipAmt: s.slipAmt,
           totalBillsCount,
           totalBillsAmt,
           totalSpend
         });
 
-        totalHospVol += hospAmt;
-        totalMuhasibVol += muAmt;
+        totalHospVol += s.hospAmt;
+        totalMuhasibVol += s.muAmt;
         totalSpendAll += totalSpend;
       });
 
@@ -6724,19 +7038,20 @@ const app = {
         return 0;
       });
 
-      tbody.innerHTML = '';
       if (!list.length) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding: 2.5rem;">No vendors found matching your criteria. Click "+ Add New Vendor" to register one.</td></tr>`;
         return;
       }
 
-      list.forEach((v, idx) => {
+      const pageMeta = app.ui.sliceList('vendors', list);
+      const rowHtml = [];
+      pageMeta.items.forEach((v, idx) => {
         const stats = vendorStats.get(v.id) || { totalBillsCount: 0, totalBillsAmt: 0, slipsCount: 0, slipAmt: 0, totalSpend: 0 };
         const vCode = String(v.vendorCode || v.code || '').trim();
 
-        tbody.innerHTML += `
+        rowHtml.push(`
           <tr>
-            <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${idx + 1}</td>
+            <td class="text-center font-mono text-muted text-xs" style="opacity:0.7;">${pageMeta.start + idx + 1}</td>
             <td>
               <div class="vendor-name-cell">
                 <span class="vendor-name-title">${app.ui.escapeHTML(v.name)}</span>
@@ -6773,8 +7088,9 @@ const app = {
               </div>
             </td>
           </tr>
-        `;
+        `);
       });
+      tbody.innerHTML = rowHtml.join('') + app.ui.pagerHTML('vendors', pageMeta, 8);
     },
 
     viewVendorReport(vendorName) {
@@ -13500,6 +13816,10 @@ tfoot .r{text-align:right;}
       } catch (codeErr) {
         console.warn('Vendor ID import from Bill Payment Form failed:', codeErr);
       }
+
+      // 4b-3. Batch locks are stored in the synced settings table so every
+      // device knows which batches are locked
+      try { await app.ui.refreshBatchLocksFromSettings(); } catch (_) {}
 
       // 4c. Bill Payment Form open in another tab → import new vendors live
       window.addEventListener('storage', (e) => {

@@ -60,7 +60,7 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261014_23">
+  <link rel="stylesheet" href="assets/app.css?v=20261105_1">
   <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_17">
   <link rel="stylesheet" href="assets/cash-borrow.css?v=20261013_10">
   <link rel="stylesheet" href="assets/notepad.css?v=20261014_27">
@@ -70,7 +70,7 @@
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261105_2" defer></script>
+  <script src="assets/app.js?v=20261105_3" defer></script>
   <script src="assets/staff-receipts.js?v=20261105_1" defer></script>
   <script src="assets/cash-borrow.js?v=20261014_22" defer></script>
   <script src="assets/notepad.js?v=20261014_27" defer></script>
@@ -1155,6 +1155,7 @@
             </select>
             <button class="btn btn-secondary btn-sm" id="btn-rename-advance-batch" style="display:none;color:var(--primary);border-color:rgba(59,130,246,0.3)" onclick="app.ui.promptRenameAdvanceBatch()" title="Rename this batch or assign a batch name">✏️ Rename Batch</button>
             <button class="btn btn-secondary btn-sm" id="btn-undo-advance-batch" style="display:none;color:var(--warning);border-color:rgba(245,158,11,0.3)" onclick="app.ui.undoCurrentAdvanceBatch()" title="Move this entire batch back to Muhasib Bills">↩ Undo Batch</button>
+            <button class="btn btn-secondary btn-sm" id="btn-lock-advance-batch" style="display:none;color:var(--success);border-color:rgba(16,185,129,0.35)" onclick="app.ui.toggleCurrentBatchLock('advance')" title="Lock or unlock this batch">Lock Batch</button>
             <span class="ledger-total-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border-color:rgba(16,185,129,0.25)" id="total-advance-cleared">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('advance-cleared')">Export Excel</button>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.printAdvanceClearedDetail()" style="background:var(--success);border-color:var(--success);color:#fff;font-weight:700">🖨️ PDF Print</button>
@@ -1287,6 +1288,7 @@
             </select>
             <button class="btn btn-secondary btn-sm" id="btn-rename-hospital-batch" style="display:none;color:var(--primary);border-color:rgba(59,130,246,0.3)" onclick="app.ui.promptRenameHospitalBatch()" title="Rename this batch or assign a batch name">✏️ Rename Batch</button>
             <button class="btn btn-secondary btn-sm" id="btn-undo-hospital-batch" style="display:none;color:var(--warning);border-color:rgba(245,158,11,0.3)" onclick="app.ui.undoCurrentHospitalBatch()" title="Move this entire batch back to Hospital Bills">↩ Undo Batch</button>
+            <button class="btn btn-secondary btn-sm" id="btn-lock-hospital-batch" style="display:none;color:var(--success);border-color:rgba(16,185,129,0.35)" onclick="app.ui.toggleCurrentBatchLock('hospital')" title="Lock or unlock this batch">Lock Batch</button>
             <span class="ledger-total-badge" style="background:rgba(16,185,129,0.12);color:var(--success);border-color:rgba(16,185,129,0.25)" id="total-hospital-cleared">Total: ₹0.00 (0)</span>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.exportPage('hospital-cleared')">Export Excel</button>
             <button class="btn btn-secondary btn-sm" onclick="app.reports.printHospitalClearedDetail()" style="background:var(--success);border-color:var(--success);color:#fff;font-weight:700">🖨️ PDF Print</button>

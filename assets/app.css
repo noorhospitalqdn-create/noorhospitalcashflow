@@ -5992,4 +5992,37 @@ dialog#dialog-slip-convert.slip-mode .convert-split-row-bill {
   }
 }
 
+/* ===== List pagination footer (vendors / bills / slips) ===== */
+.pager-row > td {
+  padding: 0 !important;
+  background: var(--bg-secondary, #f1f5f9);
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+.list-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 12px;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+.list-pager-info strong { color: var(--text-main, #0f172a); }
+.list-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.list-pager-page {
+  font-weight: 600;
+  color: var(--text-main, #0f172a);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.list-pager-size { width: auto; min-width: 104px; }
+.list-pager-controls .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+
 
