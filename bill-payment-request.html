@@ -291,6 +291,12 @@
     .vid-badge.show {
       display: inline-block;
     }
+    /* Advance column is locked while Mode = Internal Transfer */
+    .cell-input.cell-locked {
+      background: #f3f4f6;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
     /* A custom ID that has been committed shows as the same pill as system
        vendor IDs; clicking it re-opens the small editor. */
     .vid-badge.custom-display {
@@ -494,6 +500,11 @@
       .custom-id-input::placeholder {
         color: transparent !important;
       }
+      /* Locked Advance cell prints like a normal (empty) cell */
+      .cell-input.cell-locked {
+        background: transparent !important;
+        color: #111827 !important;
+      }
     }
   </style>
 </head>
@@ -562,6 +573,7 @@
           <option value="Cash">Cash</option>
           <option value="Online">Online</option>
           <option value="Wapasi Peshgi">Wapasi Peshgi</option>
+          <option value="Internal Transfer">Internal Transfer</option>
         </select>
       </div>
     </div>
@@ -1980,9 +1992,29 @@
     // In "Wapasi Peshgi" mode the amount belongs to Bill Amount + Advance only:
     // Payment stays EMPTY, and the two columns mirror each other so the same
     // amount is visible in both.
+    // In "Internal Transfer" mode the amount belongs to Bill Amount + Payment
+    // only: Advance stays EMPTY, and Bill/Payment mirror each other.
     function isWapasiPeshgiMode() {
       const sel = document.getElementById('modeSelect');
       return !!sel && sel.value === 'Wapasi Peshgi';
+    }
+
+    function isInternalTransferMode() {
+      const sel = document.getElementById('modeSelect');
+      return !!sel && sel.value === 'Internal Transfer';
+    }
+
+    // Advance is not used in Internal Transfer mode → keep it read-only so the
+    // amount can never land in that column.
+    function syncAdvanceInputState() {
+      const locked = isInternalTransferMode();
+      allRows().forEach(tr => {
+        const adv = tr.querySelector('.advance-input');
+        if (!adv) return;
+        adv.readOnly = locked;
+        adv.classList.toggle('cell-locked', locked);
+        adv.title = locked ? 'Not used in Internal Transfer mode' : '';
+      });
     }
 
     function recalcRowPayment(tr, source) {
@@ -2007,6 +2039,19 @@
           }
         }
         pay.value = '';
+      } else if (isInternalTransferMode()) {
+        // One amount, shown in both Bill Amount and Payment: keep the two
+        // columns mirrored, whichever one is edited.
+        if (source === 'payment') {
+          bill.value = pay.value;
+        } else {
+          pay.value = bill.value;
+        }
+        delete bill.dataset.auto;
+        delete adv.dataset.auto;
+        delete pay.dataset.auto;
+        // Advance never holds an amount in this mode
+        adv.value = '';
       } else {
         delete bill.dataset.auto;
         delete adv.dataset.auto;
@@ -2022,6 +2067,7 @@
 
     // Applies the current Mode to every existing row (used when Mode changes)
     function recalcAllRows() {
+      syncAdvanceInputState();
       allRows().forEach(tr => {
         recalcRowPayment(tr);
         fitAmountsInRow(tr);
@@ -2316,7 +2362,11 @@
 
       billInput.addEventListener('input', () => { recalcRowPayment(tr, 'bill'); fitAmountsInRow(tr); });
       advInput.addEventListener('input', () => { recalcRowPayment(tr, 'advance'); fitAmountsInRow(tr); });
-      payInput.addEventListener('input', () => { updateSummaryTotals(); fitAmountsInRow(tr); });
+      payInput.addEventListener('input', () => {
+        if (isInternalTransferMode()) recalcRowPayment(tr, 'payment');
+        else updateSummaryTotals();
+        fitAmountsInRow(tr);
+      });
 
       // Manual-typed name: match a system vendor, otherwise CREATE it as a vendor
       function commitManualName() {
@@ -2587,6 +2637,7 @@
       for (let i = 1; i <= rowCount; i++) {
         tbody.appendChild(createRow(i));
       }
+      syncAdvanceInputState();
       updateSummaryTotals();
       requestAnimationFrame(fitAllRows);
     }
@@ -2596,6 +2647,7 @@
       if (tb.children.length >= ROWS_PER_PAGE) tb = addPage();
       const tr = createRow(tb.children.length + 1);
       tb.appendChild(tr);
+      syncAdvanceInputState();
       updateSummaryTotals();
       requestAnimationFrame(() => fitRowText(tr));
     });
@@ -2697,8 +2749,9 @@
     initTable(INITIAL_ROWS);
 
     // ===== Mode → amount behaviour =====
-    // Switching to "Wapasi Peshgi" clears every Payment cell (amount stays in
-    // Bill Amount / Advance); switching back recalculates Payment = Bill - Adv.
+    // Wapasi Peshgi: amount stays in Bill Amount / Advance, Payment stays empty.
+    // Internal Transfer: amount stays in Bill Amount / Payment, Advance stays empty.
+    // Switching modes recalculates every row through the same rules.
     (function initPaymentModeBehaviour() {
       const modeEl = document.getElementById('modeSelect');
       if (!modeEl) return;
