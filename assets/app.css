@@ -3244,6 +3244,19 @@ input[type="number"] {
   border-color: var(--modal-accent, #6366f1) !important;
   box-shadow: 0 2px 8px var(--modal-accent-glow, rgba(99,102,241,0.3));
 }
+/* A date field that already holds a value glows like a filled amount field,
+   so it is obvious at a glance that the date has been entered. */
+.modal-dialog input[type="date"].form-input:valid {
+  border-color: rgba(56, 189, 248, 0.55);
+  background-color: rgba(56, 189, 248, 0.10);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.10);
+  color: var(--text-main);
+  font-weight: 700;
+}
+.modal-dialog input[type="date"].form-input:valid:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.20);
+}
 
 /* ─── Segmented Control — Premium Tabbed Switch ─── */
 .seg-control {
