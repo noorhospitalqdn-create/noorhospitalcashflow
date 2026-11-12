@@ -3062,8 +3062,8 @@ input[type="number"] {
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   border-radius: 18px;
-  padding: 16px 20px 14px;
-  margin-bottom: 14px;
+  padding: 12px 16px 10px;
+  margin-bottom: 12px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 18px rgba(0, 0, 0, 0.18);
   position: relative;
   overflow: hidden;
@@ -3109,30 +3109,31 @@ input[type="number"] {
 .amt-input-wrap {
   position: relative;
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
 }
 .amt-cur {
   font-weight: 900;
   color: var(--modal-accent, #818cf8);
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   font-family: var(--font-mono);
   user-select: none;
   line-height: 1;
 }
 .amt-input {
   font-family: var(--font-mono) !important;
-  font-size: 2.6rem !important;
+  font-size: 1.6rem !important;
   font-weight: 800 !important;
   padding: 0 !important;
   border: none !important;
   background: transparent !important;
   color: var(--text-main) !important;
   width: 100% !important;
-  letter-spacing: -0.03em !important;
+  letter-spacing: -0.02em !important;
   outline: none !important;
   box-shadow: none !important;
-  line-height: 1.1 !important;
+  line-height: 1.2 !important;
 }
 .amt-input:focus {
   border: none !important;
@@ -3243,6 +3244,15 @@ input[type="number"] {
   color: #ffffff !important;
   border-color: var(--modal-accent, #6366f1) !important;
   box-shadow: 0 2px 8px var(--modal-accent-glow, rgba(99,102,241,0.3));
+}
+/* Entry-form date field: same size as the amount field above it */
+.modal-dialog input[type="date"].form-input {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  min-height: 46px;
+  padding: 0.15rem 0.8rem;
 }
 /* A date field that already holds a value glows like a filled amount field,
    so it is obvious at a glance that the date has been entered. */
