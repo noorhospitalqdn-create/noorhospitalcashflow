@@ -517,6 +517,15 @@
       <span class="text-sm font-semibold text-gray-800">Bill Payment Request Form (English Only)</span>
     </div>
     <div class="flex flex-wrap items-center gap-2">
+      <div class="flex items-center gap-1.5 pl-1 pr-2 mr-1 border-r border-gray-300">
+        <span class="text-xs font-medium text-gray-700">Stamp Date</span>
+        <input id="stampDateInput" type="date" title="Date printed inside the hospital stamp"
+          class="px-2 py-1 text-xs font-semibold border border-gray-300 rounded bg-white text-gray-900 outline-none focus:border-sky-500">
+        <button id="stampDateTodayBtn" type="button" title="Reset the stamp date to today"
+          class="px-2 py-1 text-[11px] font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition">
+          Today
+        </button>
+      </div>
       <button id="addRowBtn" type="button" class="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-800 rounded border border-gray-300 transition">
         + Add Row
       </button>
@@ -2685,13 +2694,35 @@
       pdInputEl.addEventListener('change', fitPaymentDetailsText);
     }
 
-    // ===== Hospital stamp date (always the current date, refreshed for print) =====
-    function refreshStampDate() {
+    // ===== Hospital stamp date (editable from the utility bar) =====
+    // The stamp shows dd-mm-yyyy. Its date can be changed on its own with the
+    // "Stamp Date" field in the utility bar, without touching other form dates.
+    function stampTodayISO() {
       const d = new Date();
       const pad = n => String(n).padStart(2, '0');
-      const txt = `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+    function setStampDateInput(value) {
+      const inp = document.getElementById('stampDateInput');
+      if (inp) inp.value = value || stampTodayISO();
+    }
+    function refreshStampDate() {
+      const inp = document.getElementById('stampDateInput');
+      const iso = String((inp && inp.value) || stampTodayISO()).slice(0, 10);
+      const parts = iso.split('-');
+      const txt = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : iso;
       document.querySelectorAll('.stamp-date').forEach(el => { el.textContent = txt; });
     }
+    (function initStampDateControls() {
+      setStampDateInput(); // default: today
+      const inp = document.getElementById('stampDateInput');
+      if (inp) {
+        inp.addEventListener('input', refreshStampDate);
+        inp.addEventListener('change', refreshStampDate);
+      }
+      const btn = document.getElementById('stampDateTodayBtn');
+      if (btn) btn.addEventListener('click', () => { setStampDateInput(); refreshStampDate(); });
+    })();
     refreshStampDate();
 
     window.addEventListener('beforeprint', () => {
