@@ -2203,15 +2203,40 @@ const app = {
       const dateKey= page==='accounts' ? 'dateSent' : 'date';
       const strKey=(x,k)=>String(x&&x[k]!=null?x[k]:'');
       out.sort((a,b)=>{
-        if(sort==='date_asc') return new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
-        if(sort==='date_desc') return new Date(b[dateKey]||0)-new Date(a[dateKey]||0);
-        if(sort==='amount_asc') return (a.amount||0)-(b.amount||0);
-        if(sort==='amount_desc') return (b.amount||0)-(a.amount||0);
-        if(sort==='alpha_asc') return strKey(a,alphaKey).localeCompare(strKey(b,alphaKey));
-        if(sort==='alpha_desc') return strKey(b,alphaKey).localeCompare(strKey(a,alphaKey));
-        if(sort==='head_asc') return headOf(a).localeCompare(headOf(b)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
-        if(sort==='head_desc') return headOf(b).localeCompare(headOf(a)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
-        return 0;
+        let r = 0;
+        if(sort==='date_asc') r = new Date(a[dateKey]||0)-new Date(b[dateKey]||0);
+        else if(sort==='date_desc') r = new Date(b[dateKey]||0)-new Date(a[dateKey]||0);
+        else if(sort==='amount_asc') r = (a.amount||0)-(b.amount||0);
+        else if(sort==='amount_desc') r = (b.amount||0)-(a.amount||0);
+        else if(sort==='alpha_asc') r = strKey(a,alphaKey).localeCompare(strKey(b,alphaKey));
+        else if(sort==='alpha_desc') r = strKey(b,alphaKey).localeCompare(strKey(a,alphaKey));
+        else if(sort==='head_asc') r = headOf(a).localeCompare(headOf(b)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
+        else if(sort==='head_desc') r = headOf(b).localeCompare(headOf(a)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
+        // Stable tie-breaker so lists and exports keep the exact same order
+        return (r || 0) || ((Number(b.id)||0) - (Number(a.id)||0));
+      });
+      return out;
+    },
+
+    // Bills sorted exactly like the register page (same Sort dropdown, same
+    // stable tie-breaker). The Reports Centre preview/export uses this so the
+    // exported file always follows the order shown in the register.
+    sortBillsLikeRegister(list, pageKey = 'bills', sortOverride = '') {
+      const sort = sortOverride || (app.ui.filters[pageKey] && app.ui.filters[pageKey].sort) || 'date_desc';
+      const strKey = (x, k) => String(x && x[k] != null ? x[k] : '');
+      const headOf = x => String(x && x.head != null && x.head !== '' ? x.head : (x && x.category != null ? x.category : ''));
+      const out = [...(list || [])];
+      out.sort((a, b) => {
+        let r = 0;
+        if (sort === 'date_asc') r = new Date(a.date || 0) - new Date(b.date || 0);
+        else if (sort === 'amount_asc') r = (Number(a.amount) || 0) - (Number(b.amount) || 0);
+        else if (sort === 'amount_desc') r = (Number(b.amount) || 0) - (Number(a.amount) || 0);
+        else if (sort === 'alpha_asc') r = strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
+        else if (sort === 'alpha_desc') r = strKey(b, 'vendor').localeCompare(strKey(a, 'vendor'));
+        else if (sort === 'head_asc') r = headOf(a).localeCompare(headOf(b)) || strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
+        else if (sort === 'head_desc') r = headOf(b).localeCompare(headOf(a)) || strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
+        else r = new Date(b.date || 0) - new Date(a.date || 0); // date_desc default
+        return (r || 0) || ((Number(b.id) || 0) - (Number(a.id) || 0));
       });
       return out;
     },
@@ -10392,7 +10417,7 @@ const app = {
             <th>Remarks</th>
           </tr>
         `;
-        const filtered = filterByDateRange(app.state.bills.filter(b=>b.expenseType==='advance'));
+        const filtered = app.ui.sortBillsLikeRegister(filterByDateRange(app.state.bills.filter(b=>b.expenseType==='advance')), 'advance-bills');
         tbody.innerHTML = '';
         filtered.forEach(bill => {
           tbody.innerHTML += `
@@ -10419,7 +10444,7 @@ const app = {
             <th>Remarks</th>
           </tr>
         `;
-        const filtered = filterByDateRange(app.state.bills.filter(b=>b.expenseType==='hospital'));
+        const filtered = app.ui.sortBillsLikeRegister(filterByDateRange(app.state.bills.filter(b=>b.expenseType==='hospital')), 'bills');
         tbody.innerHTML = '';
         filtered.forEach(bill => {
           tbody.innerHTML += `
@@ -10447,7 +10472,7 @@ const app = {
           </tr>
         `;
         
-        const filtered = filterByDateRange(app.state.bills);
+        const filtered = app.ui.sortBillsLikeRegister(filterByDateRange(app.state.bills), 'bills', 'date_desc');
         tbody.innerHTML = '';
 
         filtered.forEach(bill => {
@@ -11182,7 +11207,9 @@ const app = {
       }
       if(selType==='muhasib_bills' || selType==='hospital_bills' || selType==='bills'){
         const isMu=selType==='muhasib_bills', isHosp=selType==='hospital_bills';
-        const filterBills = isMu ? app.state.bills.filter(b=>b.expenseType==='advance'&&inRange(b.date)) : isHosp ? app.state.bills.filter(b=>b.expenseType==='hospital'&&inRange(b.date)) : app.state.bills.filter(b=>inRange(b.date));
+        const rawBills = isMu ? app.state.bills.filter(b=>b.expenseType==='advance'&&inRange(b.date)) : isHosp ? app.state.bills.filter(b=>b.expenseType==='hospital'&&inRange(b.date)) : app.state.bills.filter(b=>inRange(b.date));
+        // Keep the exported rows in the same order as the register page
+        const filterBills = app.ui.sortBillsLikeRegister(rawBills, isMu ? 'advance-bills' : 'bills', isMu || isHosp ? '' : 'date_desc');
         const title = isMu ? 'Muhasib Bill Report' : isHosp ? 'Hospital Bill Report' : 'All Bills Report';
         const wbS=XLSX.utils.book_new();
         const rows=[ [title], ['Date Range', sVal||'Start','to',eVal||'End'], ['Generated On', new Date().toLocaleString('en-IN')], [], ['Date','Token No','Bill Number','Vendor','Amount','Remarks'] ];
