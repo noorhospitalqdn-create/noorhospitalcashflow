@@ -5101,9 +5101,13 @@ const app = {
     },
     toggleSelectAllAdvanceBills(checked){
       if(!app.ui.selectedAdvanceBills) app.ui.selectedAdvanceBills = new Set();
-      const rows = app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
-      if(checked){ rows.forEach(b=>app.ui.selectedAdvanceBills.add(b.id)); }
-      else { app.ui.selectedAdvanceBills.clear(); }
+      if(checked){
+        // Select only the rows the register currently shows (same filter + same
+        // order), so the Bill Payment Form / batch actions match the screen.
+        const rows = app.ui.getFiltered(app.state.bills,'advance-bills')
+          .filter(b=>String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
+        rows.forEach(b=>app.ui.selectedAdvanceBills.add(b.id));
+      } else { app.ui.selectedAdvanceBills.clear(); }
       app.ui.renderAdvanceBillsTable();
       try{ if(app.mobile && app.mobile.renderAdvanceBillsCards) app.mobile.renderAdvanceBillsCards(); }catch(e){}
       app.ui.updateAdvanceBatchBar();
@@ -5118,7 +5122,11 @@ const app = {
     getSelectedAdvanceBills(){
       if(!app.ui.selectedAdvanceBills) app.ui.selectedAdvanceBills = new Set();
       const ids=[...app.ui.selectedAdvanceBills];
-      return ids.map(id=>app.state.bills.find(b=>b.id===id)).filter(b=>b && String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
+      const out=ids.map(id=>app.state.bills.find(b=>b.id===id)).filter(b=>b && String(b.expenseType||'').toLowerCase().trim()==='advance' && b.status!=='adv_cleared');
+      // Keep the selected bills in exactly the same order as the register list
+      // (same Sort dropdown + stable tie-breaker) so batch print / Bill Payment
+      // Request Form rows follow the on-screen sequence.
+      try{ return app.ui.sortBillsLikeRegister(out,'advance-bills'); }catch(_){ return out; }
     },
     updateAdvanceBatchBar(){
       const sel=app.ui.getSelectedAdvanceBills();
@@ -5697,9 +5705,12 @@ const app = {
     },
     toggleSelectAllHospitalBills(checked){
       if(!app.ui.selectedHospitalBills) app.ui.selectedHospitalBills = new Set();
-      const rows = app.state.bills.filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
-      if(checked){ rows.forEach(b=>app.ui.selectedHospitalBills.add(b.id)); }
-      else { app.ui.selectedHospitalBills.clear(); }
+      if(checked){
+        // Only the rows the Hospital Bills register currently shows (same filter + order)
+        const rows = app.ui.getFiltered(app.state.bills,'bills')
+          .filter(b=>String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
+        rows.forEach(b=>app.ui.selectedHospitalBills.add(b.id));
+      } else { app.ui.selectedHospitalBills.clear(); }
       app.ui.renderBillsTable();
       try{ if(app.mobile && app.mobile.renderBillsCards) app.mobile.renderBillsCards(); }catch(e){}
       app.ui.updateHospitalBatchBar();
@@ -5714,7 +5725,9 @@ const app = {
     getSelectedHospitalBills(){
       if(!app.ui.selectedHospitalBills) app.ui.selectedHospitalBills = new Set();
       const ids=[...app.ui.selectedHospitalBills];
-      return ids.map(id=>app.state.bills.find(b=>b.id===id)).filter(b=>b && String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
+      const out=ids.map(id=>app.state.bills.find(b=>b.id===id)).filter(b=>b && String(b.expenseType||'').toLowerCase().trim()==='hospital' && b.status!=='hosp_cleared');
+      // Same order as the Hospital Bills register list (Sort dropdown + tie-breaker)
+      try{ return app.ui.sortBillsLikeRegister(out,'bills'); }catch(_){ return out; }
     },
     updateHospitalBatchBar(){
       const sel=app.ui.getSelectedHospitalBills();
@@ -7307,6 +7320,10 @@ const app = {
         app.ui.showToast('Please select at least one bill first (tick the checkboxes).', 'warning');
         return;
       }
+      // Rows in the form must follow the register list sequence (filter + sort),
+      // not the order the checkboxes happened to be ticked.
+      let ordered = sel;
+      try { ordered = app.ui.sortBillsLikeRegister(sel, type === 'hospital' ? 'bills' : 'advance-bills'); } catch (_) {}
       try {
         // Reuse the same vendor/heads payload as the standalone form
         const vendors = app.vendors.getUniqueVendors().map(v => ({
@@ -7317,7 +7334,7 @@ const app = {
         localStorage.setItem('noor_payment_form_vendors', JSON.stringify({ updatedAt: Date.now(), vendors }));
         const heads = (app.heads.getUniqueHeads() || []).map(h => (h.name || '').trim()).filter(Boolean);
         localStorage.setItem('noor_payment_form_heads', JSON.stringify(heads));
-        const rows = sel.map(b => ({
+        const rows = ordered.map(b => ({
           vendor: (b.vendor || '').trim(),
           vendorId: (() => { try { return (app.vendors.getVendorCodeByName(b.vendor) || '').trim(); } catch (_) { return ''; } })(),
           head: (b.head || b.category || '').trim(),
