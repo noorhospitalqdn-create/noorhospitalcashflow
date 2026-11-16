@@ -70,7 +70,7 @@
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261114_2" defer></script>
+  <script src="assets/app.js?v=20261116_1" defer></script>
   <script src="assets/staff-receipts.js?v=20261105_1" defer></script>
   <script src="assets/cash-borrow.js?v=20261014_22" defer></script>
   <script src="assets/notepad.js?v=20261014_27" defer></script>
@@ -1111,6 +1111,7 @@
                   <th class="text-center" style="width: 36px; padding: 12px 6px;"><input type="checkbox" id="select-all-advance-bills-head" title="Select all" onchange="app.ui.toggleSelectAllAdvanceBills(this.checked)"></th>
                   <th style="width: 100px;">Date</th>
                   <th style="width: 120px;">Bill Number</th>
+                  <th style="width: 110px;">Label ID</th>
                   <th style="min-width: 160px;">Vendor Name</th>
                   <th style="min-width: 140px;">Head</th>
                   <th class="text-right" style="width: 120px;">Amount</th>
@@ -1244,6 +1245,7 @@
                   <th class="text-center" style="width: 36px; padding: 12px 6px;"><input type="checkbox" id="select-all-hospital-bills-head" title="Select all" onchange="app.ui.toggleSelectAllHospitalBills(this.checked)"></th>
                   <th style="width: 100px;">Date</th>
                   <th style="width: 120px;">Bill Number</th>
+                  <th style="width: 110px;">Label ID</th>
                   <th style="min-width: 160px;">Vendor Name</th>
                   <th style="min-width: 140px;">Head</th>
                   <th class="text-right" style="width: 120px;">Amount</th>
@@ -2340,6 +2342,7 @@ CREATE TABLE IF NOT EXISTS bills (
   amount NUMERIC DEFAULT 0,
   "expenseType" TEXT,
   "tokenNumber" TEXT,
+  "labelId" TEXT,
   category TEXT,
   remarks TEXT,
   "slipId" BIGINT,
@@ -2359,6 +2362,7 @@ CREATE TABLE IF NOT EXISTS bills (
 -- Quick Upgrade for existing Supabase projects:
 -- ALTER TABLE temporary_slips ADD COLUMN IF NOT EXISTS "tokenNumber" TEXT;
 -- ALTER TABLE bills ADD COLUMN IF NOT EXISTS "tokenNumber" TEXT;
+-- ALTER TABLE bills ADD COLUMN IF NOT EXISTS "labelId" TEXT;
 
 CREATE TABLE IF NOT EXISTS transfers (
   id BIGSERIAL PRIMARY KEY,
@@ -3236,7 +3240,6 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
           </span>
           <h3 id="dialog-bill-title">New Bill</h3>
-          <span class="token-badge" id="bill-token-badge">AUTO</span>
         </div>
         <p class="modal-subtitle">Direct vendor bill registration with category head & accounts tracking</p>
       </div>
@@ -3246,7 +3249,6 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     </div>
     <form id="form-bill-add">
       <input type="hidden" id="edit-bill-id">
-      <input type="hidden" id="bill-token">
       <div class="modal-body">
         <!-- 1. Grand Amount Display Deck -->
         <div class="amt-hero">
@@ -3286,6 +3288,14 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label" for="bill-number">Bill / Invoice # <span class="text-error">*</span></label>
             <input type="text" id="bill-number" class="form-input font-mono" placeholder="Enter manual Bill / Invoice #" required autocomplete="off">
+          </div>
+
+          <!-- Optional Label ID: user-typed, unique. Replaces the old auto Token No. -->
+          <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="bill-label-id">Label ID <span class="text-muted" style="font-weight:600;font-size:0.72rem;">(optional, must be unique)</span></label>
+            </div>
+            <input type="text" id="bill-label-id" class="form-input font-mono" placeholder="Enter Label ID — leave empty if not needed" autocomplete="off" maxlength="60">
           </div>
 
           <!-- Row 2: Paid From & Vendor -->
@@ -4391,12 +4401,8 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     var theApp = window.app || (typeof app !== "undefined" ? app : null);
 
     function syncBillTokenUI(){
-      var btok=$("bill-token"), badge=$("bill-token-badge"), isEdit=$("edit-bill-id")&&$("edit-bill-id").value;
-      if(btok && !isEdit && theApp && theApp.generateToken){
-        var curType = (sel && sel.value === "advance") ? "advance_bill" : "hospital_bill";
-        btok.value = theApp.generateToken(curType);
-      }
-      if(badge && btok) badge.textContent = btok.value || 'AUTO';
+      // Token numbers are retired for bills: the user now types an optional
+      // Label ID in the bill form, so there is nothing to auto-generate here.
     }
     function paintSeg(){
       if(!sel) return;
@@ -4442,6 +4448,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
               var lc=localStorage.getItem("nh_last_bill_cat");if(lc && cat){cat.value=lc;}
             }catch(e){}
             paintSeg();paintCat();syncBillTokenUI();
+            var lblNew=$("bill-label-id"); if(lblNew) lblNew.value="";
             if(bno){ bno.value=""; bno.placeholder="Enter manual Bill / Invoice #"; }
           }
           setTimeout(function(){try{if(bno){bno.focus();}else if(amt&&vendor){(amt.value?vendor:amt).focus();}}catch(e){}},120);
