@@ -70,7 +70,7 @@
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261116_1" defer></script>
+  <script src="assets/app.js?v=20261116_2" defer></script>
   <script src="assets/staff-receipts.js?v=20261105_1" defer></script>
   <script src="assets/cash-borrow.js?v=20261014_22" defer></script>
   <script src="assets/notepad.js?v=20261014_27" defer></script>
@@ -3295,7 +3295,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             <div class="form-label-row">
               <label class="form-label" for="bill-label-id">Label ID <span class="text-muted" style="font-weight:600;font-size:0.72rem;">(optional, must be unique)</span></label>
             </div>
-            <input type="text" id="bill-label-id" class="form-input font-mono" placeholder="Enter Label ID — leave empty if not needed" autocomplete="off" maxlength="60">
+            <input type="text" id="bill-label-id" class="form-input font-mono" placeholder="e.g. 73-123" value="73-" autocomplete="off" maxlength="60">
           </div>
 
           <!-- Row 2: Paid From & Vendor -->
@@ -4448,7 +4448,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
               var lc=localStorage.getItem("nh_last_bill_cat");if(lc && cat){cat.value=lc;}
             }catch(e){}
             paintSeg();paintCat();syncBillTokenUI();
-            var lblNew=$("bill-label-id"); if(lblNew) lblNew.value="";
+            var lblNew=$("bill-label-id"); if(lblNew) lblNew.value="73-";
             if(bno){ bno.value=""; bno.placeholder="Enter manual Bill / Invoice #"; }
           }
           setTimeout(function(){try{if(bno){bno.focus();}else if(amt&&vendor){(amt.value?vendor:amt).focus();}}catch(e){}},120);

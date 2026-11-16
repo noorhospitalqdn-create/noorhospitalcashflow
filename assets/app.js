@@ -136,6 +136,24 @@ const app = {
     return `${prefix}-${maxNum + 1}`;
   },
 
+  /** Default prefix for every bill Label ID (Noor Hospital). */
+  LABEL_ID_PREFIX: '73-',
+
+  /**
+   * Normalises a hand-typed Label ID so it always carries a pressing prefix.
+   * "123" -> "73-123", "73" -> "73-", "73-" -> "" (prefix alone means no label).
+   * A bare prefix is treated as empty so untouched defaults never collide.
+   */
+  normalizeLabelId(value) {
+    let v = String(value == null ? '' : value).trim();
+    if (!v) return '';
+    const m = v.match(/^(73|54)[-]?(\d*)$/);
+    if (m) v = `${m[1]}-${m[2]}`;
+    else if (!/^(73|54)-/.test(v)) v = `${app.LABEL_ID_PREFIX}${v.replace(/^[-]+/, '')}`;
+    if (v === '73-' || v === '54-') return '';
+    return v;
+  },
+
   /**
    * Returns only true active, pending temporary slips.
    * Explicitly filters out:
@@ -2443,6 +2461,18 @@ const app = {
         }
       });
 
+      // Label ID: always show the 73- prefix and normalise what was typed
+      const billLabelInput = document.getElementById('bill-label-id');
+      if (billLabelInput) {
+        billLabelInput.addEventListener('focus', () => {
+          if (!billLabelInput.value.trim()) billLabelInput.value = app.LABEL_ID_PREFIX;
+        });
+        billLabelInput.addEventListener('blur', () => {
+          const norm = app.normalizeLabelId(billLabelInput.value);
+          if (norm) billLabelInput.value = norm;
+        });
+      }
+
       // Paid From segmented control for Slips <-> hidden select sync
       const syncSlipSegUI = (val) => {
         const v = val || document.getElementById('slip-exp-type')?.value || 'advance';
@@ -3166,11 +3196,11 @@ const app = {
             return;
           }
           const expenseType = document.getElementById('bill-exp-type').value;
-          const labelId = (document.getElementById('bill-label-id')?.value || '').trim();
+          const labelId = app.normalizeLabelId(document.getElementById('bill-label-id')?.value || '');
           if (labelId) {
             const dup = (app.state.bills || []).some(b =>
               String(b.id) !== String(editId || '') &&
-              String(b.labelId || '').trim().toLowerCase() === labelId.toLowerCase()
+              app.normalizeLabelId(b.labelId).toLowerCase() === labelId.toLowerCase()
             );
             if (dup) {
               app.ui.showToast(`Label ID "${labelId}" is already used by another bill. Please enter a different one.`, 'error');
@@ -3926,7 +3956,7 @@ const app = {
             const numEl = document.getElementById('bill-number');
             if (numEl) numEl.value = '';
             const lblEl = document.getElementById('bill-label-id');
-            if (lblEl) lblEl.value = '';
+            if (lblEl) lblEl.value = app.LABEL_ID_PREFIX;
           }
         } else if (dialogId === 'dialog-hospital-add') {
           const curSrc = document.getElementById('hosp-source')?.value || 'OPD';
@@ -4008,7 +4038,7 @@ const app = {
           const passedType = (arguments.length > 1 && arguments[1]) ? arguments[1] : (document.getElementById('bill-exp-type')?.value || 'advance');
           if (window.syncBillSegUI) window.syncBillSegUI(passedType);
           const billLabelEl = document.getElementById('bill-label-id');
-          if (billLabelEl) billLabelEl.value = '';
+          if (billLabelEl) billLabelEl.value = app.LABEL_ID_PREFIX;
           if (app.vendors) app.vendors.populateVendorDropdowns();
           const billVendorEl = document.getElementById('bill-vendor');
           if (billVendorEl) billVendorEl.value = '';
@@ -4113,7 +4143,7 @@ const app = {
           if (bHead) bHead.value = (record.head || record.category || '').trim().toUpperCase();
           document.getElementById('bill-remarks').value = record.remarks || '';
           const billLabelEl = document.getElementById('bill-label-id');
-          if (billLabelEl) billLabelEl.value = record.labelId || '';
+          if (billLabelEl) billLabelEl.value = record.labelId || app.LABEL_ID_PREFIX;
           
           app.ui.setupEditAttachment('bill', record);
           app.ui.openModal('dialog-bill-add');
@@ -7315,6 +7345,7 @@ const app = {
           vendor: (b.vendor || '').trim(),
           vendorId: (() => { try { return (app.vendors.getVendorCodeByName(b.vendor) || '').trim(); } catch (_) { return ''; } })(),
           head: (b.head || b.category || '').trim(),
+          labelId: app.normalizeLabelId(b.labelId),
           billAmount: Number(b.amount) || 0
         }));
         localStorage.setItem('noor_payment_form_bills', JSON.stringify({ updatedAt: Date.now(), rows }));
