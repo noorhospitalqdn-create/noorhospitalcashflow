@@ -1471,9 +1471,12 @@
         // A hand-typed custom ID always wins in its own row
         if (indSel && indSel.value === '__custom_id__') return;
         if (!code) {
-          // No vendor code → keep the cell clean (no random ID)
+          // No vendor code → keep the cell completely clean (no ID, no "Vendor")
           if (badge) badge.classList.remove('show');
-          if (indSel) indSel.classList.remove('id-only');
+          if (indSel && indSel.value === 'Vendor') {
+            indSel.value = '';
+            indSel.classList.remove('selected-val', 'id-only');
+          }
           fitRowText(tr);
           return;
         }
@@ -2147,7 +2150,7 @@
       tr.innerHTML = `
         <td>
           <select aria-label="IND or Vendor row ${index}" class="cell-select ind-vendor-select">
-            <option value="">Drop Down</option>
+            <option value=""></option>
             <option value="IND">IND</option>
             <option value="Vendor">Vendor</option>
             <option value="__custom_id__">Custom ID</option>
@@ -2386,19 +2389,24 @@
         }
         if (nameSelect.value) {
           const v = matchSystemVendor(nameSelect.value);
-          if (v && (!selectEl.value || selectEl.value === 'Vendor')) {
+          const vId = (v && v.id ? String(v.id) : '').trim();
+          if (vId) {
             selectEl.value = 'Vendor';
             selectEl.classList.add('selected-val');
             selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
-          }
-          if (vidBadge) {
-            if (v && v.id) {
-              vidBadge.textContent = String(v.id);
+            if (vidBadge) {
+              vidBadge.textContent = vId;
               vidBadge.classList.add('show');
               if (tr._exitCustomId) tr._exitCustomId();
-            } else { vidBadge.classList.remove('show'); }
+            }
+          } else {
+            selectEl.value = '';
+            selectEl.classList.remove('selected-val');
+            if (vidBadge) vidBadge.classList.remove('show');
           }
         } else {
+          selectEl.value = '';
+          selectEl.classList.remove('selected-val');
           if (vidBadge) vidBadge.classList.remove('show');
         }
         if (nameSelect.value) nameSelect.classList.add('selected-val');
@@ -2442,28 +2450,28 @@
         const vidBadge = tr.querySelector('.vid-badge');
         if (v) {
           nameInput.value = v.name;
-          if (!selectEl.value || selectEl.value === 'Vendor') {
+          const vId = (v && v.id ? String(v.id) : '').trim();
+          if (vId) {
             selectEl.value = 'Vendor';
             selectEl.classList.add('selected-val');
             selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
-          }
-          if (vidBadge) {
-            if (v.id) {
-              vidBadge.textContent = String(v.id);
+            if (vidBadge) {
+              vidBadge.textContent = vId;
               vidBadge.classList.add('show');
               if (tr._exitCustomId) tr._exitCustomId();
-            } else { vidBadge.classList.remove('show'); }
+            }
+          } else {
+            selectEl.value = '';
+            selectEl.classList.remove('selected-val');
+            if (vidBadge) vidBadge.classList.remove('show');
           }
         } else if (raw && raw.trim()) {
           // Brand-new name → add it to the system vendor list (queued for import)
           const created = queueManualVendor(raw);
           if (created) {
             nameInput.value = created;
-            if (!selectEl.value || selectEl.value === 'Vendor') {
-              selectEl.value = 'Vendor';
-              selectEl.classList.add('selected-val');
-              selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
-            }
+            selectEl.value = '';
+            selectEl.classList.remove('selected-val');
             if (vidBadge) vidBadge.classList.remove('show');
           }
         } else if (SYSTEM_VENDORS.length) {
@@ -2637,9 +2645,13 @@
       });
     }
 
-    /* Amount cells (Bill / Advance / Payment): one shared font size per row,
-       so a long Payment value never renders smaller than the Bill value next
-       to it. */
+    /* Amount cells (Bill / Advance / Payment):
+       - In standard modes (Cash / Online / Internal Transfer): one shared font
+         size per row, so numbers never look mismatched.
+       - In Wapasi Peshgi mode: Advance is "Name", Payment is "IND", and Bill is
+         "Bill Amount". Each cell's text size auto-adjusts independently according
+         to its own text length and column width so a long name never shrinks the
+         bill amount or IND number next to it. */
     function fitAmountsInRow(tr, printMode) {
       if (!tr) return;
       const inputs = [
@@ -2653,6 +2665,38 @@
       // .cell-input renders at 0.8rem (12.8px) by default — measure against that
       // exact size, otherwise a value that just fits at 12.5px gets clipped.
       const basePx = 12.8;
+
+      if (isWapasiPeshgiMode()) {
+        inputs.forEach(inp => {
+          const text = String(inp.value || '').trim();
+          if (!text) {
+            inp.style.fontSize = '';
+            return;
+          }
+          const key = inp.classList.contains('bill-input') ? 'bill'
+            : (inp.classList.contains('advance-input') ? 'advance' : 'payment');
+          const pct = COLUMN_PCT[key] || 0.10;
+          const avail = (printMode || !inp.clientWidth)
+            ? (PRINT_TABLE_WIDTH * pct - 14)
+            : (inp.clientWidth - 14);
+          if (avail <= 0) return;
+          const minPx = key === 'advance' ? 6.0 : (key === 'payment' ? 6.5 : 7.5);
+          let need = measureFittedFont(inp, basePx, minPx, avail, inp.value);
+          inp.style.fontSize = need >= basePx - 0.01 ? '' : need.toFixed(2) + 'px';
+
+          // Extra safety for text inputs against visual clipping on screen
+          if (!printMode && inp.clientWidth && inp.scrollWidth > inp.clientWidth) {
+            let guard = 0;
+            while (inp.scrollWidth > inp.clientWidth && need > minPx && guard++ < 30) {
+              need -= 0.25;
+              inp.style.fontSize = need.toFixed(2) + 'px';
+            }
+          }
+        });
+        return;
+      }
+
+      // Standard numeric mode: one shared size for all 3 amount inputs
       let size = basePx;
       inputs.forEach(inp => {
         const text = String(inp.value || '').trim();
@@ -2875,6 +2919,9 @@
       modeEl.addEventListener('change', () => {
         applyModePresentation();
         recalcAllRows();
+        requestAnimationFrame(() => {
+          allRows().forEach(tr => fitAmountsInRow(tr));
+        });
         const details = document.getElementById('paymentDetails');
         if (details) fitPaymentDetailsText();
       });
@@ -2886,18 +2933,21 @@
       if (!tr) return;
       // A system vendor replaces any hand-typed custom ID in this row
       if (tr._exitCustomId) tr._exitCustomId();
+      const sysV = matchSystemVendor(vName);
+      const effectiveId = (vId || (sysV && sysV.id) || '').trim();
       const selectEl = tr.querySelector('.ind-vendor-select');
       if (selectEl) {
-        selectEl.value = 'Vendor';
-        selectEl.classList.add('selected-val');
-        selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+        if (effectiveId) {
+          selectEl.value = 'Vendor';
+          selectEl.classList.add('selected-val', 'id-only');
+          selectEl.classList.remove('italic', 'font-normal', 'text-gray-700');
+        } else {
+          // No vendor ID -> keep the box completely BLANK (no "Vendor")
+          selectEl.value = '';
+          selectEl.classList.remove('selected-val', 'id-only');
+        }
       }
-      setVendorIdBadge(tr, vId || '');
-      const selEl = tr.querySelector('.ind-vendor-select');
-      if (selEl) {
-        if (vId) selEl.classList.add('id-only');
-        else selEl.classList.remove('id-only');
-      }
+      setVendorIdBadge(tr, effectiveId);
       setNameCellValue(tr, vName);
       updateSummaryTotals();
       fitRowText(tr);
@@ -2933,16 +2983,22 @@
 
         const vendor = (r.vendor || '').trim();
         const vId = (r.vendorId || '').trim();
-        const isSystemVendor = SYSTEM_VENDORS.some(x => (x.name || '').trim().toLowerCase() === vendor.toLowerCase());
+        const sysV = matchSystemVendor(vendor);
+        const effectiveId = (vId || (sysV && sysV.id) || '').trim();
 
-        // IND/Vendor column
+        // IND/Vendor column: if vendor has no ID, keep box completely blank
         const indSel = targetRow.querySelector('.ind-vendor-select');
         if (indSel) {
-          indSel.value = (vendor && (vId || isSystemVendor)) ? 'Vendor' : (vendor ? 'Vendor' : 'IND');
-          indSel.classList.add('selected-val');
-          indSel.classList.remove('italic', 'font-normal', 'text-gray-700');
-          if (vId) setVendorIdBadge(targetRow, vId);
-          if (indSel.value === 'Vendor' && vId) indSel.classList.add('id-only');
+          if (effectiveId) {
+            indSel.value = 'Vendor';
+            indSel.classList.add('selected-val', 'id-only');
+            indSel.classList.remove('italic', 'font-normal', 'text-gray-700');
+            setVendorIdBadge(targetRow, effectiveId);
+          } else {
+            indSel.value = '';
+            indSel.classList.remove('selected-val', 'id-only');
+            setVendorIdBadge(targetRow, '');
+          }
         }
 
         // Label ID column
