@@ -72,6 +72,8 @@
       margin-top: 3px;
       margin-bottom: 2px;
     }
+    /* Stamp can be switched off from the utility bar (screen and print) */
+    body.stamp-hidden .hospital-stamp { display: none !important; }
     /* ===== Header: title left, hospital stamp exactly in the page middle ===== */
     .form-head {
       position: relative;
@@ -525,6 +527,10 @@
           class="px-2 py-1 text-[11px] font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 rounded border border-gray-300 transition">
           Today
         </button>
+        <label for="stampToggle" class="flex items-center gap-1.5 pl-1.5 text-xs font-medium text-gray-700 cursor-pointer select-none" title="Show or hide the hospital stamp (also applies to print)">
+          <input id="stampToggle" type="checkbox" checked class="w-3.5 h-3.5 accent-sky-600 cursor-pointer">
+          <span>Stamp</span>
+        </label>
       </div>
       <button id="addRowBtn" type="button" class="px-3 py-1.5 text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-800 rounded border border-gray-300 transition">
         + Add Row
@@ -2724,6 +2730,29 @@
       if (btn) btn.addEventListener('click', () => { setStampDateInput(); refreshStampDate(); });
     })();
     refreshStampDate();
+
+    // ===== Hospital stamp ON/OFF (utility bar) =====
+    // Hides the stamp on screen and in print; the choice is remembered.
+    (function initStampToggle() {
+      const STAMP_KEY = 'noor_payment_form_stamp_visible';
+      const box = document.getElementById('stampToggle');
+      let visible = true;
+      try {
+        const saved = localStorage.getItem(STAMP_KEY);
+        if (saved !== null) visible = saved !== '0';
+      } catch (_) {}
+      function apply(on) {
+        document.body.classList.toggle('stamp-hidden', !on);
+        if (box) box.checked = on;
+        try { localStorage.setItem(STAMP_KEY, on ? '1' : '0'); } catch (_) {}
+      }
+      apply(visible);
+      if (box) box.addEventListener('change', () => apply(box.checked));
+      // Safety net: keep the body class in sync right before printing
+      window.addEventListener('beforeprint', () => {
+        if (box) document.body.classList.toggle('stamp-hidden', !box.checked);
+      });
+    })();
 
     window.addEventListener('beforeprint', () => {
       // Catch any manual vendor name that hasn't been committed yet (no blur happened)
