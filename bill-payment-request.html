@@ -74,6 +74,16 @@
     }
     /* Stamp can be switched off from the utility bar (screen and print) */
     body.stamp-hidden .hospital-stamp { display: none !important; }
+
+    /* Wapasi Peshgi mode: the Advance column becomes "Name" and the Payment
+       column becomes "IND" — plain text cells instead of amounts. */
+    body.mode-wapasi .advance-input,
+    body.mode-wapasi .payment-input {
+      text-align: left;
+      font-family: 'Inter', Arial, sans-serif;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
     /* ===== Header: title left, hospital stamp exactly in the page middle ===== */
     .form-head {
       position: relative;
@@ -2014,6 +2024,10 @@
       return !!sel && sel.value === 'Wapasi Peshgi';
     }
 
+    // Defaults printed in the Wapasi Peshgi columns (Name / IND).
+    const WAPASI_ROW_NAME = 'Mubashar Ali';
+    const WAPASI_ROW_IND = 'IND0018469';
+
     function isInternalTransferMode() {
       const sel = document.getElementById('modeSelect');
       return !!sel && sel.value === 'Internal Transfer';
@@ -2040,20 +2054,11 @@
       if (!bill || !adv || !pay) return;
 
       if (isWapasiPeshgiMode()) {
-        if (source === 'bill') {
-          delete bill.dataset.auto;
-          if (!adv.value.trim() || adv.dataset.auto === '1') {
-            adv.value = bill.value;
-            adv.dataset.auto = '1';
-          }
-        } else if (source === 'advance') {
-          delete adv.dataset.auto;
-          if (!bill.value.trim() || bill.dataset.auto === '1') {
-            bill.value = adv.value;
-            bill.dataset.auto = '1';
-          }
-        }
-        pay.value = '';
+        // Advance = "Name" and Payment = "IND" in this mode: they hold plain
+        // text (defaults), so the bill amount must not be mirrored into them.
+        delete bill.dataset.auto;
+        delete adv.dataset.auto;
+        delete pay.dataset.auto;
       } else if (isInternalTransferMode()) {
         // One amount, shown in both Bill Amount and Payment: keep the two
         // columns mirrored, whichever one is edited.
@@ -2088,6 +2093,53 @@
         fitAmountsInRow(tr);
       });
       updateSummaryTotals();
+    }
+
+    // ===== Wapasi Peshgi presentation =====
+    // In this mode the Advance column is headed "Name" and the Payment column
+    // "IND"; both hold plain text (defaults: Mubashar Ali / IND0018469).
+    function syncModeColumnLabels() {
+      const wapasi = isWapasiPeshgiMode();
+      const advLabel = wapasi ? 'Name' : 'Advance';
+      const payLabel = wapasi ? 'IND' : 'Payment';
+      document.querySelectorAll('.payment-table thead tr').forEach(tr => {
+        const ths = tr.children;
+        if (ths[5]) ths[5].textContent = advLabel;
+        if (ths[6]) ths[6].textContent = payLabel;
+      });
+      document.body.classList.toggle('mode-wapasi', wapasi);
+    }
+
+    function applyModeToRow(tr) {
+      if (!tr) return;
+      const adv = tr.querySelector('.advance-input');
+      const pay = tr.querySelector('.payment-input');
+      if (!adv || !pay) return;
+      if (isWapasiPeshgiMode()) {
+        adv.setAttribute('inputmode', 'text');
+        pay.setAttribute('inputmode', 'text');
+        adv.placeholder = 'Name';
+        pay.placeholder = 'IND number';
+        const advVal = adv.value.trim();
+        const payVal = pay.value.trim();
+        if (!advVal || /^[\d.,]+$/.test(advVal)) adv.value = WAPASI_ROW_NAME;
+        if (!payVal || /^[\d.,]+$/.test(payVal)) pay.value = WAPASI_ROW_IND;
+      } else {
+        adv.setAttribute('inputmode', 'decimal');
+        pay.setAttribute('inputmode', 'decimal');
+        if (adv.value.trim() === WAPASI_ROW_NAME) adv.value = '';
+        if (pay.value.trim() === WAPASI_ROW_IND) pay.value = '';
+        adv.placeholder = '';
+        pay.placeholder = '';
+      }
+      delete adv.dataset.auto;
+      delete pay.dataset.auto;
+    }
+
+    function applyModePresentation() {
+      syncModeColumnLabels();
+      allRows().forEach(applyModeToRow);
+      syncAdvanceInputState();
     }
 
     function createRow(index) {
@@ -2435,6 +2487,10 @@
           nameInput.blur();
         }
       });
+
+      // A new row created while Wapasi Peshgi is active must already show
+      // the Name / IND defaults.
+      applyModeToRow(tr);
 
       return tr;
     }
@@ -2815,7 +2871,9 @@
     (function initPaymentModeBehaviour() {
       const modeEl = document.getElementById('modeSelect');
       if (!modeEl) return;
+      applyModePresentation(); // default mode on load
       modeEl.addEventListener('change', () => {
+        applyModePresentation();
         recalcAllRows();
         const details = document.getElementById('paymentDetails');
         if (details) fitPaymentDetailsText();
