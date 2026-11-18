@@ -60,7 +60,7 @@
   </style>
 
   <!-- Main Stylesheet (Versioned for cache-busting) -->
-  <link rel="stylesheet" href="assets/app.css?v=20261112_1">
+  <link rel="stylesheet" href="assets/app.css?v=20261118_4">
   <link rel="stylesheet" href="assets/staff-receipts.css?v=20261010_17">
   <link rel="stylesheet" href="assets/cash-borrow.css?v=20261013_10">
   <link rel="stylesheet" href="assets/notepad.css?v=20261014_27">
@@ -70,7 +70,7 @@
   <!-- Chart.js Library Loaded Locally -->
   <script src="assets/chart.min.js" defer></script>
   <!-- Main Application Logic (Versioned for cache-busting) -->
-  <script src="assets/app.js?v=20261118_2" defer></script>
+  <script src="assets/app.js?v=20261118_4" defer></script>
   <script src="assets/staff-receipts.js?v=20261105_1" defer></script>
   <script src="assets/cash-borrow.js?v=20261014_22" defer></script>
   <script src="assets/notepad.js?v=20261014_27" defer></script>
@@ -2631,30 +2631,41 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-advance-add">
       <input type="hidden" id="edit-advance-id">
       <div class="modal-body">
-        <!-- 1. Grand Amount Display Deck -->
-        <div class="amt-hero">
-          <div class="amt-hero-top">
-            <label class="form-label" for="adv-amount">Float Replenishment Amount</label>
-            <span class="amt-currency-label">INR (₹)</span>
-          </div>
-          <div class="amt-input-wrap">
-            <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="adv-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
-          </div>
-          <div class="amt-words" id="adv-amount-words">Zero Rupees</div>
-          <div class="quick-chips">
-            <button type="button" class="qchip" data-target="adv-amount" data-add="500">+500</button>
-            <button type="button" class="qchip" data-target="adv-amount" data-add="1000">+1,000</button>
-            <button type="button" class="qchip" data-target="adv-amount" data-add="5000">+5,000</button>
-            <button type="button" class="qchip" data-target="adv-amount" data-add="10000">+10,000</button>
-            <button type="button" class="qchip" data-target="adv-amount" data-add="25000">+25,000</button>
-            <button type="button" class="qchip qchip-clear" data-target="adv-amount" data-clear="1">✕ Clear</button>
-          </div>
-        </div>
-
-        <!-- 2. Dual-Column Pro Layout -->
+        <!-- Dual-Column Pro Layout -->
         <div class="modal-form-grid">
-          <!-- Left Column: Float Purpose Cards -->
+          <!-- Row 1: Amount & Entry Date in the same row -->
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="adv-amount">Float Replenishment Amount <span class="text-error">*</span></label>
+              <span class="amt-currency-label">INR (₹)</span>
+            </div>
+            <div class="amt-input-wrap">
+              <span class="amt-cur">₹</span>
+              <input type="number" step="0.01" min="0.01" id="adv-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            </div>
+            <div class="amt-words" id="adv-amount-words">Zero Rupees</div>
+            <div class="quick-chips">
+              <button type="button" class="qchip" data-target="adv-amount" data-add="500">+500</button>
+              <button type="button" class="qchip" data-target="adv-amount" data-add="1000">+1,000</button>
+              <button type="button" class="qchip" data-target="adv-amount" data-add="5000">+5,000</button>
+              <button type="button" class="qchip" data-target="adv-amount" data-add="10000">+10,000</button>
+              <button type="button" class="qchip" data-target="adv-amount" data-add="25000">+25,000</button>
+              <button type="button" class="qchip qchip-clear" data-target="adv-amount" data-clear="1">✕ Clear</button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="adv-date">Entry Date <span class="text-error">*</span></label>
+              <div class="date-presets">
+                <button type="button" class="date-pill" data-target="adv-date" data-preset="today">Today</button>
+                <button type="button" class="date-pill" data-target="adv-date" data-preset="yesterday">Yesterday</button>
+              </div>
+            </div>
+            <input type="date" id="adv-date" class="form-input" required>
+          </div>
+
+          <!-- Row 2: Purpose Cards (Left) & Remarks (Right) -->
           <div class="form-col">
             <label class="form-label">Float Category / Purpose</label>
             <div class="float-cat-grid" style="grid-template-columns: 1fr; gap: 7px; margin-bottom: 0;">
@@ -2689,19 +2700,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             </div>
           </div>
 
-          <!-- Right Column: Date & Remarks -->
           <div class="form-col">
-            <div class="form-group" style="margin-bottom:0.75rem">
-              <div class="form-label-row">
-                <label class="form-label" for="adv-date">Entry Date</label>
-                <div class="date-presets">
-                  <button type="button" class="date-pill" data-target="adv-date" data-preset="today">Today</button>
-                  <button type="button" class="date-pill" data-target="adv-date" data-preset="yesterday">Yesterday</button>
-                </div>
-              </div>
-              <input type="date" id="adv-date" class="form-input" required>
-            </div>
-
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label" for="adv-remarks">Remarks / Notes</label>
               <textarea id="adv-remarks" class="form-textarea" placeholder="e.g. Received cash replenishment from Muhasib..." rows="3" required></textarea>
@@ -2744,30 +2743,41 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-hospital-add">
       <input type="hidden" id="edit-hospital-id">
       <div class="modal-body">
-        <!-- 1. Grand Amount Display Deck -->
-        <div class="amt-hero">
-          <div class="amt-hero-top">
-            <label class="form-label" for="hosp-amount">Collection Amount</label>
-            <span class="amt-currency-label">INR (₹)</span>
-          </div>
-          <div class="amt-input-wrap">
-            <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="hosp-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
-          </div>
-          <div class="amt-words" id="hosp-amount-words">Zero Rupees</div>
-          <div class="quick-chips">
-            <button type="button" class="qchip" data-target="hosp-amount" data-add="500">+500</button>
-            <button type="button" class="qchip" data-target="hosp-amount" data-add="1000">+1,000</button>
-            <button type="button" class="qchip" data-target="hosp-amount" data-add="5000">+5,000</button>
-            <button type="button" class="qchip" data-target="hosp-amount" data-add="10000">+10,000</button>
-            <button type="button" class="qchip" data-target="hosp-amount" data-add="25000">+25,000</button>
-            <button type="button" class="qchip qchip-clear" data-target="hosp-amount" data-clear="1">✕ Clear</button>
-          </div>
-        </div>
-
-        <!-- 2. Dual-Column Pro Layout -->
+        <!-- Dual-Column Pro Layout -->
         <div class="modal-form-grid">
-          <!-- Left Column: Department Selection Cards -->
+          <!-- Row 1: Collection Amount & Collection Date in the same row -->
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="hosp-amount">Collection Amount <span class="text-error">*</span></label>
+              <span class="amt-currency-label">INR (₹)</span>
+            </div>
+            <div class="amt-input-wrap">
+              <span class="amt-cur">₹</span>
+              <input type="number" step="0.01" min="0.01" id="hosp-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            </div>
+            <div class="amt-words" id="hosp-amount-words">Zero Rupees</div>
+            <div class="quick-chips">
+              <button type="button" class="qchip" data-target="hosp-amount" data-add="500">+500</button>
+              <button type="button" class="qchip" data-target="hosp-amount" data-add="1000">+1,000</button>
+              <button type="button" class="qchip" data-target="hosp-amount" data-add="5000">+5,000</button>
+              <button type="button" class="qchip" data-target="hosp-amount" data-add="10000">+10,000</button>
+              <button type="button" class="qchip" data-target="hosp-amount" data-add="25000">+25,000</button>
+              <button type="button" class="qchip qchip-clear" data-target="hosp-amount" data-clear="1">✕ Clear</button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="hosp-date">Collection Date <span class="text-error">*</span></label>
+              <div class="date-presets">
+                <button type="button" class="date-pill" data-target="hosp-date" data-preset="today">Today</button>
+                <button type="button" class="date-pill" data-target="hosp-date" data-preset="yesterday">Yesterday</button>
+              </div>
+            </div>
+            <input type="date" id="hosp-date" class="form-input" required>
+          </div>
+
+          <!-- Row 2: Department Selection Cards (Left) & Shift + Remarks (Right) -->
           <div class="form-col">
             <label class="form-label">Revenue Department</label>
             <select id="hosp-source" class="form-select hidden-select" required>
@@ -2821,19 +2831,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             </div>
           </div>
 
-          <!-- Right Column: Date, Shift, and Notes -->
           <div class="form-col">
-            <div class="form-group" style="margin-bottom:0.75rem">
-              <div class="form-label-row">
-                <label class="form-label" for="hosp-date">Collection Date</label>
-                <div class="date-presets">
-                  <button type="button" class="date-pill" data-target="hosp-date" data-preset="today">Today</button>
-                  <button type="button" class="date-pill" data-target="hosp-date" data-preset="yesterday">Yesterday</button>
-                </div>
-              </div>
-              <input type="date" id="hosp-date" class="form-input" required>
-            </div>
-
             <div class="form-group" style="margin-bottom:0.75rem">
               <label class="form-label">Collection Shift</label>
               <div class="shift-chips">
@@ -2886,52 +2884,52 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-deposit-add">
       <input type="hidden" id="edit-deposit-id">
       <div class="modal-body">
-        <!-- Grand Amount Display Deck -->
-        <div class="amt-hero">
-          <div class="amt-hero-top">
-            <label class="form-label" for="dep-amount">Deposit Amount</label>
-            <span class="amt-currency-label">INR (₹)</span>
-          </div>
-          <div class="amt-input-wrap">
-            <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="dep-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
-          </div>
-          <div class="amt-words" id="dep-amount-words">Zero Rupees</div>
-          <div class="quick-chips">
-            <button type="button" class="qchip" data-target="dep-amount" data-add="500">+500</button>
-            <button type="button" class="qchip" data-target="dep-amount" data-add="1000">+1,000</button>
-            <button type="button" class="qchip" data-target="dep-amount" data-add="5000">+5,000</button>
-            <button type="button" class="qchip" data-target="dep-amount" data-add="10000">+10,000</button>
-            <button type="button" class="qchip qchip-clear" data-target="dep-amount" data-clear="1">✕ Clear</button>
-          </div>
-        </div>
-
         <div class="modal-form-grid">
-          <!-- Left Column -->
+          <!-- Row 1: Deposit Amount & Deposit Date in the same row -->
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="dep-amount">Deposit Amount <span class="text-error">*</span></label>
+              <span class="amt-currency-label">INR (₹)</span>
+            </div>
+            <div class="amt-input-wrap">
+              <span class="amt-cur">₹</span>
+              <input type="number" step="0.01" min="0.01" id="dep-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            </div>
+            <div class="amt-words" id="dep-amount-words">Zero Rupees</div>
+            <div class="quick-chips">
+              <button type="button" class="qchip" data-target="dep-amount" data-add="500">+500</button>
+              <button type="button" class="qchip" data-target="dep-amount" data-add="1000">+1,000</button>
+              <button type="button" class="qchip" data-target="dep-amount" data-add="5000">+5,000</button>
+              <button type="button" class="qchip" data-target="dep-amount" data-add="10000">+10,000</button>
+              <button type="button" class="qchip qchip-clear" data-target="dep-amount" data-clear="1">✕ Clear</button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="dep-date">Deposit Date <span class="text-error">*</span></label>
+              <div class="date-presets">
+                <button type="button" class="date-pill" data-target="dep-date" data-preset="today">Today</button>
+                <button type="button" class="date-pill" data-target="dep-date" data-preset="yesterday">Yesterday</button>
+              </div>
+            </div>
+            <input type="date" id="dep-date" class="form-input" required>
+          </div>
+
+          <!-- Row 2: Left Column (Receipt & Remarks) & Right Column (Attachment) -->
           <div class="modal-col">
             <div class="form-group">
-              <div class="form-label-row">
-                <label class="form-label" for="dep-date">Deposit Date</label>
-                <div class="date-presets">
-                  <button type="button" class="date-pill" data-target="dep-date" data-preset="today">Today</button>
-                  <button type="button" class="date-pill" data-target="dep-date" data-preset="yesterday">Yesterday</button>
-                </div>
-              </div>
-              <input type="date" id="dep-date" class="form-input" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="dep-receipt">Receipt / Voucher Number</label>
+              <label class="form-label" for="dep-receipt">Receipt / Voucher Number <span class="text-error">*</span></label>
               <input type="text" id="dep-receipt" class="form-input font-mono" placeholder="e.g. REC-9821" required>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom:0">
               <label class="form-label" for="dep-remarks">Remarks</label>
-              <textarea id="dep-remarks" class="form-textarea" placeholder="Deposit notes..." rows="2"></textarea>
+              <textarea id="dep-remarks" class="form-textarea" placeholder="Deposit notes..." rows="3"></textarea>
             </div>
           </div>
 
-          <!-- Right Column: Attachment -->
           <div class="modal-col">
-            <div class="form-group">
+            <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Receipt Attachment (Photo / PDF)</label>
               <div class="upload-source-selector" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
                 <button type="button" class="btn btn-secondary btn-sm flex-1 active" id="deposit-source-supabase" onclick="app.attachments.setUploadSource('deposit', 'supabase')">
@@ -3004,32 +3002,44 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
       <input type="hidden" id="edit-slip-id">
       <input type="hidden" id="slip-token">
       <div class="modal-body">
-        <!-- 1. Grand Amount Display Deck -->
-        <div class="amt-hero">
-          <div class="amt-hero-top">
-            <label class="form-label" for="slip-amount">Slip Amount</label>
-            <span class="amt-currency-label">INR (₹)</span>
-          </div>
-          <div class="amt-input-wrap">
-            <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="slip-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
-          </div>
-          <div class="amt-words" id="slip-amount-words">Zero Rupees</div>
-          <div class="quick-chips">
-            <button type="button" class="qchip" data-target="slip-amount" data-add="100">+100</button>
-            <button type="button" class="qchip" data-target="slip-amount" data-add="500">+500</button>
-            <button type="button" class="qchip" data-target="slip-amount" data-add="1000">+1,000</button>
-            <button type="button" class="qchip" data-target="slip-amount" data-add="5000">+5,000</button>
-            <button type="button" class="qchip qchip-clear" data-target="slip-amount" data-clear="1">✕ Clear</button>
-          </div>
-        </div>
-
         <!-- Hidden Expense Type (auto-selected by register) -->
         <input type="hidden" id="slip-exp-type" value="hospital">
 
-        <!-- 2. Vendor / Person Name & Date (2-column layout) -->
-        <div class="grid-2">
-          <div class="form-group">
+        <!-- Dual-Column Pro Layout -->
+        <div class="modal-form-grid">
+          <!-- Row 1: Slip Amount & Slip Date in the same row -->
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="slip-amount">Slip Amount <span class="text-error">*</span></label>
+              <span class="amt-currency-label">INR (₹)</span>
+            </div>
+            <div class="amt-input-wrap">
+              <span class="amt-cur">₹</span>
+              <input type="number" step="0.01" min="0.01" id="slip-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            </div>
+            <div class="amt-words" id="slip-amount-words">Zero Rupees</div>
+            <div class="quick-chips">
+              <button type="button" class="qchip" data-target="slip-amount" data-add="100">+100</button>
+              <button type="button" class="qchip" data-target="slip-amount" data-add="500">+500</button>
+              <button type="button" class="qchip" data-target="slip-amount" data-add="1000">+1,000</button>
+              <button type="button" class="qchip" data-target="slip-amount" data-add="5000">+5,000</button>
+              <button type="button" class="qchip qchip-clear" data-target="slip-amount" data-clear="1">✕ Clear</button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="slip-date">Date <span class="text-error">*</span></label>
+              <div class="date-presets">
+                <button type="button" class="date-pill" data-target="slip-date" data-preset="today">Today</button>
+                <button type="button" class="date-pill" data-target="slip-date" data-preset="yesterday">Yesterday</button>
+              </div>
+            </div>
+            <input type="date" id="slip-date" class="form-input" required>
+          </div>
+
+          <!-- Row 2: Vendor / Person Name (Full Width) -->
+          <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0">
             <div class="form-label-row">
               <label class="form-label" for="slip-vendor">Vendor / Person <span class="text-error">*</span></label>
               <button type="button" class="btn-vendor-quick-add" onclick="app.vendors.openAddVendorModal('', 'slip')">+ New Vendor</button>
@@ -3037,16 +3047,6 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             <select id="slip-vendor" class="form-select" required>
               <option value="">-- Select Registered Vendor --</option>
             </select>
-          </div>
-          <div class="form-group">
-            <div class="form-label-row">
-              <label class="form-label" for="slip-date">Date</label>
-              <div class="date-presets">
-                <button type="button" class="date-pill" data-target="slip-date" data-preset="today">Today</button>
-                <button type="button" class="date-pill" data-target="slip-date" data-preset="yesterday">Yesterday</button>
-              </div>
-            </div>
-            <input type="date" id="slip-date" class="form-input" required>
           </div>
         </div>
 
@@ -3252,33 +3252,32 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
     <form id="form-bill-add">
       <input type="hidden" id="edit-bill-id">
       <div class="modal-body">
-        <!-- 1. Grand Amount Display Deck -->
-        <div class="amt-hero">
-          <div class="amt-hero-top">
-            <label class="form-label" for="bill-amount">Bill Amount</label>
-            <span class="amt-currency-label">INR (₹)</span>
-          </div>
-          <div class="amt-input-wrap">
-            <span class="amt-cur">₹</span>
-            <input type="number" step="0.01" min="0.01" id="bill-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
-          </div>
-          <div class="amt-words" id="bill-amount-words">Zero Rupees</div>
-          <div class="quick-chips">
-            <button type="button" class="qchip" data-target="bill-amount" data-add="100">+100</button>
-            <button type="button" class="qchip" data-target="bill-amount" data-add="500">+500</button>
-            <button type="button" class="qchip" data-target="bill-amount" data-add="1000">+1,000</button>
-            <button type="button" class="qchip" data-target="bill-amount" data-add="5000">+5,000</button>
-            <button type="button" class="qchip" data-target="bill-amount" data-add="10000">+10,000</button>
-            <button type="button" class="qchip qchip-clear" data-target="bill-amount" data-clear="1">✕ Clear</button>
-          </div>
-        </div>
-
-        <!-- 2. Dual-Column Pro Grid -->
+        <!-- Dual-Column Pro Grid -->
         <div class="modal-form-grid">
-          <!-- Row 1: Bill Date & Bill Number at top -->
+          <!-- Row 1: Amount & Bill Date in the same row -->
           <div class="form-group" style="margin-bottom:0">
             <div class="form-label-row">
-              <label class="form-label" for="bill-date">Bill Date</label>
+              <label class="form-label" for="bill-amount">Bill Amount <span class="text-error">*</span></label>
+              <span class="amt-currency-label">INR (₹)</span>
+            </div>
+            <div class="amt-input-wrap">
+              <span class="amt-cur">₹</span>
+              <input type="number" step="0.01" min="0.01" id="bill-amount" class="amt-input" inputmode="decimal" placeholder="0.00" required autocomplete="off">
+            </div>
+            <div class="amt-words" id="bill-amount-words">Zero Rupees</div>
+            <div class="quick-chips">
+              <button type="button" class="qchip" data-target="bill-amount" data-add="100">+100</button>
+              <button type="button" class="qchip" data-target="bill-amount" data-add="500">+500</button>
+              <button type="button" class="qchip" data-target="bill-amount" data-add="1000">+1,000</button>
+              <button type="button" class="qchip" data-target="bill-amount" data-add="5000">+5,000</button>
+              <button type="button" class="qchip" data-target="bill-amount" data-add="10000">+10,000</button>
+              <button type="button" class="qchip qchip-clear" data-target="bill-amount" data-clear="1">✕ Clear</button>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:0">
+            <div class="form-label-row">
+              <label class="form-label" for="bill-date">Bill Date <span class="text-error">*</span></label>
               <div class="date-presets">
                 <button type="button" class="date-pill" data-target="bill-date" data-preset="today">Today</button>
                 <button type="button" class="date-pill" data-target="bill-date" data-preset="yesterday">Yesterday</button>
@@ -3287,13 +3286,14 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             <input type="date" id="bill-date" class="form-input" required>
           </div>
 
+          <!-- Row 2: Bill / Invoice # & Label ID -->
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label" for="bill-number">Bill / Invoice # <span class="text-error">*</span></label>
             <input type="text" id="bill-number" class="form-input font-mono" placeholder="Enter manual Bill / Invoice #" required autocomplete="off">
           </div>
 
           <!-- Optional Label ID: user-typed, unique. Replaces the old auto Token No. -->
-          <div class="form-group" style="grid-column: 1 / -1; margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
             <div class="form-label-row">
               <label class="form-label" for="bill-label-id">Label ID <span class="text-muted" style="font-weight:600;font-size:0.72rem;">(optional, must be unique)</span></label>
             </div>
@@ -4453,7 +4453,7 @@ CREATE POLICY "Allow all" ON staff_receipts FOR ALL USING (true) WITH CHECK (tru
             var lblNew=$("bill-label-id"); if(lblNew) lblNew.value="73-";
             if(bno){ bno.value=""; bno.placeholder="Enter manual Bill / Invoice #"; }
           }
-          setTimeout(function(){try{if(bno){bno.focus();}else if(amt&&vendor){(amt.value?vendor:amt).focus();}}catch(e){}},120);
+          setTimeout(function(){try{if(amt&&!amt.value){amt.focus();}else if(bno){bno.focus();}else if(amt&&vendor){(amt.value?vendor:amt).focus();}}catch(e){}},120);
         }
       };
     }

@@ -3925,8 +3925,13 @@ const app = {
         });
 
         // Initialize display values for specific dialogs
-        if (dialogId === 'dialog-slip-add') {
+        if (dialogId === 'dialog-advance-add') {
+          const advAmt = document.getElementById('adv-amount');
+          if (advAmt && !advAmt.value) setTimeout(() => advAmt.focus(), 80);
+        } else if (dialogId === 'dialog-slip-add') {
           app.attachments.clearStagedFile('slip');
+          const slipAmt = document.getElementById('slip-amount');
+          if (slipAmt && !slipAmt.value) setTimeout(() => slipAmt.focus(), 80);
           const isEdit = !!document.getElementById('edit-slip-id').value;
           let defaultExp = (arguments.length > 1 && arguments[1]) ? arguments[1] : null;
           if (!defaultExp && !isEdit) {
@@ -3973,8 +3978,12 @@ const app = {
           document.querySelectorAll('.dept-card').forEach(c => {
             c.classList.toggle('active', c.getAttribute('data-source') === curSrc);
           });
+          const hospAmt = document.getElementById('hosp-amount');
+          if (hospAmt && !hospAmt.value) setTimeout(() => hospAmt.focus(), 80);
         } else if (dialogId === 'dialog-deposit-add') {
           app.attachments.clearStagedFile('deposit');
+          const depAmt = document.getElementById('dep-amount');
+          if (depAmt && !depAmt.value) setTimeout(() => depAmt.focus(), 80);
         } else if (dialogId === 'dialog-settings') {
           document.getElementById('input-opening-advance').value = app.state.openingAdvanceCash;
           document.getElementById('input-opening-hospital').value = app.state.openingHospitalCash;

@@ -3245,27 +3245,70 @@ input[type="number"] {
   border-color: var(--modal-accent, #6366f1) !important;
   box-shadow: 0 2px 8px var(--modal-accent-glow, rgba(99,102,241,0.3));
 }
-/* Entry-form date field: same size as the amount field above it */
+/* Entry-form date & amount fields: matching size & appearance side-by-side */
 .modal-dialog input[type="date"].form-input {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
   min-height: 46px;
   padding: 0.15rem 0.8rem;
-}
-/* A date field that already holds a value glows like a filled amount field,
-   so it is obvious at a glance that the date has been entered. */
-.modal-dialog input[type="date"].form-input:valid {
-  border-color: rgba(56, 189, 248, 0.55);
-  background-color: rgba(56, 189, 248, 0.10);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.10);
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
   color: var(--text-main);
-  font-weight: 700;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
-.modal-dialog input[type="date"].form-input:valid:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.20);
+.modal-dialog input[type="date"].form-input:focus {
+  border-color: var(--modal-accent, var(--primary));
+  box-shadow: 0 0 0 3px var(--modal-accent-glow, rgba(99, 102, 241, 0.2));
+  background: var(--bg-input-focus, var(--bg-card));
+}
+.modal-dialog input[type="date"].form-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+.modal-dialog input[type="date"].form-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Amount input box inside modal-form-grid */
+.modal-form-grid .amt-input-wrap,
+.modal-dialog .amt-input-wrap-boxed {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.15rem 0.8rem;
+  min-height: 46px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.modal-form-grid .amt-input-wrap:focus-within,
+.modal-dialog .amt-input-wrap-boxed:focus-within {
+  border-color: var(--modal-accent, var(--primary));
+  box-shadow: 0 0 0 3px var(--modal-accent-glow, rgba(99, 102, 241, 0.2));
+  background: var(--bg-input-focus, var(--bg-card));
+}
+.modal-form-grid .amt-words,
+.modal-dialog .amt-words {
+  margin-top: 5px;
+  display: flex;
+}
+.modal-form-grid .quick-chips,
+.modal-dialog .quick-chips {
+  margin-top: 6px;
+  gap: 6px;
+}
+.modal-form-grid .quick-chips .qchip,
+.modal-dialog .quick-chips .qchip {
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  min-width: 44px;
 }
 
 /* ─── Segmented Control — Premium Tabbed Switch ─── */
