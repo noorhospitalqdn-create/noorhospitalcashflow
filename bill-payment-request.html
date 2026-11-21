@@ -20,6 +20,23 @@
       border: 2px solid #222222;
       padding: 20px 22px 16px 22px;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+      position: relative;
+    }
+    /* "P.T.O." marker on every page that has more bills after it */
+    .pto-note {
+      position: absolute;
+      left: 50%;
+      bottom: -9px;
+      transform: translateX(-50%);
+      background: #ffffff;
+      border: 1px solid #222222;
+      padding: 0 8px;
+      font-size: 0.62rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      line-height: 1.35;
+      color: #111827;
+      white-space: nowrap;
     }
     /* ===== Hospital stamp (Urdu / Nastaliq) =====
        Prefers the locally installed Jameel Noori Nastaleeq, then the
@@ -1056,6 +1073,27 @@
       const pages = document.querySelectorAll('.form-page');
       pages.forEach(p => p.classList.remove('form-final'));
       if (pages.length) pages[pages.length - 1].classList.add('form-final');
+      syncPtoNotes(pages);
+    }
+
+    /* Keeps "P.T.O." at the bottom of every page except the last one, so it is
+       obvious that more bills continue on the next sheet. */
+    function syncPtoNotes(pages) {
+      const list = pages || document.querySelectorAll('.form-page');
+      list.forEach((pg, idx) => {
+        const isLast = idx === list.length - 1;
+        let note = pg.querySelector('.pto-note');
+        if (isLast) {
+          if (note) note.remove();
+          return;
+        }
+        if (!note) {
+          note = document.createElement('div');
+          note.className = 'pto-note';
+          note.textContent = 'P.T.O.';
+          pg.appendChild(note);
+        }
+      });
     }
 
     function addPage() {

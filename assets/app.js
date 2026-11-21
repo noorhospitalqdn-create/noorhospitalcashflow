@@ -7334,7 +7334,7 @@ const app = {
         const heads = (app.heads.getUniqueHeads() || []).map(h => (h.name || '').trim()).filter(Boolean);
         localStorage.setItem('noor_payment_form_heads', JSON.stringify(heads));
       } catch (_) {}
-      window.open('bill-payment-request.html?v=20261118_2', '_blank');
+      window.open('bill-payment-request.html?v=20261121_1', '_blank');
     },
 
     // Opens the Bill Payment Request Form pre-filled with the bills currently
@@ -7368,7 +7368,7 @@ const app = {
         }));
         localStorage.setItem('noor_payment_form_bills', JSON.stringify({ updatedAt: Date.now(), rows }));
       } catch (_) {}
-      window.open('bill-payment-request.html?v=20261118_2', '_blank');
+      window.open('bill-payment-request.html?v=20261121_1', '_blank');
     },
 
     resetFilters() {
