@@ -2185,6 +2185,26 @@ const app = {
         wordsEl.classList.remove('has-value');
       }
     },
+    /** Comparable Label ID key: normalised text; empty when the record has no Label ID. */
+    labelIdKey(x) {
+      const raw = x && (x.labelId != null ? x.labelId : (x.label || ''));
+      try { return app.normalizeLabelId(raw); } catch (_) { return String(raw || '').trim(); }
+    },
+
+    /**
+     * Second-priority order used by every bill sort/filter: Label ID ascending,
+     * natural for the numeric part (73-9 before 73-123). Records without a
+     * Label ID go last.
+     */
+    compareLabelId(a, b) {
+      const A = app.ui.labelIdKey(a);
+      const B = app.ui.labelIdKey(b);
+      if (!A && !B) return 0;
+      if (!A) return 1;
+      if (!B) return -1;
+      return A.localeCompare(B, undefined, { numeric: true, sensitivity: 'base' });
+    },
+
     getFiltered(list, page, opts={}){
       const f=app.ui.filters[page]||{search:'',from:'',to:'',sort:'date_desc',head:'',batch:''};
       let out=[...list];
@@ -2225,9 +2245,13 @@ const app = {
         else if(sort==='amount_desc') r = (b.amount||0)-(a.amount||0);
         else if(sort==='alpha_asc') r = strKey(a,alphaKey).localeCompare(strKey(b,alphaKey));
         else if(sort==='alpha_desc') r = strKey(b,alphaKey).localeCompare(strKey(a,alphaKey));
-        else if(sort==='head_asc') r = headOf(a).localeCompare(headOf(b)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
-        else if(sort==='head_desc') r = headOf(b).localeCompare(headOf(a)) || strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
-        // Stable tie-breaker so lists and exports keep the exact same order
+        else if(sort==='head_asc') r = headOf(a).localeCompare(headOf(b));
+        else if(sort==='head_desc') r = headOf(b).localeCompare(headOf(a));
+        // Second priority for every sort: Label ID (blank ids last)
+        r = (r || 0) || app.ui.compareLabelId(a, b);
+        // Head sorts break the remaining ties by vendor, then every list falls
+        // back to the stable id tie-breaker so registers and exports match.
+        if(!r && (sort==='head_asc' || sort==='head_desc')) r = strKey(a,'vendor').localeCompare(strKey(b,'vendor'));
         return (r || 0) || ((Number(b.id)||0) - (Number(a.id)||0));
       });
       return out;
@@ -2248,9 +2272,13 @@ const app = {
         else if (sort === 'amount_desc') r = (Number(b.amount) || 0) - (Number(a.amount) || 0);
         else if (sort === 'alpha_asc') r = strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
         else if (sort === 'alpha_desc') r = strKey(b, 'vendor').localeCompare(strKey(a, 'vendor'));
-        else if (sort === 'head_asc') r = headOf(a).localeCompare(headOf(b)) || strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
-        else if (sort === 'head_desc') r = headOf(b).localeCompare(headOf(a)) || strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
+        else if (sort === 'head_asc') r = headOf(a).localeCompare(headOf(b));
+        else if (sort === 'head_desc') r = headOf(b).localeCompare(headOf(a));
         else r = new Date(b.date || 0) - new Date(a.date || 0); // date_desc default
+        // Second priority everywhere: Label ID (blank ids last), then vendor for
+        // head sorts, then the stable id tie-breaker.
+        r = (r || 0) || app.ui.compareLabelId(a, b);
+        if (!r && (sort === 'head_asc' || sort === 'head_desc')) r = strKey(a, 'vendor').localeCompare(strKey(b, 'vendor'));
         return (r || 0) || ((Number(b.id) || 0) - (Number(a.id) || 0));
       });
       return out;
@@ -11605,13 +11633,15 @@ tfoot .r{text-align:right;}
       const s=String(sort||'');
       const key=(x,k)=>String(x&&x[k]!=null&&x[k]!==''?x[k]:'');
       const headOf=x=>key(x,'head')||key(x,'category');
-      const cmpHead=(a,b)=>headOf(a).localeCompare(headOf(b))||key(a,'vendor').localeCompare(key(b,'vendor'));
-      if(s==='date_asc') arr.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
-      else if(s==='date_desc') arr.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-      else if(s==='amount_asc') arr.sort((a,b)=>(Number(a.amount)||0)-(Number(b.amount)||0));
-      else if(s==='amount_desc') arr.sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0));
-      else if(s==='alpha_asc') arr.sort((a,b)=>key(a,'vendor').localeCompare(key(b,'vendor')));
-      else if(s==='alpha_desc') arr.sort((a,b)=>key(b,'vendor').localeCompare(key(a,'vendor')));
+      // Second priority on every printed bill list: Label ID (blank ids last)
+      const labelCmp=(a,b)=>app.ui.compareLabelId(a,b);
+      const cmpHead=(a,b)=>headOf(a).localeCompare(headOf(b))||labelCmp(a,b)||key(a,'vendor').localeCompare(key(b,'vendor'));
+      if(s==='date_asc') arr.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0)||labelCmp(a,b));
+      else if(s==='date_desc') arr.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)||labelCmp(a,b));
+      else if(s==='amount_asc') arr.sort((a,b)=>(Number(a.amount)||0)-(Number(b.amount)||0)||labelCmp(a,b));
+      else if(s==='amount_desc') arr.sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0)||labelCmp(a,b));
+      else if(s==='alpha_asc') arr.sort((a,b)=>key(a,'vendor').localeCompare(key(b,'vendor'))||labelCmp(a,b));
+      else if(s==='alpha_desc') arr.sort((a,b)=>key(b,'vendor').localeCompare(key(a,'vendor'))||labelCmp(a,b));
       else if(s==='head_asc') arr.sort(cmpHead);
       else if(s==='head_desc') arr.sort((a,b)=>cmpHead(b,a));
       else arr.sort(cmpHead);
